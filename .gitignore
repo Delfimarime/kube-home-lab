@@ -192,3 +192,7 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,visualstudiocode,intellij+all,terragrunt
 
+.claude/
+.zencoder/
+.copilot/
+docs/superpowers/
