@@ -1,0 +1,108 @@
+# Module: audit-management-auditum
+
+**Status:** draft, **blocked on an open question** ·
+**Decisions:** [ADR 8](../../adr/0008-postgresql-is-external.md)
+
+## Intent
+
+Run [Auditum](https://github.com/auditumio/auditum) so applications have somewhere to write
+audit records and somewhere to query them from.
+
+## Blocking question
+
+**What is this auditing?** Two different systems get called "audit" and only one of them is
+Auditum:
+
+- *Application audit trails* — your own services recording "user X changed Y". Auditum's
+  actual job. Requires an application that writes to it; none exists yet.
+- *Kubernetes API audit logs* — who deleted what in the cluster. This is
+  `--kube-apiserver-arg=audit-log-path=…` on k3s, shipped into VictoriaLogs. Auditum has no
+  ingester for it and would be the wrong tool.
+
+Everything below assumes the first. If it is the second, this module should not exist.
+
+## Provisions
+
+Auditum publishes no Helm chart — the documentation says one is "currently in development" —
+so this module points an Argo CD Application at manifests held in this repository:
+
+| Resource | Detail |
+| --- | --- |
+| `ConfigMap` | `auditum.yaml`: store type postgres, host, port, database, username |
+| `Deployment` | 2 replicas, `RollingUpdate`; password from `secretKeyRef` |
+| `PodDisruptionBudget` | `maxUnavailable: 1` |
+| `Service` | 8080 HTTP, 9090 gRPC |
+| scrape resource | when metrics collection is enabled |
+
+The database password is supplied as `AUDITUM_STORE_POSTGRES_PASSWORD` from a `secretKeyRef`,
+never written into the ConfigMap. Auditum's environment variables are prefixed `AUDITUM_`
+and override config-file keys, which is what makes this possible.
+
+## Inputs
+
+```hcl
+database = {          # required; SQLite is not used
+  host_port     = "postgres.example:5432"
+  database_name = "auditum"
+  secret_name   = "auditum-db"
+}
+
+gateway = null        # default: not exposed. See the security note below.
+```
+
+There is no `oidc` input, because Auditum has no authentication to delegate.
+
+## Security note
+
+Auditum's default configuration file has sections for `store`, `http`, `grpc`, `telemetry`
+and `log`. **It has no authentication section, and no UI.** Exposing it through the Gateway
+publishes an unauthenticated write API for audit records — a record anything on the network
+can forge, which is worse than no record at all because it looks authoritative.
+
+`gateway` therefore defaults to `null`, and should stay that way until either:
+
+- something outside the cluster genuinely needs to write records, and
+- oauth2-proxy fronts the HTTP port, with gRPC left internal.
+
+## Acceptance criteria
+
+```gherkin
+Feature: Auditum stores audit records durably
+
+  Scenario: PostgreSQL is mandatory
+    Given database is null
+    When terraform plan runs
+    Then it fails
+     And SQLite is never selected as a fallback
+
+  Scenario: The password never reaches a ConfigMap
+    Given the module has been applied
+    When the auditum ConfigMap is read
+    Then it contains host, port, database name and username
+     And it does not contain the password
+
+  Scenario: A node can still be drained
+    Given 2 replicas and a PodDisruptionBudget of maxUnavailable 1
+    When the node is drained
+    Then eviction proceeds rather than blocking indefinitely
+
+  Scenario: Not exposed by default
+    Given gateway is null
+    When HTTPRoutes in the namespace are listed
+    Then none exist
+
+  Scenario: Records survive a restart
+    Given a record has been written through the HTTP API
+    When every Auditum pod is deleted and rescheduled
+    Then the record is still queryable
+```
+
+## Open items
+
+- The blocking question above.
+- Confirm Auditum's metrics endpoint — the project advertises built-in metrics, but the port
+  and path are not yet verified, and the scrape resource needs both.
+- Two replicas on a single node buys zero-downtime deploys, not availability. Both die with
+  the node. Stated so nobody later mistakes the PDB for resilience.
+- Upstream is small: 78 stars, Apache-2.0, last pushed 2026-04-30. Watch for the Helm chart
+  landing, at which point the in-repo manifests can be retired.
