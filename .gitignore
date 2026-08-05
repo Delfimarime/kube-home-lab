@@ -192,7 +192,14 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,visualstudiocode,intellij+all,terragrunt
 
+### Terraform ###
+.terraform/
+.tfstate/
+*.tfstate
+*.tfstate.*
+
 .claude/
 .zencoder/
 .copilot/
 docs/superpowers/
+docs/decisions
