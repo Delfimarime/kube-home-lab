@@ -1,10 +1,10 @@
-# 10. Resources are delivered via chart, not Terraform-created manifests
+# 010. Resources are delivered via chart, not Terraform-created manifests
 
-**Status:** accepted · **Date:** 2026-08-09
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09
 
 ## Context
 
-[ADR 6](0006-shared-gateway-input.md) originally had every module emit its own `HTTPRoute` as
+[ADR 006](006-shared-gateway-input.md) originally had every module emit its own `HTTPRoute` as
 a `kubernetes_manifest` — a resource Terraform creates directly, outside the module's Argo CD
 `Application`. That was deliberate at the time: charts disagreed on Gateway API support, and a
 Terraform-managed resource was the one code path guaranteed to work everywhere, chart-based or
@@ -20,7 +20,7 @@ were going to be static manifests this repo points an Application at directly, w
 receive a Terraform-computed value (a hostname, a secret name).
 
 Each module already renders its own `ApplicationSet`, one generated `Application` per chart
-([ADR 5](0005-modules-are-applicationsets.md)); this decision is about what those generated
+([ADR 005](005-modules-are-applicationsets.md)); this decision is about what those generated
 `Application`s are allowed to create, not module/chart cardinality.
 
 ## Decision
@@ -52,7 +52,7 @@ doesn't cover, without needing a new ADR to say so again.
   nothing extra to maintain.
 - Wrapping beats reinventing: Helm's dependency mechanism lets a thin local chart add one
   template on top of an upstream chart instead of re-authoring the whole workload.
-- This also closes a gap in [the platform spec's](../spec/platform.md) own acceptance
+- This also closes a gap in [the platform spec's](../platform.md) own acceptance
   criterion — every workload owned by an Application, none created directly by Terraform —
   which routes, and Auditum's resources, were in practice quietly exempted from.
 
@@ -68,8 +68,9 @@ doesn't cover, without needing a new ADR to say so again.
 - A per-chart values dialect is now something each module deals with once, for its own native
   case — there's no longer one shared 15-line block reused everywhere. Each module's own spec
   states its case and the values it sets.
-- Chart version pinning (already required — [ADR 1](0001-oidc-provider-zitadel.md)) is what
-  keeps a native chart's Gateway API values from changing under us silently; a schema change on
-  upgrade is a deliberate edit, not a surprise.
+- Chart version pinning (already required — [openid-connect-zitadel
+  LOCAL-001](../modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md)) is
+  what keeps a native chart's Gateway API values from changing under us silently; a schema
+  change on upgrade is a deliberate edit, not a surprise.
 - No module needs the wrapped case yet. It exists as the fallback for the next chart that
   doesn't render what's needed natively.

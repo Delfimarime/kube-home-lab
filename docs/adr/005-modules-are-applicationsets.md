@@ -1,6 +1,6 @@
-# 5. Modules are ApplicationSets, not Applications
+# 005. Modules are ApplicationSets, not Applications
 
-**Status:** accepted · **Date:** 2026-08-05 · revised 2026-08-09
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-05 · revised 2026-08-09
 
 ## Context
 
@@ -8,10 +8,10 @@ An earlier scaffold had a shared `argocd-app` module that every unit called with
 and values. The alternative is for each module to render its own Argo CD resources inline.
 
 Modules vary in how many charts they need — one today
-([openid-connect-zitadel](../spec/modules/openid-connect-zitadel.md)), two
-([secret-manager-openbao](../spec/modules/secret-manager-openbao.md)), four
-([observability-victoria-metrics](../spec/modules/observability-victoria-metrics.md)) — and
-that count can grow under [ADR 10](0010-resources-delivered-via-chart.md)'s wrapped/custom
+([openid-connect-zitadel](../modules/openid-connect-zitadel/README.md)), two
+([secret-manager-openbao](../modules/secret-manager-openbao/README.md)), four
+([observability-victoria-metrics](../modules/observability-victoria-metrics/README.md)) — and
+that count can grow under [ADR 010](010-resources-delivered-via-chart.md)'s wrapped/custom
 cases. Modeling a module as a single `Application` only works until it needs a second chart,
 at which point it has to migrate to a different Argo CD resource kind — a disruptive change,
 not an incremental one.

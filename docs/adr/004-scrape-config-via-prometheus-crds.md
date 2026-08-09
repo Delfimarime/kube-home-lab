@@ -1,6 +1,10 @@
-# 4. Scrape configuration through Prometheus operator CRDs
+# 004. Scrape configuration through Prometheus operator CRDs
 
-**Status:** accepted · **Date:** 2026-08-05
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
+
+> Decided while designing observability, but platform-scoped: it is the reason *every* module
+> declares scraping through its own chart's `serviceMonitor.enabled` rather than writing a
+> `VMServiceScrape`. Reversing it changes every module.
 
 ## Context
 

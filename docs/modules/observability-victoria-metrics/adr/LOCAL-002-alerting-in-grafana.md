@@ -1,15 +1,22 @@
-# 3. Standalone Grafana, and alerting inside it
+# LOCAL-002. Alerting lives in Grafana; Grafana is deployed standalone
 
-**Status:** accepted · **Date:** 2026-08-05
+**Status:** accepted · **Scope:** module — `observability-victoria-metrics` ·
+**Date:** 2026-08-05
 
 ## Context
 
-`victoria-metrics-k8s-stack` bundles Grafana, vmalert and Alertmanager as subcharts. That
-makes Grafana a child of the metrics component — so `enable_logs_support = true` with
-`enable_metrics_support = false` would leave the lab with logs and no way to look at them.
+`victoria-metrics-k8s-stack` bundles Grafana, vmalert and Alertmanager as subcharts.
 
-Grafana's own Unified Alerting can evaluate rules against any datasource and route
-notifications, which overlaps almost entirely with vmalert plus Alertmanager.
+Grafana being a subchart is not really a decision — it is forced. It would make Grafana a
+child of the metrics component, so `enable_logs_support = true` with
+`enable_metrics_support = false` would leave the lab with logs and no way to look at them,
+which [REQ-02](../../../requirements.md) and [REQ-03](../../../requirements.md) together
+forbid. Standalone Grafana is the only option.
+
+**The contested part is alerting**, and that is why this ADR is titled for it. Grafana's own
+Unified Alerting can evaluate rules against any datasource and route notifications, which
+overlaps almost entirely with vmalert plus Alertmanager. Keeping both was a real option with
+a real cost on either side.
 
 ## Decision
 
@@ -35,7 +42,7 @@ Grafana comes from `grafana-community/helm-charts`, not `grafana/helm-charts`.
   Mitigating factor: a large share of those rules concern etcd quorum and control-plane
   redundancy, which do not exist on a single node.
 - **Alerting stops when Grafana stops.** With vmalert the alerting path was independent of
-  the UI. Accepted: one node, one human, and Grafana being down is noticeable.
+  the UI. Accepted: a tiny cluster, one operator, and Grafana being down is noticeable.
 - Recording rules are effectively unavailable. None are in use.
 - `defaultDashboards.enabled` must be set to `true` explicitly, because it otherwise follows
   `grafana.enabled`, which is now `false`. The standalone Grafana picks the resulting

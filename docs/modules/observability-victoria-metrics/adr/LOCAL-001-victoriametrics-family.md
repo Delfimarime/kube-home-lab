@@ -1,11 +1,13 @@
-# 2. Observability: VictoriaMetrics family, three independent components
+# LOCAL-001. Observability: the VictoriaMetrics family
 
-**Status:** accepted · **Date:** 2026-08-05
+**Status:** accepted · **Scope:** module — `observability-victoria-metrics` ·
+**Date:** 2026-08-05
 
 ## Context
 
-The lab needs metrics, logs and traces on one k3s node. Not all three are wanted from day
-one, and whichever are enabled have to share a single query UI.
+[REQ-02](../../../requirements.md) requires metrics, logs and traces to be independently
+present or absent, and [REQ-03](../../../requirements.md) requires whichever are on to share
+one query surface — on a tiny k3s cluster. This decision is how those are satisfied.
 
 The obvious alternative is the Prometheus ecosystem: kube-prometheus-stack for metrics, Loki
 for logs, Tempo for traces. Three projects, three storage engines, three operational models.
@@ -26,8 +28,9 @@ All three default to `false`. A validation requires at least one to be `true`.
 
 - One vendor, one storage engine lineage — VictoriaTraces is built on VictoriaLogs, which
   shares VictoriaMetrics' design. One mental model instead of three.
-- Materially cheaper on a small node. Upstream measures VictoriaTraces at roughly 3.7× less
-  RAM and 2.6× less CPU than Grafana Tempo.
+- Materially cheaper on a small node, and that saving is paid per environment
+  ([ADR 011](../../../adr/011-environments-are-clusters.md)). Upstream measures
+  VictoriaTraces at roughly 3.7× less RAM and 2.6× less CPU than Grafana Tempo.
 - No object storage or external database required for any of the three.
 - Standalone charts for logs and traces (rather than the operator's `VLSingle`/`VTSingle`
   CRDs) keep the flags genuinely independent — `traces` without `metrics` does not drag in

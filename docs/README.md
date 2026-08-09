@@ -1,65 +1,148 @@
 # Documentation
 
-Intent lives in the specs. The reasons live in the ADRs. Code implements the specs and
-cites the ADRs.
+Four layers, each answering a different question. Nothing is restated across them; a fact
+lives in exactly one and the others link to it.
+
+| Layer | Answers | Where |
+| --- | --- | --- |
+| Requirements | What has to be true, regardless of implementation | [requirements.md](requirements.md) |
+| Specifications | How it is solved, and how you tell it worked | [platform.md](platform.md), [modules/](#specifications) |
+| Decisions | Why this way, what it cost, when to revisit | [adr/](#decisions), and each module's own `adr/` |
+| Agent guidance | The rules an implementer must not violate | [AGENTS.md](../AGENTS.md) |
 
 ```
 docs/
-  spec/
-    platform.md                    intent, scope, shared contracts
-    modules/*.md                   one per module: inputs, outputs, acceptance criteria
-  adr/
-    NNNN-*.md                      one decision each, with its consequences
+  requirements.md              REQ-NN, the problem, and the traceability matrix
+  platform.md                  domain model, scope, contracts, cross-module criteria
+  adr/NNNN-*.md                platform-wide decisions
+  modules/<module>/
+    README.md                  the module spec
+    adr/LOCAL-NNN-*.md         decisions scoped to that module
 ```
+
+Start at [requirements.md](requirements.md) if you are new. Start at a module's folder if you
+are about to change that module — its spec, its decisions and (later) its Terraform are all
+in the one place.
 
 ## Specifications
 
 | Spec | Covers |
 | --- | --- |
-| [platform](spec/platform.md) | intent, assumptions, the `gateway`/`database`/`oidc` contracts |
-| [observability-victoria-metrics](spec/modules/observability-victoria-metrics.md) | metrics, logs, traces, Grafana |
-| [openid-connect-zitadel](spec/modules/openid-connect-zitadel.md) | the OIDC issuer |
-| [secret-manager-openbao](spec/modules/secret-manager-openbao.md) | secret storage and delivery |
-| [audit-management-auditum](spec/modules/audit-management-auditum.md) | audit record API |
+| [platform](platform.md) | domain model, assumptions, the `gateway`/`database`/`oidc` contracts, environments |
+| [observability-victoria-metrics](modules/observability-victoria-metrics/README.md) | metrics, logs, traces, Grafana |
+| [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | the OIDC issuer |
+| [secret-manager-openbao](modules/secret-manager-openbao/README.md) | secret storage and delivery |
+| [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
 
 ## Decisions
 
-| ADR | Decision |
-| --- | --- |
-| [1](adr/0001-oidc-provider-zitadel.md) | OIDC provider is Zitadel |
-| [2](adr/0002-observability-victoriametrics.md) | VictoriaMetrics family, three independent components |
-| [3](adr/0003-grafana-standalone-and-alerting.md) | Standalone Grafana; alerting inside it |
-| [4](adr/0004-scrape-config-via-prometheus-crds.md) | Scrape config through Prometheus operator CRDs |
-| [5](adr/0005-modules-are-applicationsets.md) | Modules are ApplicationSets, not Applications |
-| [6](adr/0006-shared-gateway-input.md) | One `gateway` input shape, shared by every module |
-| [7](adr/0007-modules-receive-credentials.md) | Providers publish addresses; consumers receive credentials |
-| [8](adr/0008-postgresql-is-external.md) | PostgreSQL is external to this project |
-| [9](adr/0009-secret-delivery-openbao-eso.md) | OpenBao plus External Secrets Operator |
-| [10](adr/0010-resources-delivered-via-chart.md) | Resources are chart-delivered; Terraform creates no bare manifests |
+**Platform-wide** — reversing one of these changes every module.
 
-## Traceability
-
-| Requirement | Decided in | Implemented by |
+| ADR | Decision | Status |
 | --- | --- | --- |
-| One identity provider for the lab | ADR 1, 7 | `openid-connect-zitadel` |
-| Metrics, logs and traces, independently switchable | ADR 2 | `observability-victoria-metrics` |
-| One query UI regardless of which components are on | ADR 3 | `observability-victoria-metrics` |
-| Scraping declared by charts, not by hand | ADR 4 | `observability-victoria-metrics` |
-| One `gateway` input for every module | ADR 6 | every module |
-| Every resource is Application-owned, none created directly by Terraform | ADR 5, 10 | every module |
-| No secret value in etcd or in a values file | ADR 7, 9 | every module |
-| Durable audit records | ADR 8 | `audit-management-auditum` |
+| [004](adr/004-scrape-config-via-prometheus-crds.md) | Scrape config through Prometheus operator CRDs | accepted |
+| [005](adr/005-modules-are-applicationsets.md) | Modules are ApplicationSets, not Applications | accepted |
+| [006](adr/006-shared-gateway-input.md) | One `gateway` input shape | superseded by 7 |
+| [007](adr/007-modules-receive-credentials.md) | Module input contracts; providers publish addresses | accepted |
+| [008](adr/008-postgresql-is-external.md) | PostgreSQL is external to this project | accepted |
+| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; Terraform creates no bare manifests | accepted |
+| [011](adr/011-environments-are-clusters.md) | An environment is a cluster; Terragrunt layers them | accepted |
+| [012](adr/012-state-is-per-environment.md) | State is per environment, and belongs in its own cluster | **proposed** |
 
-## Open questions
+**Module-scoped** — reversing one changes nothing outside its module.
 
-Tracked in the specs that own them:
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md) | OIDC provider is Zitadel | accepted |
+| [observability LOCAL-001](modules/observability-victoria-metrics/adr/LOCAL-001-victoriametrics-family.md) | The VictoriaMetrics family | accepted |
+| [observability LOCAL-002](modules/observability-victoria-metrics/adr/LOCAL-002-alerting-in-grafana.md) | Alerting in Grafana; Grafana standalone | accepted |
+| [openbao LOCAL-001](modules/secret-manager-openbao/adr/LOCAL-001-openbao-and-eso.md) | OpenBao plus External Secrets Operator | accepted |
+| [openbao LOCAL-002](modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md) | OpenBao's seal | **proposed** |
 
-- What Auditum is auditing — [audit-management-auditum](spec/modules/audit-management-auditum.md)
-- How OpenBao unseals — [secret-manager-openbao](spec/modules/secret-manager-openbao.md)
+Which requirement each decision serves is in the
+[traceability matrix](requirements.md#traceability).
 
-## Making the specs executable
+## Conventions
 
-Acceptance criteria are written as Given/When/Then but are checked by hand today. The path
-to executable is conftest against `terraform plan -json` for the structural criteria and
-`kubectl` assertions for the runtime ones. That harness is not worth building before the
-modules exist.
+### ADR numbering
+
+**Numbers are always three digits, zero-padded** — `007`, not `7` — in filenames, titles and
+citations alike. Padding is what keeps `ls` and any future sort in numeric order past ninety-
+nine, and it makes an ADR reference recognisable on sight.
+
+**Platform ADRs use a global sequence, unprefixed:** `ADR 007`, in `007-<slug>.md`. **Module
+ADRs restart at 001 per module and carry the `LOCAL-` prefix:** `LOCAL-001`, in
+`LOCAL-001-<slug>.md`. A module ADR is local to its module — no module cites another module's
+ADR, and none should need to.
+
+When a platform ADR cites a module one (rare; ADR 010 does), qualify it with the module name:
+`openid-connect-zitadel LOCAL-001`. The same applies in the traceability matrix, which is the
+one place that cites across every module.
+
+**The global sequence has gaps at 001, 002, 003 and 009.** Those decisions moved into module
+folders on 2026-08-09 and were renumbered `LOCAL-NNN`. The gaps are not closed: renumbering the
+survivors would churn every citation to them for cosmetics, and the gaps usefully mark
+decisions that turned out to be module-local.
+
+**Scope is in the header, not only in the path**, so a file read on its own still says what it
+constrains:
+
+```
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
+**Status:** accepted · **Scope:** module — `observability-victoria-metrics` · **Date:** …
+```
+
+### Module specs
+
+**Every module spec has at least these sections, in this order.** A missing one is a gap, not
+a style choice. Extra sections are fine where a module earns one — Auditum has a *Blocking
+question* and a *Security note*, and both are the most important things on the page.
+
+| Section | Contains |
+| --- | --- |
+| Header | `Status`, `Satisfies` (REQ ids), `Decisions` (its `LOCAL-NNN` plus the platform ADRs it obeys) |
+| Intent | What this module is for, in a few sentences |
+| Provisions | What it creates: Applications, charts, resources |
+| Inputs | The HCL a caller writes |
+| Outputs | What consumers read from it — addresses, never credentials |
+| Acceptance criteria | Gherkin, one `Feature`, IDed and tagged scenarios |
+| Open items | What is unresolved, and what it would cost to resolve |
+
+### Scenario IDs and tags
+
+```gherkin
+@plan
+Scenario: [OBS-01] At least one component is required
+```
+
+The ID (`<MODULE>-<NN>`) is what the traceability matrix cites; it is never reused for a
+different scenario. The tag says where the check can run:
+
+- `@plan` — assertable against `terraform plan -json`, no cluster needed
+- `@cluster` — needs the thing actually running
+
+### Status
+
+`draft` is being written and changes without ceremony. `proposed` means the decision is
+written down but **not made** — see ADR 012 and openbao LOCAL-002. `accepted` is agreed;
+changing it means changing its consequences too. `implemented` is matched by code.
+`superseded` links its replacement in the header.
+
+Every spec here is `draft`, because no Terraform exists yet.
+
+### Revising an ADR
+
+**Revise in place only while nothing implements it.** ADRs 5, 6 and 7 were, on 2026-08-09,
+because there is no code. Once a decision is implemented, changing it means a new ADR that
+supersedes the old one — and the old one stays, because reasoning that turned out wrong is
+worth keeping. ADR 006 is the worked example.
+
+## Making the criteria executable
+
+They are prose today, checked by hand. The path to executable is a policy tool such as
+conftest asserting against `terraform plan -json` for the `@plan` scenarios, and `kubectl`
+assertions for the `@cluster` ones. The tags exist so that harness can select its half without
+anyone re-reading every file first.
+
+The harness is not worth building before the modules exist. Tagging them now costs nothing and
+is the part that would otherwise have to be retrofitted.

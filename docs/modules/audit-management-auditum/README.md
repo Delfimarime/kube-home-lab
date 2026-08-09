@@ -1,8 +1,9 @@
 # Module: audit-management-auditum
 
 **Status:** draft, **blocked on an open question** ·
-**Decisions:** [ADR 7](../../adr/0007-modules-receive-credentials.md),
-[ADR 8](../../adr/0008-postgresql-is-external.md)
+**Satisfies:** [REQ-07](../../requirements.md) — which is itself unresolved ·
+**Decisions:** [ADR 007](../../adr/007-modules-receive-credentials.md),
+[ADR 008](../../adr/008-postgresql-is-external.md)
 
 ## Intent
 
@@ -25,9 +26,9 @@ Everything below assumes the first. If it is the second, this module should not 
 ## Provisions
 
 Auditum publishes no Helm chart — the documentation says one is "currently in development."
-Per [ADR 10](../../adr/0010-resources-delivered-via-chart.md), this is the **custom case**: a
+Per [ADR 010](../../adr/010-resources-delivered-via-chart.md), this is the **custom case**: a
 chart local to this repository, authored from scratch, that this module's single-entry
-`ApplicationSet` ([ADR 5](../../adr/0005-modules-are-applicationsets.md)) points its generated
+`ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)) points its generated
 Application at. That also gives it a way to receive Terraform-computed values — host, port,
 secret name — which static manifests never had:
 
@@ -38,7 +39,7 @@ secret name — which static manifests never had:
 | `PodDisruptionBudget` | `maxUnavailable: 1` |
 | `Service` | 8080 HTTP, 9090 gRPC |
 | `HTTPRoute` | when `gateway` is set |
-| scrape resource | hand-authored (no chart to flip a `serviceMonitor.enabled` switch on — [ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md)), when `metrics_enabled` is `true` |
+| scrape resource | hand-authored (no chart to flip a `serviceMonitor.enabled` switch on — [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md)), when `metrics_enabled` is `true` |
 
 The database password is supplied as `AUDITUM_STORE_POSTGRES_PASSWORD` from a `secretKeyRef`,
 never written into the ConfigMap. Auditum's environment variables are prefixed `AUDITUM_`
@@ -60,6 +61,17 @@ metrics_enabled = false   # set from observability-victoria-metrics's `metrics_e
 
 There is no `oidc` input, because Auditum has no authentication to delegate.
 
+## Outputs
+
+Addresses only, per [ADR 007](../../adr/007-modules-receive-credentials.md). Both are
+in-cluster; there is deliberately no output for an external URL, because `gateway` defaults
+to `null` and should stay there — see the security note below.
+
+| Output | Used by |
+| --- | --- |
+| `http_endpoint` | applications writing or querying records over HTTP (8080) |
+| `grpc_endpoint` | applications writing records over gRPC (9090) |
+
 ## Security note
 
 Auditum's default configuration file has sections for `store`, `http`, `grpc`, `telemetry`
@@ -77,29 +89,34 @@ can forge, which is worse than no record at all because it looks authoritative.
 ```gherkin
 Feature: Auditum stores audit records durably
 
-  Scenario: PostgreSQL is mandatory
+  @plan
+  Scenario: [AUD-01] PostgreSQL is mandatory
     Given database is null
     When terraform plan runs
     Then it fails
      And SQLite is never selected as a fallback
 
-  Scenario: The password never reaches a ConfigMap
+  @cluster
+  Scenario: [AUD-02] The password never reaches a ConfigMap
     Given the module has been applied
     When the auditum ConfigMap is read
     Then it contains host, port, database name and username
      And it does not contain the password
 
-  Scenario: A node can still be drained
+  @cluster
+  Scenario: [AUD-03] A node can still be drained
     Given 2 replicas and a PodDisruptionBudget of maxUnavailable 1
     When the node is drained
     Then eviction proceeds rather than blocking indefinitely
 
-  Scenario: Not exposed by default
+  @cluster
+  Scenario: [AUD-04] Not exposed by default
     Given gateway is null
     When HTTPRoutes in the namespace are listed
     Then none exist
 
-  Scenario: Records survive a restart
+  @cluster
+  Scenario: [AUD-05] Records survive a restart
     Given a record has been written through the HTTP API
     When every Auditum pod is deleted and rescheduled
     Then the record is still queryable

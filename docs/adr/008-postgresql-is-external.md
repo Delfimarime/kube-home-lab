@@ -1,6 +1,6 @@
-# 8. PostgreSQL is external to this project
+# 008. PostgreSQL is external to this project
 
-**Status:** accepted · **Date:** 2026-08-05
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
 
 ## Context
 
@@ -15,7 +15,7 @@ actually hurts.
 ## Decision
 
 PostgreSQL is **not** provisioned by this project, for now. Modules that need a database
-receive `var.database` per [ADR 7](0007-modules-receive-credentials.md).
+receive `var.database` per [ADR 007](007-modules-receive-credentials.md).
 
 ## Rationale
 
@@ -31,5 +31,9 @@ one fewer backup story, and no opinion imposed on where the data actually lives.
 - Each consumer needs a `host_port`, a database, and a Secret with `username` and `password`
   keys supplied to it. Creating those is a manual prerequisite.
 - `host_port` is one string, so each module pays a `split(":", …)`. One line.
+- Each environment describes its own database configuration in `env.hcl`
+  ([ADR 011](011-environments-are-clusters.md)). Whether two environments point at the same
+  server is invisible to every module and is not constrained here — which also means REQ-12
+  does not cover it.
 - Revisit if supplying databases by hand becomes the annoying part. The consumer contract
   would not change — only who satisfies it.
