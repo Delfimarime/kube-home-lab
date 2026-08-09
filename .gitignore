@@ -203,3 +203,4 @@ $RECYCLE.BIN/
 .copilot/
 docs/superpowers/
 docs/decisions
+dependencies/
