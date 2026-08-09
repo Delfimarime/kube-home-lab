@@ -6,7 +6,8 @@ code in this repository.
 ## What this repo is
 
 Terragrunt/Terraform that provisions the *platform* layer of a homelab k3s cluster by
-rendering Argo CD `Application` resources. Terraform never talks to a workload directly —
+rendering one Argo CD `ApplicationSet` per module, each generating the `Application`(s) that
+module needs. Terraform never talks to a workload directly —
 Argo CD installs and reconciles everything. Cluster bootstrap, Argo CD itself, Traefik/Gateway,
 and PostgreSQL are all assumed to pre-exist and are out of scope.
 
@@ -37,7 +38,7 @@ cd platform/<unit> && terragrunt apply  # apply one unit
 ```
 
 Terraform >= 1.9 is required (variable `validation` blocks reference other variables). State is
-a local file under `.tfstate/` (gitignored), holding nothing but Application specs.
+a local file under `.tfstate/` (gitignored), holding nothing but ApplicationSet specs.
 
 ## Architecture — conventions every module follows
 
@@ -47,15 +48,15 @@ choice.
 - **Modules are named `<capability>-<implementation>`** (e.g. `openid-connect-zitadel`), and
   their outputs stay implementation-neutral (`issuer_url`, not `zitadel_org_id`) so swapping
   the implementation doesn't touch consumers. [ADR 1]
-- **Each module renders its own Argo CD `Application`** — there is no shared `argocd-app`
-  module. ~25 lines of boilerplate repeated per module is the accepted cost of avoiding
-  indirection. [ADR 5]
+- **Every module renders its own Argo CD `ApplicationSet`** — a `List` generator with one
+  static entry per chart the module needs, even when that's a single entry. There is no shared
+  `ApplicationSet` module, and no module ever creates a bare `Application` directly. [ADR 5]
 - **Every consumer module takes the same three optional inputs**, each defaulting to `null`
   (meaning "not wired", never "disabled by a flag"): `gateway`, `database`, `oidc`.
   [platform spec]
-- **A module's Argo CD `Application` owns every resource it needs, including its route —
-  Terraform never creates a bare Kubernetes object.** Prefer the workload's own chart when it
-  already renders what's needed (native, e.g. Grafana's `route.main`, Zitadel's
+- **Each chart's generated Argo CD `Application` owns every resource it needs, including its
+  route — Terraform never creates a bare Kubernetes object.** Prefer the workload's own chart
+  when it already renders what's needed (native, e.g. Grafana's `route.main`, Zitadel's
   `gateway.httpRoute`); wrap it with a local chart that adds a Helm dependency plus one
   template when it doesn't (wrapped); author a local chart from scratch when there's no
   upstream chart at all (custom — e.g. Auditum). [ADR 10]

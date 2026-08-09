@@ -1,7 +1,8 @@
 # Module: openid-connect-zitadel
 
 **Status:** draft · **Decisions:** [ADR 1](../../adr/0001-oidc-provider-zitadel.md),
-[ADR 7](../../adr/0007-modules-receive-credentials.md)
+[ADR 7](../../adr/0007-modules-receive-credentials.md),
+[ADR 8](../../adr/0008-postgresql-is-external.md)
 
 ## Intent
 
@@ -13,13 +14,19 @@ consumers as Secret references.
 
 ## Provisions
 
-One Argo CD Application: the `zitadel` chart, pinned to `11.0.0-beta.4`, scaled to a single
-replica, backed by the supplied PostgreSQL, with its masterkey read from an existing Secret.
+One Argo CD `ApplicationSet` ([ADR 5](../../adr/0005-modules-are-applicationsets.md)),
+generating a single Application: the `zitadel` chart, pinned to `11.0.0-beta.4`, scaled to a
+single replica, backed by the supplied PostgreSQL, with its masterkey read from an existing
+Secret.
 
 An `HTTPRoute` when `gateway` is set — Zitadel's console and its discovery document are the
 one surface here that has to be reachable from outside. Native case per
 [ADR 10](../../adr/0010-resources-delivered-via-chart.md): the chart's own
 `gateway.httpRoute` values render it directly.
+
+**Scraping.** When `metrics_enabled` is `true`, the chart's own `serviceMonitor.enabled` is
+set, producing a `VMServiceScrape` via CRD conversion
+([ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md)).
 
 ## Inputs
 
@@ -40,6 +47,8 @@ gateway = {             # required in practice: an unreachable issuer is useless
 }
 
 masterkey_secret_name = "zitadel-masterkey"
+
+metrics_enabled = false   # set from observability-victoria-metrics's `metrics_enabled` output
 ```
 
 ## Outputs

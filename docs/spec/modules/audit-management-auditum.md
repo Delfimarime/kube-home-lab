@@ -1,7 +1,8 @@
 # Module: audit-management-auditum
 
 **Status:** draft, **blocked on an open question** ·
-**Decisions:** [ADR 8](../../adr/0008-postgresql-is-external.md)
+**Decisions:** [ADR 7](../../adr/0007-modules-receive-credentials.md),
+[ADR 8](../../adr/0008-postgresql-is-external.md)
 
 ## Intent
 
@@ -25,9 +26,10 @@ Everything below assumes the first. If it is the second, this module should not 
 
 Auditum publishes no Helm chart — the documentation says one is "currently in development."
 Per [ADR 10](../../adr/0010-resources-delivered-via-chart.md), this is the **custom case**: a
-chart local to this repository, authored from scratch, that the module's Argo CD Application
-points at. That also gives it a way to receive Terraform-computed values — host, port, secret
-name — which static manifests never had:
+chart local to this repository, authored from scratch, that this module's single-entry
+`ApplicationSet` ([ADR 5](../../adr/0005-modules-are-applicationsets.md)) points its generated
+Application at. That also gives it a way to receive Terraform-computed values — host, port,
+secret name — which static manifests never had:
 
 | Resource | Detail |
 | --- | --- |
@@ -36,7 +38,7 @@ name — which static manifests never had:
 | `PodDisruptionBudget` | `maxUnavailable: 1` |
 | `Service` | 8080 HTTP, 9090 gRPC |
 | `HTTPRoute` | when `gateway` is set |
-| scrape resource | when metrics collection is enabled |
+| scrape resource | hand-authored (no chart to flip a `serviceMonitor.enabled` switch on — [ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md)), when `metrics_enabled` is `true` |
 
 The database password is supplied as `AUDITUM_STORE_POSTGRES_PASSWORD` from a `secretKeyRef`,
 never written into the ConfigMap. Auditum's environment variables are prefixed `AUDITUM_`
@@ -52,6 +54,8 @@ database = {          # required; SQLite is not used
 }
 
 gateway = null        # default: not exposed. See the security note below.
+
+metrics_enabled = false   # set from observability-victoria-metrics's `metrics_enabled` output
 ```
 
 There is no `oidc` input, because Auditum has no authentication to delegate.

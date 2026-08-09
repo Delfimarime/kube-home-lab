@@ -30,7 +30,7 @@ docs/
 | [2](adr/0002-observability-victoriametrics.md) | VictoriaMetrics family, three independent components |
 | [3](adr/0003-grafana-standalone-and-alerting.md) | Standalone Grafana; alerting inside it |
 | [4](adr/0004-scrape-config-via-prometheus-crds.md) | Scrape config through Prometheus operator CRDs |
-| [5](adr/0005-one-argocd-application-per-module.md) | Each module renders its own Application |
+| [5](adr/0005-modules-are-applicationsets.md) | Modules are ApplicationSets, not Applications |
 | [6](adr/0006-shared-gateway-input.md) | One `gateway` input shape, shared by every module |
 | [7](adr/0007-modules-receive-credentials.md) | Providers publish addresses; consumers receive credentials |
 | [8](adr/0008-postgresql-is-external.md) | PostgreSQL is external to this project |

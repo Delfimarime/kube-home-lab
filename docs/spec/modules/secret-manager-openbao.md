@@ -11,7 +11,8 @@ that Secret.
 
 ## Provisions
 
-Two Argo CD Applications:
+One Argo CD `ApplicationSet` ([ADR 5](../../adr/0005-modules-are-applicationsets.md)),
+generating two Applications:
 
 | Application | Chart | Role |
 | --- | --- | --- |
@@ -26,6 +27,10 @@ If `gateway` is ever set, it's the native case per
 `server.gateway.httpRoute` values render the route — though the UI should stay unexposed (see
 `gateway` below).
 
+**Scraping.** When `metrics_enabled` is `true`, the chart's own `serviceMonitor.enabled` is
+set, producing a `VMServiceScrape` via CRD conversion
+([ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md)).
+
 ## Inputs
 
 ```hcl
@@ -34,8 +39,9 @@ seal = {
   # pkcs11 requires the kms plugin and a token on the host
 }
 
-storage_size = "2Gi"
-gateway      = null   # the UI is not exposed by default, and should stay that way
+storage_size     = "2Gi"
+gateway          = null   # the UI is not exposed by default, and should stay that way
+metrics_enabled  = false  # set from observability-victoria-metrics's `metrics_enabled` output
 ```
 
 ## Outputs

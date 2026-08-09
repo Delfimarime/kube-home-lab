@@ -19,15 +19,15 @@ Auditum has the same problem in a different shape: it has no chart at all, so it
 were going to be static manifests this repo points an Application at directly, with no way to
 receive a Terraform-computed value (a hostname, a secret name).
 
-Each module already renders its own Application ([ADR 5](0005-one-argocd-application-per-module.md));
-this decision is about what that Application is allowed to create, not whether there's one per
-module.
+Each module already renders its own `ApplicationSet`, one generated `Application` per chart
+([ADR 5](0005-modules-are-applicationsets.md)); this decision is about what those generated
+`Application`s are allowed to create, not module/chart cardinality.
 
 ## Decision
 
-**A module's Argo CD `Application` owns every in-cluster resource it needs. Terraform never
-creates a bare Kubernetes object directly.** Each module resolves this per chart, in order of
-preference:
+**Each chart's generated Argo CD `Application` owns every in-cluster resource it needs.
+Terraform never creates a bare Kubernetes object directly.** Each module resolves this per
+chart, in order of preference:
 
 1. **Native** — the workload's own chart already renders what's needed (e.g. Gateway API
    resources) from its values. Terraform sets those values on the existing chart. Nothing else

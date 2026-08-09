@@ -2,7 +2,8 @@
 
 **Status:** draft · **Decisions:** [ADR 2](../../adr/0002-observability-victoriametrics.md),
 [ADR 3](../../adr/0003-grafana-standalone-and-alerting.md),
-[ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md)
+[ADR 4](../../adr/0004-scrape-config-via-prometheus-crds.md),
+[ADR 7](../../adr/0007-modules-receive-credentials.md)
 
 ## Intent
 
@@ -11,7 +12,8 @@ of the three independently switchable and none of them required.
 
 ## Provisions
 
-Four Argo CD Applications, of which one is unconditional:
+One Argo CD `ApplicationSet` ([ADR 5](../../adr/0005-modules-are-applicationsets.md)), whose
+`List` generator produces four Applications, of which one is unconditional:
 
 | Application | Chart | Condition |
 | --- | --- | --- |

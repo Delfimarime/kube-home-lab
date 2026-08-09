@@ -57,7 +57,7 @@ Specs come first; only `docs/` exists so far.
 root.hcl                              backend + kubernetes provider, included by every unit
 docs/spec/                            what is being built, and how to tell it worked
 docs/adr/                             why, and what it costs
-modules/<capability>-<impl>/          each renders its own Argo CD Application
+modules/<capability>-<impl>/          each renders its own Argo CD ApplicationSet
 platform/<unit>/terragrunt.hcl        one unit per module, with its inputs
 ```
 

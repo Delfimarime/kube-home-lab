@@ -13,8 +13,9 @@ what runs, why it was chosen, and what happens if they change it.
 
 ## Scope
 
-**In scope.** Argo CD `Application` resources and their configuration, for: observability
-(metrics, logs, traces), OIDC identity, secret storage and delivery, audit trail management.
+**In scope.** Argo CD `ApplicationSet`/`Application` resources and their configuration, for:
+observability (metrics, logs, traces), OIDC identity, secret storage and delivery, audit trail
+management.
 
 **Out of scope.** Cluster bootstrap. Argo CD itself. Traefik and the Gateway. PostgreSQL
 ([ADR 8](../adr/0008-postgresql-is-external.md)). Backup of anything above.
@@ -25,7 +26,9 @@ The cluster exists and already runs:
 
 - **k3s** — one node, or a couple
 - **Argo CD** — this repo creates Applications; Argo CD installs and reconciles workloads
-- **Gateway API (Traefik)** — a `Gateway` exists to attach `HTTPRoute`s to
+- **Gateway API (Traefik)** — a `Gateway` exists to attach `HTTPRoute`s to, with listeners
+  open to routes from any namespace (`allowedRoutes.namespaces.from: All`). No module
+  provisions a `ReferenceGrant`; this assumption is why none is needed
 - **PostgreSQL** — reachable, with a database and credentials per consumer
 
 Terraform 1.9 or later, because variable `validation` blocks reference other variables.
