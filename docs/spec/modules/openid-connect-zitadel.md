@@ -17,7 +17,9 @@ One Argo CD Application: the `zitadel` chart, pinned to `11.0.0-beta.4`, scaled 
 replica, backed by the supplied PostgreSQL, with its masterkey read from an existing Secret.
 
 An `HTTPRoute` when `gateway` is set — Zitadel's console and its discovery document are the
-one surface here that has to be reachable from outside.
+one surface here that has to be reachable from outside. Native case per
+[ADR 10](../../adr/0010-resources-delivered-via-chart.md): the chart's own
+`gateway.httpRoute` values render it directly.
 
 ## Inputs
 

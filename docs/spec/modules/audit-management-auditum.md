@@ -23,8 +23,11 @@ Everything below assumes the first. If it is the second, this module should not 
 
 ## Provisions
 
-Auditum publishes no Helm chart — the documentation says one is "currently in development" —
-so this module points an Argo CD Application at manifests held in this repository:
+Auditum publishes no Helm chart — the documentation says one is "currently in development."
+Per [ADR 10](../../adr/0010-resources-delivered-via-chart.md), this is the **custom case**: a
+chart local to this repository, authored from scratch, that the module's Argo CD Application
+points at. That also gives it a way to receive Terraform-computed values — host, port, secret
+name — which static manifests never had:
 
 | Resource | Detail |
 | --- | --- |
@@ -32,6 +35,7 @@ so this module points an Argo CD Application at manifests held in this repositor
 | `Deployment` | 2 replicas, `RollingUpdate`; password from `secretKeyRef` |
 | `PodDisruptionBudget` | `maxUnavailable: 1` |
 | `Service` | 8080 HTTP, 9090 gRPC |
+| `HTTPRoute` | when `gateway` is set |
 | scrape resource | when metrics collection is enabled |
 
 The database password is supplied as `AUDITUM_STORE_POSTGRES_PASSWORD` from a `secretKeyRef`,

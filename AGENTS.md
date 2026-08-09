@@ -53,9 +53,12 @@ choice.
 - **Every consumer module takes the same three optional inputs**, each defaulting to `null`
   (meaning "not wired", never "disabled by a flag"): `gateway`, `database`, `oidc`.
   [platform spec]
-- **Each module emits its own `HTTPRoute`** as a `kubernetes_manifest` when `gateway` is set,
-  using one variable shape everywhere (`name`, `namespace`, `hostname`, `section_name`). This
-  route sits outside Argo CD's resource tree and is not self-healed by it. [ADR 6]
+- **A module's Argo CD `Application` owns every resource it needs, including its route —
+  Terraform never creates a bare Kubernetes object.** Prefer the workload's own chart when it
+  already renders what's needed (native, e.g. Grafana's `route.main`, Zitadel's
+  `gateway.httpRoute`); wrap it with a local chart that adds a Helm dependency plus one
+  template when it doesn't (wrapped); author a local chart from scratch when there's no
+  upstream chart at all (custom — e.g. Auditum). [ADR 10]
 - **Credentials are passed by reference, never by value**: `var.database` and `var.oidc` carry
   a Secret name plus a key, never a password or client secret. Nothing sensitive reaches a
   values.yaml or the rendered Helm values inside an `Application` spec in etcd. [ADR 7]

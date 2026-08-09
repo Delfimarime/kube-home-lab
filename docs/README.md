@@ -31,10 +31,11 @@ docs/
 | [3](adr/0003-grafana-standalone-and-alerting.md) | Standalone Grafana; alerting inside it |
 | [4](adr/0004-scrape-config-via-prometheus-crds.md) | Scrape config through Prometheus operator CRDs |
 | [5](adr/0005-one-argocd-application-per-module.md) | Each module renders its own Application |
-| [6](adr/0006-routes-emitted-by-terraform.md) | Modules emit their own HTTPRoute |
+| [6](adr/0006-shared-gateway-input.md) | One `gateway` input shape, shared by every module |
 | [7](adr/0007-modules-receive-credentials.md) | Providers publish addresses; consumers receive credentials |
 | [8](adr/0008-postgresql-is-external.md) | PostgreSQL is external to this project |
 | [9](adr/0009-secret-delivery-openbao-eso.md) | OpenBao plus External Secrets Operator |
+| [10](adr/0010-resources-delivered-via-chart.md) | Resources are chart-delivered; Terraform creates no bare manifests |
 
 ## Traceability
 
@@ -44,7 +45,8 @@ docs/
 | Metrics, logs and traces, independently switchable | ADR 2 | `observability-victoria-metrics` |
 | One query UI regardless of which components are on | ADR 3 | `observability-victoria-metrics` |
 | Scraping declared by charts, not by hand | ADR 4 | `observability-victoria-metrics` |
-| Uniform ingress across chart and chartless workloads | ADR 6 | every module |
+| One `gateway` input for every module | ADR 6 | every module |
+| Every resource is Application-owned, none created directly by Terraform | ADR 5, 10 | every module |
 | No secret value in etcd or in a values file | ADR 7, 9 | every module |
 | Durable audit records | ADR 8 | `audit-management-auditum` |
 

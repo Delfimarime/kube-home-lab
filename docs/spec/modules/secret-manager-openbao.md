@@ -21,6 +21,11 @@ Two Argo CD Applications:
 Plus a `ClusterSecretStore` addressing OpenBao, which is what makes every
 `secret_name` elsewhere in this repo resolvable.
 
+If `gateway` is ever set, it's the native case per
+[ADR 10](../../adr/0010-resources-delivered-via-chart.md): the chart's own
+`server.gateway.httpRoute` values render the route — though the UI should stay unexposed (see
+`gateway` below).
+
 ## Inputs
 
 ```hcl

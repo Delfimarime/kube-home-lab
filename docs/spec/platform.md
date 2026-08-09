@@ -41,8 +41,10 @@ Every consumer module takes the same three optional inputs. Each defaults to `nu
 | `database` | connect to this PostgreSQL, credentials from a Secret | no database, or module fails if required |
 | `oidc` | delegate authentication to this issuer | local authentication only |
 
-Shapes are defined in [ADR 6](../adr/0006-routes-emitted-by-terraform.md) and
-[ADR 7](../adr/0007-modules-receive-credentials.md).
+Shapes are defined in [ADR 6](../adr/0006-shared-gateway-input.md) and
+[ADR 7](../adr/0007-modules-receive-credentials.md). How a module actually turns `gateway`
+into resources is a separate, per-module decision — see
+[ADR 10](../adr/0010-resources-delivered-via-chart.md).
 
 Two rules follow from those ADRs and hold across every module:
 
@@ -67,12 +69,12 @@ Bootstrap order: secrets, then identity, then the rest.
 ```gherkin
 Feature: Platform provisioning
 
-  Scenario: Argo CD owns every workload
+  Scenario: Argo CD owns every resource
     Given a module has been applied
-    When the resulting workloads are inspected
-    Then every Deployment, StatefulSet and Service in the cluster
+    When its resources are inspected
+    Then every Deployment, StatefulSet, Service and HTTPRoute
      And has an Argo CD Application as its owner
-     And no workload was created directly by Terraform
+     And no resource was created directly by Terraform
 
   Scenario: No secret value is written to the cluster in plaintext
     Given any module configured with a database or an OIDC client

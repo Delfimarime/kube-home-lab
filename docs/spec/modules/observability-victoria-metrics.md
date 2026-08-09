@@ -29,6 +29,10 @@ Grafana's datasources are generated from whichever flags are set: VictoriaMetric
 default when metrics is on, VictoriaLogs when logs is on, and a Jaeger datasource pointed at
 VictoriaTraces when traces is on.
 
+**Route.** Native case per [ADR 10](../../adr/0010-resources-delivered-via-chart.md): Grafana's
+own chart renders the `HTTPRoute` from `route.main`, populated from `var.gateway`. The chart's
+own `ingress` stays disabled so there is exactly one path in.
+
 ## Inputs
 
 ```hcl
@@ -98,7 +102,6 @@ Feature: Observability components are independently switchable
 
 - Confirm `defaultDashboards.enabled` still renders dashboard ConfigMaps with the Grafana
   subchart disabled, and the label the Grafana sidecar must select on.
-- Confirm the Grafana chart's HTTPRoute story is irrelevant — the module emits the route
-  itself per [ADR 6](../../adr/0006-routes-emitted-by-terraform.md), but the chart's own
-  `ingress` must stay disabled so there is only one path in.
+- Confirm `route.main`'s schema against the pinned chart version — its comment flags it BETA
+  upstream — and that the chart's own `ingress` stays disabled.
 - Retention defaults to 7 days per component. Set `retentionSize` too; disk is the limit.
