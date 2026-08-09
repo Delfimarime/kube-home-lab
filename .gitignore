@@ -204,3 +204,4 @@ $RECYCLE.BIN/
 docs/superpowers/
 docs/decisions
 dependencies/
+deploy.sh
