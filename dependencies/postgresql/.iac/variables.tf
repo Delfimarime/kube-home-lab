@@ -68,6 +68,29 @@ variable "storage" {
   default = {}
 }
 
+# CloudBeaver rides along in this ApplicationSet rather than taking a unit of its own: it
+# exists to administer this database and is pointless without it. ADR 005 already makes a
+# second chart a list entry rather than a new resource kind.
+variable "cloudbeaver" {
+  type = object({
+    enabled = optional(bool, true)
+    storage = optional(object({
+      size          = optional(string, "2Gi")
+      storage_class = optional(string, null)
+    }), {})
+    # Same shape as the platform's shared `gateway` contract (ADR 007), so it reads the same
+    # at the call site even though a dependency takes none of the other two. null means not
+    # exposed — reach it with `kubectl port-forward` instead.
+    gateway = optional(object({
+      name         = string
+      namespace    = string
+      hostname     = string
+      section_name = optional(string)
+    }), null)
+  })
+  default = {}
+}
+
 variable "resources" {
   type        = any
   description = "Requests and limits of the instance Pod. Equal values give it Guaranteed QoS."

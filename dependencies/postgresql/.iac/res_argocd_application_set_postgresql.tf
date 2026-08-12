@@ -22,11 +22,15 @@ resource "argocd_application_set" "postgresql" {
       spec {
         project = "default"
 
-        # A git source, not a chart repository: the chart lives in this repository, which is
-        # also why `path` replaces `chart` and the revision is a branch rather than a version.
+        # One source block serving both kinds. Argo CD rejects a source that carries `path`
+        # and `chart` at once, so each is rendered only for the element it belongs to and
+        # comes out empty for the other. The guard also keeps missingkey=error happy: a key
+        # absent from an element is never evaluated, because the branch it sits in is false.
+        # `target_revision` needs no guard — a branch for git, a chart version for Helm.
         source {
           repo_url        = "{{ .repo_url }}"
-          path            = "{{ .path }}"
+          path            = "{{ if eq .source_kind \"git\" }}{{ .path }}{{ end }}"
+          chart           = "{{ if eq .source_kind \"helm\" }}{{ .chart }}{{ end }}"
           target_revision = "{{ .revision }}"
 
           helm {
@@ -45,7 +49,8 @@ resource "argocd_application_set" "postgresql" {
         # new password over the one the database is actually using and every consumer is
         # locked out. RespectIgnoreDifferences is the half people miss — on its own,
         # ignore_difference only hides the field from the diff, and a sync triggered by any
-        # other resource still pushes it.
+        # other resource still pushes it. It renders for CloudBeaver too, where it matches no
+        # Secret and does nothing — cheaper than templating it away.
         ignore_difference {
           kind          = "Secret"
           name          = "{{ .name }}"
