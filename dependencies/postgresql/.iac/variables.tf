@@ -78,9 +78,6 @@ variable "cloudbeaver" {
       size          = optional(string, "2Gi")
       storage_class = optional(string, null)
     }), {})
-    # Same shape as the platform's shared `gateway` contract (ADR 007), so it reads the same
-    # at the call site even though a dependency takes none of the other two. null means not
-    # exposed — reach it with `kubectl port-forward` instead.
     gateway = optional(object({
       name         = string
       namespace    = string
