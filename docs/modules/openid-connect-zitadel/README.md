@@ -32,7 +32,7 @@ one surface here that has to be reachable from outside. Native case per
 `gateway.httpRoute` values render it directly.
 
 **Scraping.** When `metrics_enabled` is `true`, the chart's own `serviceMonitor.enabled` is
-set, producing a `VMServiceScrape` via CRD conversion
+set, producing a `ServiceMonitor` the collector reads directly
 ([ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md)).
 
 **Prerequisites.** A PostgreSQL database and a masterkey Secret must exist. This module
@@ -59,7 +59,7 @@ gateway = {             # required in practice: an unreachable issuer is useless
 
 masterkey_secret_name = "zitadel-masterkey"
 
-metrics_enabled = false   # set from observability-victoria-metrics's `metrics_enabled` output
+metrics_enabled = false   # set from observability-grafana-lgtm's `metrics_enabled` output
 ```
 
 ## Outputs

@@ -69,9 +69,11 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
 - **PostgreSQL is external** — never provisioned by this repo. A consumer needing a database
   just gets `var.database` pointing at one that already exists, described per environment.
   [ADR 008]
-- **Scrape config goes through Prometheus-operator CRDs** (`ServiceMonitor`/`PodMonitor`),
-  converted by the VictoriaMetrics operator — not hand-written `VMServiceScrape`, except for
-  chartless workloads like Auditum, which need one written by hand. [ADR 004]
+- **Scrape config goes through Prometheus-operator CRDs** (`ServiceMonitor`/`PodMonitor`), read
+  directly by the collector — a workload declares scraping through its own chart's
+  `serviceMonitor.enabled`, never through hand-written scrape config or a vendor-specific
+  equivalent. Chartless workloads like Auditum are the exception and need a `ServiceMonitor`
+  written by hand. The observability module installs the CRD bundle. [ADR 004]
 - **Secret delivery is OpenBao + External Secrets Operator**: OpenBao stores, ESO materializes
   a real Secret via a `ClusterSecretStore`/`ExternalSecret`. [openbao LOCAL-001]
 - **Chart versions are pinned exactly.** An upgrade is a deliberate edit, which is what keeps

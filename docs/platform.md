@@ -131,7 +131,7 @@ listing the environment's units ([ADR 011](adr/011-environments-are-clusters.md)
 | --- | --- | --- |
 | [`secret-manager-openbao`](modules/secret-manager-openbao/README.md) | OpenBao + External Secrets Operator | — |
 | [`openid-connect-zitadel`](modules/openid-connect-zitadel/README.md) | `issuer_url`, `discovery_url` | `database`, `gateway` |
-| [`observability-victoria-metrics`](modules/observability-victoria-metrics/README.md) | metrics / logs / traces endpoints, Grafana | `gateway`, `oidc` |
+| [`observability-grafana-lgtm`](modules/observability-grafana-lgtm/README.md) | OTLP ingest endpoint, Grafana | `gateway`, `oidc`, `database` |
 | [`audit-management-auditum`](modules/audit-management-auditum/README.md) | audit record API | `database`, `gateway` |
 
 Modules an environment ships are deployed into that environment's cluster only. Nothing here

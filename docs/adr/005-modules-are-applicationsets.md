@@ -9,8 +9,8 @@ and values. The alternative is for each module to render its own Argo CD resourc
 
 Modules vary in how many charts they need — one today
 ([openid-connect-zitadel](../modules/openid-connect-zitadel/README.md)), two
-([secret-manager-openbao](../modules/secret-manager-openbao/README.md)), four
-([observability-victoria-metrics](../modules/observability-victoria-metrics/README.md)) — and
+([secret-manager-openbao](../modules/secret-manager-openbao/README.md)), six
+([observability-grafana-lgtm](../modules/observability-grafana-lgtm/README.md)) — and
 that count can grow under [ADR 010](010-resources-delivered-via-chart.md)'s wrapped/custom
 cases. Modeling a module as a single `Application` only works until it needs a second chart,
 at which point it has to migrate to a different Argo CD resource kind — a disruptive change,

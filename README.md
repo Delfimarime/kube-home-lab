@@ -24,7 +24,7 @@ Provision workload-facing platform services. Each environment ships the ones it 
 
 | Module | Provides |
 | --- | --- |
-| `observability-victoria-metrics` | metrics, logs and traces — each independently switchable — behind one Grafana |
+| `observability-grafana-lgtm` | metrics, logs and traces — each independently switchable — behind one Grafana |
 | `openid-connect-zitadel` | one OIDC issuer for the environment |
 | `secret-manager-openbao` | secret storage, and delivery into namespaces |
 | `audit-management-auditum` | an audit record API |

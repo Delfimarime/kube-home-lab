@@ -56,7 +56,7 @@ database = {          # required; SQLite is not used
 
 gateway = null        # default: not exposed. See the security note below.
 
-metrics_enabled = false   # set from observability-victoria-metrics's `metrics_enabled` output
+metrics_enabled = false   # set from observability-grafana-lgtm's `metrics_enabled` output
 ```
 
 There is no `oidc` input, because Auditum has no authentication to delegate.

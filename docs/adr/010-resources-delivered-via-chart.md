@@ -58,9 +58,13 @@ doesn't cover, without needing a new ADR to say so again.
 
 ## Consequences
 
-- `observability-victoria-metrics`, `openid-connect-zitadel` and `secret-manager-openbao` are
+- `observability-grafana-lgtm`, `openid-connect-zitadel` and `secret-manager-openbao` are
   all the native case for their `HTTPRoute` today — no code to migrate, since none had a
   working route mechanism implemented yet.
+- `observability-grafana-lgtm` is *also* the custom case, but not for a route: it authors a
+  `mimir-monolithic` chart because upstream ships none for that deployment mode — see
+  [observability LOCAL-002](../modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md).
+  A module can be both cases at once, for different resources.
 - `audit-management-auditum` is the custom case: its `ConfigMap`, `Deployment`,
   `PodDisruptionBudget`, `Service` and (when `gateway` is set) `HTTPRoute` all become
   templates in a chart local to this repo, replacing the earlier "static manifests" approach —

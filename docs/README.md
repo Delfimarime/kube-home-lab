@@ -29,7 +29,7 @@ in the one place.
 | Spec | Covers |
 | --- | --- |
 | [platform](platform.md) | domain model, assumptions, the `gateway`/`database`/`oidc` contracts, environments |
-| [observability-victoria-metrics](modules/observability-victoria-metrics/README.md) | metrics, logs, traces, Grafana |
+| [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | metrics, logs, traces, Grafana |
 | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | the OIDC issuer |
 | [secret-manager-openbao](modules/secret-manager-openbao/README.md) | secret storage and delivery |
 | [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
@@ -54,8 +54,11 @@ in the one place.
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md) | OIDC provider is Zitadel | accepted |
-| [observability LOCAL-001](modules/observability-victoria-metrics/adr/LOCAL-001-victoriametrics-family.md) | The VictoriaMetrics family | accepted |
-| [observability LOCAL-002](modules/observability-victoria-metrics/adr/LOCAL-002-alerting-in-grafana.md) | Alerting in Grafana; Grafana standalone | accepted |
+| [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | **proposed** |
+| [observability LOCAL-002](modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | **proposed** |
+| [observability LOCAL-003](modules/observability-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | **proposed** |
+| [observability LOCAL-004](modules/observability-grafana-lgtm/adr/LOCAL-004-no-alerting.md) | No alerting | **proposed** |
+| [observability LOCAL-005](modules/observability-grafana-lgtm/adr/LOCAL-005-two-grafana-roles-strict.md) | Two Grafana roles; no role means no entry | **proposed** |
 | [openbao LOCAL-001](modules/secret-manager-openbao/adr/LOCAL-001-openbao-and-eso.md) | OpenBao plus External Secrets Operator | accepted |
 | [openbao LOCAL-002](modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md) | OpenBao's seal | **proposed** |
 
@@ -89,7 +92,7 @@ constrains:
 
 ```
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
-**Status:** accepted · **Scope:** module — `observability-victoria-metrics` · **Date:** …
+**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` · **Date:** …
 ```
 
 ### Module specs
@@ -112,7 +115,7 @@ question* and a *Security note*, and both are the most important things on the p
 
 ```gherkin
 @plan
-Scenario: [OBS-01] At least one component is required
+Scenario: [LGTM-01] At least one component is required
 ```
 
 The ID (`<MODULE>-<NN>`) is what the traceability matrix cites; it is never reused for a

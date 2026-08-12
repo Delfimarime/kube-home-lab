@@ -35,7 +35,7 @@ If `gateway` is ever set, it's the native case per
 `gateway` below).
 
 **Scraping.** When `metrics_enabled` is `true`, the chart's own `serviceMonitor.enabled` is
-set, producing a `VMServiceScrape` via CRD conversion
+set, producing a `ServiceMonitor` the collector reads directly
 ([ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md)).
 
 ## Inputs
@@ -48,7 +48,7 @@ seal = {
 
 storage_size     = "2Gi"
 gateway          = null   # the UI is not exposed by default, and should stay that way
-metrics_enabled  = false  # set from observability-victoria-metrics's `metrics_enabled` output
+metrics_enabled  = false  # set from observability-grafana-lgtm's `metrics_enabled` output
 ```
 
 ## Outputs
