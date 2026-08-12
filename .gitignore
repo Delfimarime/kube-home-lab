@@ -203,5 +203,8 @@ $RECYCLE.BIN/
 .copilot/
 docs/superpowers/
 docs/decisions
-dependencies/
+.deploy-values/
+*/.deploy-values
+*/*/.deploy-values/
 deploy.sh
+.terraform.lock.hcl

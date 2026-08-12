@@ -77,6 +77,7 @@ _envcommon/<module>.hcl        inputs shared by a module across environments
   env.hcl                      cluster endpoint, hostnames, database host/port
   <unit>/terragrunt.hcl        includes root.hcl and _envcommon; holds only the deltas
 modules/<capability>-<impl>/   the Terraform
+dependencies/<name>/           what the stack needs but is not part of — see below
 docs/                          requirements, specs, decisions
 ```
 
@@ -91,6 +92,32 @@ Every consumer module takes the same three optional inputs, each defaulting to `
 `gateway` (expose it), `database` (connect it), `oidc` (authenticate it). Credentials are
 passed as Secret references, never values. The shapes are in
 [the platform spec](docs/platform.md#shared-contracts).
+
+### `dependencies/`
+
+A simplified repository for the things the stack needs but does not count as part of itself.
+[The assumptions](#assumptions) say an environment already has PostgreSQL and that stays
+true — nothing under `dependencies/` provides a platform capability, so none of it is in the
+module catalogue and none of it is named `<capability>-<implementation>`.
+
+These are dependencies that had to run *somewhere*, and Kubernetes was the convenient
+somewhere. Convenience is the whole justification: they are here because there was already a
+cluster, not because the platform layer wants to own them. Anything that outgrows that — a
+managed instance, a box under the desk — leaves this directory without the platform noticing.
+
+Simplified means what it says. A dependency is one directory holding `.iac/` and
+`.deploy-values/`, driven by [`deploy.sh`](deploy.sh) against plain OpenTofu — no Terragrunt,
+no `_envcommon`, no per-environment unit. A `helm/` beside them is a chart this repo authors
+because no upstream one fits, which is the custom case
+[ADR 010](docs/adr/010-resources-delivered-via-chart.md) already allows. It still publishes
+what consumers need:
+`dependencies/postgresql` emits the `database` contract that
+[ADR 007](docs/adr/007-modules-receive-credentials.md) defines, in the same shape a module
+would. What it does not get is the rest of the platform's ceremony.
+
+```sh
+./deploy.sh apply dependencies/postgresql          # .deploy-values/local.tfvars
+```
 
 ```sh
 export KUBECONFIG=~/.kube/config
