@@ -14,11 +14,30 @@ once, elsewhere, and linked — do not restate it here.
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
 | How to run anything | [README.md](README.md#layout) |
 
-## Current state
+## Repository structure
 
-Only `docs/` exists. No `root.hcl`, no `_envcommon/`, no environment directories, no
-`modules/` yet. There is nothing to build, lint or test today — work here is writing and
-refining requirements, specs and ADRs ahead of code.
+```
+root.hcl                       provider + remote_state generation, included by every unit
+_envcommon/<module>.hcl        inputs shared by a module across environments
+<env>/
+  env.hcl                      cluster endpoint, hostnames, database host/port
+  <unit>/terragrunt.hcl        includes root.hcl and _envcommon; holds only the deltas
+modules/<capability>-<impl>/   the Terraform, plus helm/<chart>/ for any chart it authors
+dependencies/<name>/           not part of the platform — see below
+docs/                          requirements, specs, decisions
+```
+
+Specs come first. `docs/` is the only part with substance today and no module's Terraform
+exists yet, so work here is writing and refining requirements, specs and ADRs ahead of code.
+
+**`dependencies/` is not part of the platform, and deliberately has no ADR.** It holds what the
+stack needs but does not own — `dependencies/postgresql` today. Each is one directory with its
+own `.iac/`, its own values, and a `helm/` where this repo had to author a chart; applied with
+plain OpenTofu, with no Terragrunt, no `_envcommon` and no per-environment unit. Nothing in
+there is a capability, none of it appears in the module catalogue, and none of it is named
+`<capability>-<implementation>`. It exists because these things had to run somewhere and there
+was already a cluster. **Don't apply module conventions to it, don't give it an ADR, and don't
+promote it into a module.**
 
 ## Workflow: requirements → ADRs → specs → code
 
@@ -74,11 +93,17 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
   `serviceMonitor.enabled`, never through hand-written scrape config or a vendor-specific
   equivalent. Chartless workloads like Auditum are the exception and need a `ServiceMonitor`
   written by hand. The observability module installs the CRD bundle. [ADR 004]
-- **Secret delivery is OpenBao + External Secrets Operator**: OpenBao stores, ESO materializes
-  a real Secret via a `ClusterSecretStore`/`ExternalSecret`. [openbao LOCAL-001]
+- **What a person may do comes from the token.** A consumer wired to `oidc` reads roles named
+  `<SLUG>_ADMIN`/`<SLUG>_VIEWER` from `resource_access.<slug>.roles`, maps them to its own
+  native roles, and **refuses anyone carrying none** — never falls back to a default role.
+  [ADR 013]
+- **A chart this repo authors lives at `helm/<chart-name>/` inside the module that owns it.**
+  Wrapped or custom, same place. [ADR 010]
 - **Chart versions are pinned exactly.** An upgrade is a deliberate edit, which is what keeps
-  a native chart's values schema from changing underneath a module silently.
-  [zitadel LOCAL-001, ADR 010]
+  a native chart's values schema from changing underneath a module silently. [ADR 010]
+- **Nothing in this repo creates the Secrets that `var.database` and `var.oidc` reference.**
+  They are made by hand, per environment. Don't write a module that assumes otherwise, and
+  don't add ordering or existence checks to compensate. [ADR 007]
 
 ## Environments
 
@@ -109,7 +134,9 @@ finite amount of RAM.
   [its Blocking question](docs/modules/audit-management-auditum/README.md#blocking-question).
   Don't build it out further without resolving that; if the answer is the second one, the
   module should not exist.
-- Two ADRs are **`proposed`, meaning the decision has not been made**:
-  [ADR 012](docs/adr/012-state-is-per-environment.md) (state backend) and
-  [openbao LOCAL-002](docs/modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md)
-  (the seal). Don't implement either as though it were settled, and don't quietly pick one.
+- One ADR is **`proposed`, meaning the decision has not been made**:
+  [ADR 012](docs/adr/012-state-is-per-environment.md) — per-environment state is settled, the
+  backend is not. Don't implement it as though it were settled, and don't quietly pick one.
+- **There is no secret manager.** REQ-04 was dropped along with the module that satisfied it,
+  so every `secret_name` in the repo names something created by hand. Don't reintroduce one
+  without a requirement above it.

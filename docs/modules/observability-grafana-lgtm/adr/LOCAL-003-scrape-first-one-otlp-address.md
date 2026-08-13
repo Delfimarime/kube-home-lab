@@ -1,6 +1,6 @@
 # LOCAL-003. Scrape first; publish one neutral address for what cannot be scraped
 
-**Status:** proposed · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context
@@ -13,8 +13,8 @@ to, so something has to scrape, tail and receive. Three questions came with that
 at Mimir, Loki and Tempo. Its reputation on a small cluster is that it deploys Alloy five ways
 — `alloy-metrics`, `alloy-logs`, `alloy-singleton`, `alloy-receiver`, `alloy-profiles` — which
 on two nodes reads as too much machinery for a lab that may not even want logs. That objection
-suggested splitting the collector by flag: `k8s-monitoring` only alongside Loki, and vmagent
-when only metrics are on.
+suggested splitting the collector by flag: `k8s-monitoring` only alongside Loki, and some
+lighter standalone agent when only metrics are on.
 
 **Push or pull?** [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) already made
 scraping the platform's mechanism for metrics: every workload declares itself through its own
@@ -63,14 +63,16 @@ published.
   strongest available evidence it was made at the right altitude.
 - **The five-collector figure is the all-features default, not a floor.** Which collectors
   exist is derived from which features are on. Metrics-only is `alloy-metrics` plus
-  `alloy-receiver`: two pods, the footprint vmagent would have had. The objection was right
-  about the default and wrong about the floor.
-- **vmagent could not have replaced it cheaply anyway.** The standalone
-  `victoria-metrics-agent` chart does not discover `ServiceMonitor` — CRD discovery is the
-  VictoriaMetrics *operator's* job. Using it here would mean either hand-written scrape
-  configuration, which kills ADR 004 for this module and silently breaks every other module's
-  `serviceMonitor.enabled`, or installing the VictoriaMetrics operator and the Prometheus CRD
-  bundle: strictly heavier than the one Alloy pod it was meant to save.
+  `alloy-receiver` — two pods, which is what any standalone agent would have cost. The
+  objection was right about the default and wrong about the floor.
+- **A second collector could not have been cheaper anyway.** `ServiceMonitor` discovery is not
+  a property of an agent; it is a property of a controller watching those CRDs, and the
+  lightweight agents that would have been worth swapping in do not do it. Using one here would
+  mean either hand-written scrape configuration — which kills
+  [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) for this module and silently
+  breaks every other module's `serviceMonitor.enabled` — or installing that agent's own
+  operator alongside it, which is strictly heavier than the single Alloy pod it was meant to
+  save.
 - **One discovery mechanism, not two.** `annotationAutodiscovery` would add
   `prometheus.io/scrape` alongside the CRDs, so a target could be declared in two places,
   scraped twice, and authoritative in neither. ADR 004 already chose.

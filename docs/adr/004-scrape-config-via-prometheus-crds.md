@@ -31,18 +31,16 @@ it ships must consume those CRDs — natively if it can, through a conversion la
 
 The alternative — emitting the metrics stack's own scrape resource and skipping the extra CRDs
 — looks leaner until you notice that every upstream chart already has a ServiceMonitor switch.
-OpenBao and Zitadel both do. With the CRDs present, those switches work and no scrape resource
-is ever written by hand. Without them, each one has to be reimplemented in whatever dialect the
-current stack speaks.
+Zitadel's does. With the CRDs present, those switches work and no scrape resource is ever
+written by hand. Without them, each one has to be reimplemented in whatever dialect the current
+stack speaks.
 
 The CRD bundle is not redundancy; it is what makes the redundancy unnecessary.
 
-**This is the decision the repo has already tested.** It was made for a metrics stack that
-consumed the CRDs through a conversion layer, and survived that stack being replaced by one
-that reads them directly — the declarations in every other module did not change, and the
-mechanism lost a moving part. A platform decision that gets *simpler* under a different
-implementation was made at the right altitude, which is what
-[REQ-09](../requirements.md) asks of every choice here.
+Stating it in the Prometheus dialect rather than a vendor's is what makes it survivable: the
+metrics stack is the piece most likely to be swapped, and every other module's scrape
+declaration should be indifferent to that — which is [REQ-09](../requirements.md) applied to
+the one thing every module touches.
 
 ## Consequences
 

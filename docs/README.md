@@ -31,7 +31,6 @@ in the one place.
 | [platform](platform.md) | domain model, assumptions, the `gateway`/`database`/`oidc` contracts, environments |
 | [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | metrics, logs, traces, Grafana |
 | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | the OIDC issuer |
-| [secret-manager-openbao](modules/secret-manager-openbao/README.md) | secret storage and delivery |
 | [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
 
 ## Decisions
@@ -48,19 +47,18 @@ in the one place.
 | [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; Terraform creates no bare manifests | accepted |
 | [011](adr/011-environments-are-clusters.md) | An environment is a cluster; Terragrunt layers them | accepted |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and belongs in its own cluster | **proposed** |
+| [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md) | OIDC provider is Zitadel | accepted |
-| [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | **proposed** |
-| [observability LOCAL-002](modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | **proposed** |
-| [observability LOCAL-003](modules/observability-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | **proposed** |
-| [observability LOCAL-004](modules/observability-grafana-lgtm/adr/LOCAL-004-no-alerting.md) | No alerting | **proposed** |
-| [observability LOCAL-005](modules/observability-grafana-lgtm/adr/LOCAL-005-two-grafana-roles-strict.md) | Two Grafana roles; no role means no entry | **proposed** |
-| [openbao LOCAL-001](modules/secret-manager-openbao/adr/LOCAL-001-openbao-and-eso.md) | OpenBao plus External Secrets Operator | accepted |
-| [openbao LOCAL-002](modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md) | OpenBao's seal | **proposed** |
+| [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
+| [observability LOCAL-002](modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |
+| [observability LOCAL-003](modules/observability-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |
+| [observability LOCAL-004](modules/observability-grafana-lgtm/adr/LOCAL-004-no-alerting.md) | No alerting | accepted |
+| [observability LOCAL-005](modules/observability-grafana-lgtm/adr/LOCAL-005-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 
 Which requirement each decision serves is in the
 [traceability matrix](requirements.md#traceability).
@@ -78,9 +76,14 @@ ADRs restart at 001 per module and carry the `LOCAL-` prefix:** `LOCAL-001`, in
 `LOCAL-001-<slug>.md`. A module ADR is local to its module — no module cites another module's
 ADR, and none should need to.
 
-When a platform ADR cites a module one (rare; ADR 010 does), qualify it with the module name:
-`openid-connect-zitadel LOCAL-001`. The same applies in the traceability matrix, which is the
-one place that cites across every module.
+**Citation runs one way only: a module ADR may cite a platform ADR; a platform ADR never cites
+a module one.** A platform decision that needed a module's reasoning to stand up would not be
+platform-scoped — it would be a module decision with extra reach. Where a platform ADR wants to
+name a consequence that lands in a module, it describes the consequence rather than linking to
+where the module wrote it down.
+
+**The traceability matrix is the one exception**, and the one place that cites across every
+module. There, qualify a module ADR with its module name: `openid-connect-zitadel LOCAL-001`.
 
 **The global sequence has gaps at 001, 002, 003 and 009.** Those decisions moved into module
 folders on 2026-08-09 and were renumbered `LOCAL-NNN`. The gaps are not closed: renumbering the
@@ -115,7 +118,7 @@ question* and a *Security note*, and both are the most important things on the p
 
 ```gherkin
 @plan
-Scenario: [LGTM-01] At least one component is required
+Scenario: [OBS-01] At least one component is required
 ```
 
 The ID (`<MODULE>-<NN>`) is what the traceability matrix cites; it is never reused for a
@@ -127,11 +130,11 @@ different scenario. The tag says where the check can run:
 ### Status
 
 `draft` is being written and changes without ceremony. `proposed` means the decision is
-written down but **not made** — see ADR 012 and openbao LOCAL-002. `accepted` is agreed;
-changing it means changing its consequences too. `implemented` is matched by code.
-`superseded` links its replacement in the header.
+written down but **not made** — see ADR 012. `accepted` is agreed; changing it means changing
+its consequences too. `implemented` is matched by code. `superseded` links its replacement in
+the header.
 
-Every spec here is `draft`, because no Terraform exists yet.
+Every spec here is `draft`: no module's Terraform exists yet.
 
 ### Revising an ADR
 

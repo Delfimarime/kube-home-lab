@@ -1,6 +1,6 @@
 # LOCAL-002. Mimir runs monolithic, from a chart this repo authors
 
-**Status:** proposed · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context

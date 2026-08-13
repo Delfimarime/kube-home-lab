@@ -98,8 +98,8 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision �
   cycle Terragrunt will refuse. See [ADR 011](011-environments-are-clusters.md).
 - Backends stay unexposed by simply not being passed a gateway. In the observability module,
   `var.gateway` means Grafana's route, because Grafana is the only exposed surface.
-- Something must materialise the referenced Secrets — see
-  [secret-manager-openbao LOCAL-001](../modules/secret-manager-openbao/adr/LOCAL-001-openbao-and-eso.md).
-  When and by whom is an operational matter, not a module's concern.
+- **Something must materialise the referenced Secrets, and nothing in this repo does.** When and
+  by whom is an operational matter, not a module's concern — but it is currently nobody's. See
+  [the open questions](../requirements.md#open-questions).
 - State holds no credential, which is what makes an in-cluster state backend defensible —
   see [ADR 012](012-state-is-per-environment.md).

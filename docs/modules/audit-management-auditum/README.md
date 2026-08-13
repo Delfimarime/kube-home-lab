@@ -17,9 +17,9 @@ Auditum:
 
 - *Application audit trails* — your own services recording "user X changed Y". Auditum's
   actual job. Requires an application that writes to it; none exists yet.
-- *Kubernetes API audit logs* — who deleted what in the cluster. This is
-  `--kube-apiserver-arg=audit-log-path=…` on k3s, shipped into VictoriaLogs. Auditum has no
-  ingester for it and would be the wrong tool.
+- *Kubernetes API audit logs* — who deleted what in the cluster. That is an API-server flag on
+  k3s (`--kube-apiserver-arg=audit-log-path=…`) producing a log stream. Auditum has no ingester
+  for it and would be the wrong tool.
 
 Everything below assumes the first. If it is the second, this module should not exist.
 

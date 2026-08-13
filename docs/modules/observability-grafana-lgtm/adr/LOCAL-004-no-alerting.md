@@ -1,6 +1,6 @@
 # LOCAL-004. No alerting
 
-**Status:** proposed · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context
@@ -65,7 +65,7 @@ This module delivers observability. It does not deliver notification.
   consequence.
 - **The curated Kubernetes alert rules are declined, not lost.** They remain plain PromQL, and
   the path to using them stays open.
-- LGTM-10 asserts the absence, because a chart value flipping alerting back on by default is
+- OBS-10 asserts the absence, because a chart value flipping alerting back on by default is
   exactly the kind of thing that arrives unnoticed in a version bump.
 - **Reversible, precisely:** append `,alertmanager` to Mimir's target, point
   `ruler_storage.backend` at `local` over a mounted ConfigMap of rule files, and set

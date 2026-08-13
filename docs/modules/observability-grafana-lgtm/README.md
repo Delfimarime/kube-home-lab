@@ -1,7 +1,7 @@
 # Module: observability-grafana-lgtm
 
 **Status:** draft ·
-**Satisfies:** [REQ-01, REQ-02, REQ-03, REQ-10](../../requirements.md) ·
+**Satisfies:** [REQ-01, REQ-02, REQ-03, REQ-10, REQ-13](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-grafana-lgtm-stack.md),
 [LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md),
 [LOCAL-003](adr/LOCAL-003-scrape-first-one-otlp-address.md),
@@ -10,7 +10,8 @@
 [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
-[ADR 010](../../adr/010-resources-delivered-via-chart.md)
+[ADR 010](../../adr/010-resources-delivered-via-chart.md),
+[ADR 013](../../adr/013-roles-are-carried-in-the-token.md)
 
 ## Intent
 
@@ -129,7 +130,7 @@ are set, and **each link is conditional on both of its ends existing**:
 
 **This requires metrics and traces to both be on.** That is a genuine dent in
 [REQ-02](../../requirements.md) — the signals stay independent, but the best feature spans two
-of them. It is recorded here rather than discovered later, and LGTM-07 asserts that the absence
+of them. It is recorded here rather than discovered later, and OBS-07 asserts that the absence
 degrades cleanly instead of half-working.
 
 ### Access
@@ -140,7 +141,9 @@ own `ingress` stays disabled so there is exactly one path in. No backend is ever
 Mimir, Loki, Tempo and the OTLP receiver are reachable only from inside the cluster.
 
 **Sign-in and authorization.** When `var.oidc` is set, Grafana's `auth.generic_oauth` is
-configured from it and **two roles are recognised**
+configured from it, and the platform role convention
+([ADR 013](../../adr/013-roles-are-carried-in-the-token.md)) applies with slug `grafana` —
+so **two roles are recognised**
 ([LOCAL-005](adr/LOCAL-005-two-grafana-roles-strict.md)):
 
 | Claim value | Grafana org role | Can |
@@ -185,9 +188,14 @@ enable_metrics_support = false   # at least one of the three must be true
 enable_logs_support    = false
 enable_traces_support  = false
 
+database = {          # required — Grafana's own state
+  host_port     = "postgres.example:5432"
+  database_name = "grafana"
+  secret_name   = "grafana-db"
+}
+
 gateway  = null   # exposes Grafana only; backends are never routed
 oidc     = null   # Grafana delegates authentication and authorization when set
-database = null   # Grafana's own state; SQLite on a PVC when null
 
 allow_local_login     = null   # null follows oidc — see below
 storage_node_selector = null   # e.g. { "kubernetes.io/hostname" = "k3s-01" }
@@ -199,6 +207,13 @@ Plus a namespace, chart versions, and a per-component values override.
 ([ADR 007](../../adr/007-modules-receive-credentials.md)). `oidc.groups_claim`, when set,
 replaces the default claim path for role lookup.
 
+**`database` is required, and there is no SQLite fallback.** Grafana's own state — users,
+preferences, annotations — is the only thing in this module that cannot be regenerated from
+git, and a SQLite file would put it on the node-pinned volume that is this module's weakest
+point. Making it required also means Grafana owns no volume at all, which takes one component
+out of `storage_node_selector`'s scope. The cost is stated plainly: **Grafana does not start
+without PostgreSQL**, and that is the module's one hard external dependency.
+
 **`allow_local_login` is the only input with a derived default**, because the safe value depends
 on another input:
 
@@ -209,8 +224,8 @@ on another input:
 | set | `true` | **on** — deliberate break-glass, kept for when the issuer is down |
 | `null` | `false` | rejected at plan time: nobody could sign in |
 
-**`storage_node_selector` applies to Mimir, Loki, Tempo and Grafana only** — the four
-components that own a volume. It must never reach `alloy-logs` or `node-exporter`: those are
+**`storage_node_selector` applies to Mimir, Loki and Tempo only** — the three components that
+own a volume. It must never reach `alloy-logs` or `node-exporter`: those are
 DaemonSets, and running on every node is the whole point of them. `nodeSelector` rather than
 `affinity`, because `kubernetes.io/hostname` is a built-in label on every node, so naming a
 specific machine needs no labelling step and no set expression. Where one component needs a
@@ -234,13 +249,13 @@ goes and finds them. No output, and no output's *value*, names a product.
 Feature: Grafana LGTM observability is independently switchable and self-correlating
 
   @plan
-  Scenario: [LGTM-01] At least one component is required
+  Scenario: [OBS-01] At least one component is required
     Given all three enable flags are false
     When terraform plan runs
     Then it fails with a validation error naming the three flags
 
   @cluster
-  Scenario: [LGTM-02] Logs alone
+  Scenario: [OBS-02] Logs alone
     Given only enable_logs_support is true
     When the module is applied
     Then a loki Application exists
@@ -248,27 +263,26 @@ Feature: Grafana LGTM observability is independently switchable and self-correla
      And Grafana has exactly one datasource, of type loki
 
   @cluster
-  Scenario: [LGTM-03] The service graph is wired when both ends exist
+  Scenario: [OBS-03] The service graph is wired when both ends exist
     Given enable_metrics_support and enable_traces_support are true
     When the module is applied
     Then the Tempo datasource has serviceMap.datasourceUid set to the Mimir datasource
      And Tempo's metrics-generator is enabled and remote-writing to Mimir
-     And traces_service_graph_request_total is queryable in Mimir once spans have arrived
 
   @cluster
-  Scenario: [LGTM-04] Grafana survives metrics being off
+  Scenario: [OBS-04] Grafana survives metrics being off
     Given enable_metrics_support is false
     When the module is applied
     Then the Grafana Application still exists
 
   @cluster
-  Scenario: [LGTM-05] Only Grafana is exposed
+  Scenario: [OBS-05] Only Grafana is exposed
     Given a gateway is supplied
     When HTTPRoutes in the namespace are listed
     Then exactly one exists, addressing the Grafana Service
 
   @cluster
-  Scenario: [LGTM-06] Scraping needs no address and no conversion
+  Scenario: [OBS-06] Scraping needs no address and no conversion
     Given enable_metrics_support is true
      And a workload's chart sets serviceMonitor.enabled to true
     When that chart is applied
@@ -277,63 +291,85 @@ Feature: Grafana LGTM observability is independently switchable and self-correla
      And the workload was given no endpoint of any kind
 
   @cluster
-  Scenario: [LGTM-07] Traces without metrics degrades cleanly
+  Scenario: [OBS-07] Traces without metrics degrades cleanly
     Given enable_traces_support is true and enable_metrics_support is false
     When the Tempo datasource is read
     Then serviceMap is unset
      And Tempo's metrics-generator is disabled
      And no Service Graph tab offers a query that cannot be answered
 
-  @cluster
-  Scenario: [LGTM-08] One neutral address ingests what cannot be scraped
-    Given all three enable flags are true
+  @plan
+  Scenario: [OBS-08] The published address names no product
+    Given any combination of enable flags
     When otlp_endpoint is read
-    Then it addresses a Service named otlp, naming no product
-    When a workload exports traces, metrics and logs to it over OTLP
-    Then each arrives in Tempo, Mimir and Loki respectively
+    Then it addresses a Service named otlp
 
   @cluster
-  Scenario: [LGTM-09] The collector costs only what is switched on
+  Scenario: [OBS-09] The collector costs only what is switched on
     Given only enable_metrics_support is true
     When Alloy workloads in the namespace are listed
     Then alloy-metrics and alloy-receiver exist
      And no alloy-logs DaemonSet and no alloy-singleton exist
 
   @cluster
-  Scenario: [LGTM-10] Nothing alerts
+  Scenario: [OBS-10] Nothing alerts
     Given any combination of enable flags
     When the module is applied
     Then no Alertmanager is running in the namespace
      And Grafana has no provisioned alert rules and no contact points
 
   @cluster
-  Scenario: [LGTM-11] Storage placement is chosen, and DaemonSets are exempt
+  Scenario: [OBS-11] Storage placement is chosen, and DaemonSets are exempt
     Given storage_node_selector names a node
     When the module is applied
-    Then every Mimir, Loki, Tempo and Grafana pod runs on that node
+    Then every Mimir, Loki and Tempo pod runs on that node
      And alloy-logs and node-exporter still run on every node
 
   @cluster
-  Scenario: [LGTM-12] Two roles, and nothing else gets in
+  Scenario Outline: [OBS-12] Roles come from the token, and nothing else gets in
     Given an oidc issuer is supplied
-    When a person whose token carries GRAFANA_ADMIN signs in
-    Then they hold the Admin org role
-    When a person whose token carries GRAFANA_VIEWER signs in
-    Then they hold the Viewer org role
-    When a person whose token carries neither signs in
-    Then the login is refused, and no account is created
+    When a person whose token carries <claim> signs in
+    Then the result is <outcome>
+
+    Examples:
+      | claim            | outcome                              |
+      | GRAFANA_ADMIN    | the Admin org role                   |
+      | GRAFANA_VIEWER   | the Viewer org role                  |
+      | no recognised role | a refused login, and no account    |
 
   @plan
-  Scenario: [LGTM-13] Local login follows oidc, and cannot lock everyone out
-    Given oidc is null and allow_local_login is null
+  Scenario Outline: [OBS-13] Local login follows oidc, and cannot lock everyone out
+    Given oidc is <oidc> and allow_local_login is <override>
     When terraform plan runs
-    Then Grafana's login form is enabled
-    Given oidc is set and allow_local_login is null
+    Then <outcome>
+
+    Examples:
+      | oidc | override | outcome                             |
+      | null | null     | the login form is enabled           |
+      | set  | null     | the login form is disabled          |
+      | set  | true     | the login form is enabled           |
+      | null | false    | the plan fails, naming both inputs  |
+
+  @plan
+  Scenario: [OBS-14] A database is mandatory
+    Given database is null
     When terraform plan runs
-    Then Grafana's login form is disabled
-    Given oidc is null and allow_local_login is false
-    When terraform plan runs
-    Then it fails, naming both inputs
+    Then it fails
+     And SQLite is never selected as a fallback
+
+  @cluster
+  Scenario: [OBS-15] One address ingests every signal that cannot be scraped
+    Given all three enable flags are true
+     And a workload configured only with otlp_endpoint
+    When it exports traces, metrics and logs over OTLP
+    Then each arrives in Tempo, Mimir and Loki respectively
+
+  @cluster
+  Scenario: [OBS-16] The service graph is populated by real traffic
+    Given the module is applied with metrics and traces enabled
+     And a workload exporting spans to otlp_endpoint has served requests
+    When Mimir is queried for traces_service_graph_request_total
+    Then a series exists naming that workload
 ```
 
 ## Open items

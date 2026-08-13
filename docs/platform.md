@@ -1,6 +1,6 @@
 # Platform specification
 
-**Status:** draft · **Satisfies:** [REQ-05, REQ-06, REQ-08, REQ-09, REQ-10, REQ-12](requirements.md) ·
+**Status:** draft · **Satisfies:** [REQ-05, REQ-06, REQ-08, REQ-09, REQ-10, REQ-12, REQ-13](requirements.md) ·
 **Decisions:** [ADR 005](adr/005-modules-are-applicationsets.md),
 [ADR 007](adr/007-modules-receive-credentials.md),
 [ADR 010](adr/010-resources-delivered-via-chart.md),
@@ -9,9 +9,9 @@
 
 ## Intent
 
-Provision workload-facing platform services — observability, identity, secrets and audit —
-onto existing k3s clusters, in a way that is still understandable after six months of not
-being touched.
+Provision workload-facing platform services — observability, identity and audit — onto
+existing k3s clusters, in a way that is still understandable after six months of not being
+touched.
 
 The measure of success is not uptime. It is that a person returning to this repo can tell
 what runs, why it was chosen, and what happens if they change it.
@@ -67,15 +67,16 @@ One unit calls one module, which usually deploys more than one workload.
 ## Scope
 
 **In scope.** Argo CD `ApplicationSet`/`Application` resources and their configuration, for:
-observability (metrics, logs, traces), OIDC identity, secret storage and delivery, audit trail
-management — per environment.
+observability (metrics, logs, traces), OIDC identity, audit trail management — per
+environment.
 
 **Out of scope.** Cluster bootstrap. Argo CD itself. Traefik and the Gateway. PostgreSQL
 ([ADR 008](adr/008-postgresql-is-external.md)). Backup of anything above. All of these are now
 per-environment prerequisites rather than single ones.
 
-That last exclusion is the one with teeth: REQ-04 holds only as long as OpenBao's storage
-does, and nothing here makes that so.
+**Secret storage and delivery is also out of scope, and that is the exclusion with teeth.**
+Every `secret_name` a module declares names a Secret somebody creates by hand, per environment,
+and again after every rebuild. See [the open questions](requirements.md#open-questions).
 
 ## Assumptions
 
@@ -121,6 +122,11 @@ Three rules follow, and hold across every module:
 3. **A module declares what it needs, not when or by whom it is satisfied.** A `secret_name`
    that does not resolve yet is an operational state, not a spec violation. This is the same
    rule that lets `database` name a PostgreSQL this repo never provisions.
+4. **What a person may do comes from the token, not the workload.** A consumer wired to `oidc`
+   reads roles named `<SLUG>_ADMIN` / `<SLUG>_VIEWER` from `resource_access.<slug>.roles`, maps
+   them onto its own native roles, and refuses anyone carrying none
+   ([ADR 013](adr/013-roles-are-carried-in-the-token.md)). A workload that keeps its own
+   permission list satisfies REQ-01 and still fails [REQ-13](requirements.md).
 
 ## Module catalogue
 
@@ -129,7 +135,6 @@ listing the environment's units ([ADR 011](adr/011-environments-are-clusters.md)
 
 | Module | Provides | Consumes |
 | --- | --- | --- |
-| [`secret-manager-openbao`](modules/secret-manager-openbao/README.md) | OpenBao + External Secrets Operator | — |
 | [`openid-connect-zitadel`](modules/openid-connect-zitadel/README.md) | `issuer_url`, `discovery_url` | `database`, `gateway` |
 | [`observability-grafana-lgtm`](modules/observability-grafana-lgtm/README.md) | OTLP ingest endpoint, Grafana | `gateway`, `oidc`, `database` |
 | [`audit-management-auditum`](modules/audit-management-auditum/README.md) | audit record API | `database`, `gateway` |
@@ -193,6 +198,6 @@ Tracked in [requirements.md](requirements.md#open-questions), owned by the specs
 that would resolve them:
 
 - **What is Auditum for?** — [audit-management-auditum](modules/audit-management-auditum/README.md)
-- **How does OpenBao unseal?** —
-  [secret-manager-openbao LOCAL-002](modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md)
+- **What creates the Secrets every module references?** — nothing, today. See
+  [requirements.md](requirements.md#open-questions)
 - **Which state backend?** — [ADR 012](adr/012-state-is-per-environment.md)

@@ -1,6 +1,6 @@
 # LOCAL-001. Observability: the Grafana stack, three single-binary components
 
-**Status:** proposed · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context
@@ -55,12 +55,14 @@ operator, no distributed topology anywhere in the module.
   genuinely independent: `traces` without `metrics` drags in nothing extra. That property is
   what [REQ-02](../../../requirements.md) is actually asking for, and it is the reason the
   monolithic `tempo` chart is used rather than `tempo-distributed`.
-- **Grafana's own state goes to PostgreSQL**, through the standard `database` contract
-  ([ADR 007](../../../adr/007-modules-receive-credentials.md)). Every environment is already
+- **Grafana's own state goes to PostgreSQL, and `database` is required** — the standard contract
+  ([ADR 007](../../../adr/007-modules-receive-credentials.md)), and every environment is already
   assumed to have a reachable PostgreSQL, so this is an existing contract being used rather than
-  a new dependency — and it removes the one volume in the module holding state that cannot be
-  regenerated from git. Datasources and dashboards are provisioned from values; users,
-  preferences and annotations are not.
+  a new dependency. Datasources and dashboards are provisioned from values and regenerate from
+  git; users, preferences and annotations do not. Allowing the chart's SQLite default would put
+  the only irreplaceable state in the module onto the node-pinned volume that is its weakest
+  point, so the fallback is removed rather than merely discouraged. It also leaves Grafana owning
+  no volume at all.
 
 ## Consequences
 
@@ -71,7 +73,7 @@ operator, no distributed topology anywhere in the module.
   what [REQ-09](../../../requirements.md) exists to permit.
 - **The service graph needs metrics and traces both on.** The signals stay independently
   switchable, but the headline feature spans two of them, so REQ-02's independence is now "each
-  is optional" rather than "each is complete alone". Asserted by LGTM-07.
+  is optional" rather than "each is complete alone". Asserted by OBS-07.
 - **Metrics costs a chart this repo maintains** — see
   [LOCAL-002](LOCAL-002-mimir-monolithic-chart.md), which is the contested half of this decision
   and has its own ADR for that reason.

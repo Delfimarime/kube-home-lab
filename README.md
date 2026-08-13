@@ -26,7 +26,6 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | --- | --- |
 | `observability-grafana-lgtm` | metrics, logs and traces — each independently switchable — behind one Grafana |
 | `openid-connect-zitadel` | one OIDC issuer for the environment |
-| `secret-manager-openbao` | secret storage, and delivery into namespaces |
 | `audit-management-auditum` | an audit record API |
 
 ## Rationale
@@ -105,19 +104,17 @@ somewhere. Convenience is the whole justification: they are here because there w
 cluster, not because the platform layer wants to own them. Anything that outgrows that — a
 managed instance, a box under the desk — leaves this directory without the platform noticing.
 
-Simplified means what it says. A dependency is one directory holding `.iac/` and
-`.deploy-values/`, driven by [`deploy.sh`](deploy.sh) against plain OpenTofu — no Terragrunt,
-no `_envcommon`, no per-environment unit. A `helm/` beside them is a chart this repo authors
-because no upstream one fits, which is the custom case
-[ADR 010](docs/adr/010-resources-delivered-via-chart.md) already allows. It still publishes
-what consumers need:
-`dependencies/postgresql` emits the `database` contract that
-[ADR 007](docs/adr/007-modules-receive-credentials.md) defines, in the same shape a module
+Simplified means what it says. A dependency is one directory holding `.iac/` and its own
+values, applied with plain OpenTofu — no Terragrunt, no `_envcommon`, no per-environment unit,
+and no ADR. A `helm/` beside them is a chart this repo authors because no upstream one fits. It
+still publishes what consumers need: `dependencies/postgresql` emits the `database` contract
+that [ADR 007](docs/adr/007-modules-receive-credentials.md) defines, in the same shape a module
 would. What it does not get is the rest of the platform's ceremony.
 
-```sh
-./deploy.sh apply dependencies/postgresql          # .deploy-values/local.tfvars
-```
+**None of this changes what the platform assumes.**
+[ADR 008](docs/adr/008-postgresql-is-external.md) still holds: PostgreSQL is external, and no
+module knows or cares whether the instance it addresses came from here, from a managed service,
+or from a box under the desk.
 
 ```sh
 export KUBECONFIG=~/.kube/config

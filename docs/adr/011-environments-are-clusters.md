@@ -50,9 +50,8 @@ flag and no inventory file: `ls <env>/` is the answer.
 ## Consequences
 
 - Every module an environment ships runs in that environment's cluster. N environments means
-  N OpenBaos, N Zitadels, N Grafanas — and N copies of any per-instance problem, the seal
-  ([secret-manager-openbao LOCAL-002](../modules/secret-manager-openbao/adr/LOCAL-002-openbao-seal.md))
-  most of all.
+  N Zitadels, N Grafanas — and N copies of any per-instance problem, operated N times by the
+  same one person.
 - **Identities are per environment.** Each cluster runs its own issuer, so an account in one
   is not an account in another. [REQ-01](../requirements.md) is scoped accordingly.
   Federating them is machinery this lab does not need.
