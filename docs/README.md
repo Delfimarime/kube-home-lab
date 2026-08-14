@@ -24,6 +24,11 @@ Start at [requirements.md](requirements.md) if you are new. Start at a module's 
 are about to change that module — its spec, its decisions and (later) its Terraform are all
 in the one place.
 
+[system-design.md](system-design.md) is a fifth thing and not a layer: one page compiling all
+four into a single read-through. It is **derived and will drift** — it restates, which every
+other file here is forbidden from doing. Change the layer, not the summary; when they disagree,
+the layer wins.
+
 ## Specifications
 
 | Spec | Covers |
