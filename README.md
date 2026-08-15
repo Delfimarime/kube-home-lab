@@ -24,7 +24,8 @@ Provision workload-facing platform services. Each environment ships the ones it 
 
 | Module | Provides |
 | --- | --- |
-| `observability-grafana-lgtm` | metrics, logs and traces — each independently switchable — behind one Grafana |
+| `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
+| `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-zitadel` | one OIDC issuer for the environment |
 | `audit-management-auditum` | an audit record API |
 

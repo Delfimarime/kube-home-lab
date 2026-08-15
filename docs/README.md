@@ -34,7 +34,8 @@ the layer wins.
 | Spec | Covers |
 | --- | --- |
 | [platform](platform.md) | domain model, assumptions, the `gateway`/`database`/`oidc` contracts, environments |
-| [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | metrics, logs, traces, Grafana |
+| [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | collecting metrics, logs and traces, and storing them |
+| [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
 | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | the OIDC issuer |
 | [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
 
@@ -53,17 +54,20 @@ the layer wins.
 | [011](adr/011-environments-are-clusters.md) | An environment is a cluster; Terragrunt layers them | accepted |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and belongs in its own cluster | **proposed** |
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
+| [014](adr/014-exposed-does-not-mean-authorized.md) | Exposed does not mean authorized | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md) | OIDC provider is Zitadel | accepted |
-| [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
-| [observability LOCAL-002](modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |
-| [observability LOCAL-003](modules/observability-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |
-| [observability LOCAL-004](modules/observability-grafana-lgtm/adr/LOCAL-004-no-alerting.md) | No alerting | accepted |
-| [observability LOCAL-005](modules/observability-grafana-lgtm/adr/LOCAL-005-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
+| [observability-storage LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
+| [observability-storage LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |
+| [observability-storage LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |
+| [observability-storage LOCAL-004](modules/observability-storage-grafana-lgtm/adr/LOCAL-004-storage-split-from-console.md) | Storage splits from the console; the receiver gets a route | accepted |
+| [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
+| [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
+| [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |
 
 Which requirement each decision serves is in the
 [traceability matrix](requirements.md#traceability).
@@ -80,6 +84,12 @@ nine, and it makes an ADR reference recognisable on sight.
 ADRs restart at 001 per module and carry the `LOCAL-` prefix:** `LOCAL-001`, in
 `LOCAL-001-<slug>.md`. A module ADR is local to its module — no module cites another module's
 ADR, and none should need to.
+
+**One decision strains that**, and it is worth knowing where. `observability-storage-grafana-lgtm`
+`LOCAL-001` argues for the Grafana stack *and* for Grafana as the query surface, so it covers
+both observability modules. It stays with the stores; the console spec restates the pairing in
+prose rather than citing across. Splitting one coherent argument in half would have cost more
+than the restatement does.
 
 **Citation runs one way only: a module ADR may cite a platform ADR; a platform ADR never cites
 a module one.** A platform decision that needed a module's reasoning to stand up would not be
@@ -100,7 +110,7 @@ constrains:
 
 ```
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` · **Date:** …
+**Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` · **Date:** …
 ```
 
 ### Module specs

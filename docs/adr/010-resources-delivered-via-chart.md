@@ -1,6 +1,6 @@
 # 010. Resources are delivered via chart, not Terraform-created manifests
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 · revised 2026-08-15
 
 ## Context
 
@@ -62,13 +62,13 @@ doesn't cover, without needing a new ADR to say so again.
 
 ## Consequences
 
-- `observability-grafana-lgtm` and `openid-connect-zitadel` are both the native case for their
-  `HTTPRoute` today — no code to migrate, since neither had a working route mechanism
+- `observability-console-grafana` and `openid-connect-zitadel` are both the native case for
+  their `HTTPRoute` today — no code to migrate, since neither had a working route mechanism
   implemented yet.
 - **A module can be both cases at once, for different resources.**
-  `observability-grafana-lgtm` is native for its route and custom for its metrics store, where
-  no upstream chart covers the deployment mode it needs. The three cases are chosen per chart,
-  not per module.
+  `observability-storage-grafana-lgtm` is custom for its metrics store, where no upstream chart
+  covers the deployment mode it needs, and wrapped for its collector, whose chart renders no
+  route at all. The three cases are chosen per chart, not per module.
 - `audit-management-auditum` is the custom case: its `ConfigMap`, `Deployment`,
   `PodDisruptionBudget`, `Service` and (when `gateway` is set) `HTTPRoute` all become
   templates in a chart local to this repo, replacing the earlier "static manifests" approach —
@@ -79,5 +79,8 @@ doesn't cover, without needing a new ADR to say so again.
 - **Chart versions are pinned exactly**, which is what keeps a native chart's Gateway API values
   from changing under us silently; a schema change on upgrade is a deliberate edit, not a
   surprise. That applies to every chart a module references, upstream or local.
-- No module needs the wrapped case yet. It exists as the fallback for the next chart that
-  doesn't render what's needed natively.
+- **The wrapped case is in use.** `observability-storage-grafana-lgtm` ships
+  `k8s-monitoring-routed`, which declares the upstream collector chart as a Helm dependency and
+  adds one route template on top — the collector's chart renders no Gateway API resource for its
+  OTLP receiver. This file originally recorded that no module needed the case yet; it now has a
+  worked example. The cost it carries is two pinned versions, its own and the dependency's.

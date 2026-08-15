@@ -1,6 +1,6 @@
 # LOCAL-003. Scrape first; publish one neutral address for what cannot be scraped
 
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context

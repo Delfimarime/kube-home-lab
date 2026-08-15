@@ -51,11 +51,23 @@ unreadable: that object lives in etcd, unencrypted at rest under k3s defaults, a
 by anything holding RBAC to read it. Narrowing *that* exposure is secret storage, which is out
 of scope and unsolved — see [the open questions](#open-questions).
 
+**REQ-06's boundary.** It claims *reachability* — that exposure is an act rather than a default
+— and says nothing about what happens to a request once it arrives. Every exposed surface here
+was a UI that authorizes itself until the observability storage module began routing an OTLP
+ingest endpoint, which has no notion of a person and nothing in this repo gives it one.
+Authorization on such an endpoint belongs to the Gateway, and the Gateway is a per-environment
+prerequisite this repo never provisions
+([ADR 014](adr/014-exposed-does-not-mean-authorized.md), and `OBS-21` checks that the endpoint
+is both unauthenticated and write-only). The gap is deliberate; REQ-06 is simply not claiming
+more than it delivers.
+
 **REQ-08's boundary.** *Provisions* is the operative word. Cluster bootstrap, Argo CD itself,
 Traefik and the Gateway, and PostgreSQL are per-environment prerequisites this repo never
 creates ([platform scope](platform.md#scope)) — and every Secret a module references is created
-by hand today. REQ-08 claims reconciliation over what this repo declares, not over everything
-running in the cluster.
+by hand today. An alert rule authored in Grafana's UI is in the same category: this repo
+provisions no alert rule, so one that exists is outside the claim rather than in violation of
+it. REQ-08 claims reconciliation over what this repo declares, not over everything running in
+the cluster.
 
 **REQ-12's boundary.** It covers everything this repo provisions: separate clusters, separate
 Argo CDs, separate state. It does not cover shared external dependencies — one PostgreSQL
@@ -72,18 +84,18 @@ decisions are cited as `<module> LOCAL-NNN`.
 
 | Requirement | Decided in | Specified in | Verified by |
 | --- | --- | --- | --- |
-| REQ-01 one identity | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md) | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | OIDC-01, OIDC-02, OIDC-03, OBS-13 |
-| REQ-02 independent signals | [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | OBS-01, OBS-02, OBS-03, OBS-07 |
-| REQ-03 one query surface | [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | OBS-04 |
+| REQ-01 one identity | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md) | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | OIDC-01, OIDC-02, OIDC-03, CON-08 |
+| REQ-02 independent signals | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | OBS-01, OBS-17, OBS-19, OBS-22, CON-05 |
+| REQ-03 one query surface | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-02, CON-03, CON-04 |
 | REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md) | [platform](platform.md) | PLAT-02, OIDC-05, AUD-02 |
-| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-05, AUD-04 |
+| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, CON-06, AUD-04 |
 | REQ-07 audit records | [ADR 008](adr/008-postgresql-is-external.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [audit-management-auditum](modules/audit-management-auditum/README.md) | AUD-01, AUD-03, AUD-05 |
 | REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [platform](platform.md) | PLAT-01 |
-| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability LOCAL-003](modules/observability-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08 |
-| REQ-10 fits a tiny cluster | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability LOCAL-001](modules/observability-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability LOCAL-002](modules/observability-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09 |
+| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08 |
+| REQ-10 fits a tiny cluster | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09 |
 | REQ-11 recoverable decisions | every ADR | this repository | — |
 | REQ-12 environments don't interfere | [ADR 011](adr/011-environments-are-clusters.md), [ADR 012](adr/012-state-is-per-environment.md) | [platform](platform.md) | PLAT-05 |
-| REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [observability LOCAL-005](modules/observability-grafana-lgtm/adr/LOCAL-005-two-grafana-roles-strict.md) | [platform](platform.md), [observability-grafana-lgtm](modules/observability-grafana-lgtm/README.md) | OBS-12 |
+| REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [observability-console-grafana LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | [platform](platform.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-07 |
 
 REQ-11 has no scenario because it is checked by a person reading, not by a machine asserting.
 It is listed anyway, because it is the requirement that justifies the ADRs existing at all.

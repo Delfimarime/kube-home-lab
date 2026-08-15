@@ -59,7 +59,7 @@ gateway = {             # required in practice: an unreachable issuer is useless
 
 masterkey_secret_name = "zitadel-masterkey"
 
-metrics_enabled = false   # set from observability-grafana-lgtm's `metrics_enabled` output
+metrics_enabled = false   # set from observability-storage-grafana-lgtm's `metrics_enabled` output
 ```
 
 ## Outputs

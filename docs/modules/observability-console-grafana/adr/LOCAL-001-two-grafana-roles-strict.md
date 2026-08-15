@@ -1,6 +1,6 @@
-# LOCAL-005. Applying the role convention to Grafana
+# LOCAL-001. Applying the role convention to Grafana
 
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-console-grafana` ·
 **Date:** 2026-08-12
 
 ## Context

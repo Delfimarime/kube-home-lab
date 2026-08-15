@@ -1,7 +1,11 @@
-# LOCAL-004. No alerting
+# LOCAL-002. No alerting
 
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
-**Date:** 2026-08-12
+**Status:** superseded by [LOCAL-003](LOCAL-003-alerting-lives-in-grafana.md) ·
+**Scope:** module — `observability-console-grafana` ·
+**Date:** 2026-08-12 · superseded 2026-08-15
+
+Written while the storage components and Grafana were one module, and numbered `LOCAL-004`
+there. Both the number and the folder changed when that module split; the argument did not.
 
 ## Context
 
@@ -9,7 +13,7 @@ Alerting is not a component this module has to install. It is already present tw
 things being installed for other reasons, which is what makes the question worth an ADR rather
 than an omission.
 
-Mimir's `-target=all` ([LOCAL-002](LOCAL-002-mimir-monolithic-chart.md)) **already runs the
+Mimir's `-target=all` **already runs the
 ruler**, and its Alertmanager joins the same process with `-target=all,alertmanager`. Grafana
 ships Unified Alerting, which evaluates rules against any datasource and routes notifications
 itself. Both are free in pod count. Neither is free in maintenance.
@@ -65,8 +69,9 @@ This module delivers observability. It does not deliver notification.
   consequence.
 - **The curated Kubernetes alert rules are declined, not lost.** They remain plain PromQL, and
   the path to using them stays open.
-- OBS-10 asserts the absence, because a chart value flipping alerting back on by default is
-  exactly the kind of thing that arrives unnoticed in a version bump.
+- The spec asserted the absence in an acceptance scenario, because a chart value flipping
+  alerting back on by default is exactly the kind of thing that arrives unnoticed in a version
+  bump.
 - **Reversible, precisely:** append `,alertmanager` to Mimir's target, point
   `ruler_storage.backend` at `local` over a mounted ConfigMap of rule files, and set
   `-ruler.alertmanager-url` at the local instance. One pod, unchanged. Grafana can then be

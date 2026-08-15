@@ -5,7 +5,8 @@
 [ADR 007](adr/007-modules-receive-credentials.md),
 [ADR 010](adr/010-resources-delivered-via-chart.md),
 [ADR 011](adr/011-environments-are-clusters.md),
-[ADR 012](adr/012-state-is-per-environment.md) · **Date:** 2026-08-05
+[ADR 012](adr/012-state-is-per-environment.md),
+[ADR 014](adr/014-exposed-does-not-mean-authorized.md) · **Date:** 2026-08-05
 
 ## Intent
 
@@ -105,7 +106,7 @@ switch someone has to remember to check.
 
 | Variable | Meaning when set | Meaning when `null` |
 | --- | --- | --- |
-| `gateway` | emit an `HTTPRoute` for this workload's UI | not exposed outside the cluster |
+| `gateway` | emit a route for this workload | not exposed outside the cluster |
 | `database` | connect to this PostgreSQL, credentials from a Secret | no database, or module fails if required |
 | `oidc` | delegate authentication to this issuer | local authentication only |
 
@@ -113,7 +114,7 @@ Shapes are defined in [ADR 007](adr/007-modules-receive-credentials.md). How a m
 `gateway` into resources is a separate, per-module decision — see
 [ADR 010](adr/010-resources-delivered-via-chart.md).
 
-Three rules follow, and hold across every module:
+Five rules follow, and hold across every module:
 
 1. **A credential is passed by reference, never by value.** `secret_name` plus a key, never
    a password. No secret reaches a values.yaml, and therefore none reaches the rendered Helm
@@ -127,6 +128,13 @@ Three rules follow, and hold across every module:
    them onto its own native roles, and refuses anyone carrying none
    ([ADR 013](adr/013-roles-are-carried-in-the-token.md)). A workload that keeps its own
    permission list satisfies REQ-01 and still fails [REQ-13](requirements.md).
+5. **Exposure is not authorization.** `gateway` says a request can arrive, and nothing more. A
+   module authorizes where its workload natively can — Grafana delegates to an issuer and
+   refuses anyone carrying no role. Where the workload cannot, that job belongs to the Gateway,
+   which this repo does not provision, so no environment configured here adds it
+   ([ADR 014](adr/014-exposed-does-not-mean-authorized.md)). The observability storage module's
+   OTLP ingest endpoint is the case where this bites, and the reason it is acceptable there is
+   that the surface is write-only.
 
 ## Module catalogue
 
@@ -136,11 +144,19 @@ listing the environment's units ([ADR 011](adr/011-environments-are-clusters.md)
 | Module | Provides | Consumes |
 | --- | --- | --- |
 | [`openid-connect-zitadel`](modules/openid-connect-zitadel/README.md) | `issuer_url`, `discovery_url` | `database`, `gateway` |
-| [`observability-grafana-lgtm`](modules/observability-grafana-lgtm/README.md) | OTLP ingest endpoint, Grafana | `gateway`, `oidc`, `database` |
+| [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | OTLP ingest endpoint, one address per store | `gateway` |
+| [`observability-console-grafana`](modules/observability-console-grafana/README.md) | Grafana | `gateway`, `oidc`, `database`, and the store addresses |
 | [`audit-management-auditum`](modules/audit-management-auditum/README.md) | audit record API | `database`, `gateway` |
 
 Modules an environment ships are deployed into that environment's cluster only. Nothing here
 is shared between environments.
+
+**The two observability modules are the one provider/consumer pair inside the catalogue**, and
+what passes between them is not a shared contract — it is three plain addresses, one per store
+the environment actually runs. That is the ordinary provider/consumer rule rather than an
+exception to it: the storage module publishes its own addresses and knows nothing about who
+reads them. An environment may ship the storage module alone; shipping only the console leaves
+it with nothing to point at, which its own validation refuses.
 
 ## Acceptance criteria
 
@@ -173,7 +189,7 @@ Feature: Platform provisioning
   Scenario: [PLAT-04] A wired module is reachable
     Given a module applied with a gateway and hostname
     When that hostname is requested through the Gateway
-    Then the workload's UI responds
+    Then the workload responds
 
   @plan
   Scenario: [PLAT-05] An environment plans against its own cluster only

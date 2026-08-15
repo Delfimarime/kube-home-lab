@@ -1,6 +1,6 @@
 # LOCAL-001. Observability: the Grafana stack, three single-binary components
 
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context

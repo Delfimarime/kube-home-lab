@@ -1,6 +1,6 @@
 # LOCAL-002. Mimir runs monolithic, from a chart this repo authors
 
-**Status:** accepted · **Scope:** module — `observability-grafana-lgtm` ·
+**Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-12
 
 ## Context
@@ -28,12 +28,13 @@ stack does not use the M.
 ## Decision
 
 Run Mimir as a single process from a chart authored in this repository, at
-`modules/observability-grafana-lgtm/helm/mimir-monolithic/`:
+`modules/observability-storage-grafana-lgtm/helm/mimir-monolithic/`:
 
 - `-target=all` — one binary, one StatefulSet, one pod
 - `common.storage.backend: filesystem`, one PVC, no object store and no MinIO
 - `-auth.multitenancy-enabled=false`, so nothing anywhere carries `X-Scope-OrgID`
-- ruler and Alertmanager unused, per [LOCAL-004](LOCAL-004-no-alerting.md)
+- ruler and Alertmanager unused — nothing in this module alerts, and the console module owns
+  that decision
 
 The custom-chart case is the one
 [ADR 010](../../../adr/010-resources-delivered-via-chart.md) already allows, and
