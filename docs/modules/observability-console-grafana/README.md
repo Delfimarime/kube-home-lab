@@ -175,7 +175,7 @@ oidc    = null   # Grafana delegates authentication and authorization when set
 tenants        = ["lab"]   # one datasource per tenant per switched-on signal
 default_tenant = "lab"     # which of them Grafana marks as its default datasource
 
-trust_bundle_name = "lab-ca-bundle"   # the ConfigMap to mount; required whenever oidc is set
+trust_bundle_name = "cert-ca-bundle"   # the ConfigMap to mount; required whenever oidc is set
 ```
 
 Plus a namespace, the chart version, and a values override.

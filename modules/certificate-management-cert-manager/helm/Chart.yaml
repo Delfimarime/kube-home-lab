@@ -1,5 +1,5 @@
 apiVersion: v2
-name: lab-pki
+name: cert-pki
 description: >-
   The environment's two certificate authorities, the certificates they sign, the trust bundle
   every namespace receives, and the grant that lets the Gateway read them.

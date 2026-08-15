@@ -27,7 +27,7 @@ certificates:
       duration: 8760h
 
 trustBundle:
-  name: lab-ca-bundle
+  name: cert-ca-bundle
   authorities:
     - server
 

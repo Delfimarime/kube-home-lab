@@ -36,7 +36,7 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | --- | --- | --- | --- |
 | 0 | `cert-manager` | `cert-manager` (jetstack) | the controller, webhook, cainjector and CRDs |
 | 1 | `trust-manager` | `trust-manager` (jetstack) | the `Bundle` controller |
-| 2 | `lab-pki` | `lab-pki` — authored by this repo | the authorities, their certificates, the bundle, the grant |
+| 2 | `cert-pki` | `cert-pki` — authored by this repo | the authorities, their certificates, the bundle, the grant |
 
 **The waves are load-bearing**, for two different reasons. cert-manager's CRDs must exist before
 anything declares a `Certificate`. trust-manager issues its own webhook certificate *through*
@@ -54,7 +54,7 @@ controllers from the authorities means setting both, and forgetting either produ
 `ClusterIssuer` that never becomes ready and says only "secret not found". One namespace makes
 the first correct by default; the module sets both explicitly anyway.
 
-**`lab-pki` is the custom case** of [ADR 010](../../adr/010-resources-delivered-via-chart.md):
+**`cert-pki` is the custom case** of [ADR 010](../../adr/010-resources-delivered-via-chart.md):
 there is no upstream chart for "this lab's authorities", so this repo authors one. It renders,
 for each of the two authorities — `server` and `client`, which are not configurable:
 
@@ -143,7 +143,7 @@ default_certificate = { duration = "8760h" }   # 1y
 authority           = { duration = "87600h" }  # 10y — an authority outlives what it signs
 
 trust_bundle = {
-  name        = "lab-ca-bundle"
+  name        = "cert-ca-bundle"
   authorities = ["server"]      # which authorities every namespace is told to trust
 }
 

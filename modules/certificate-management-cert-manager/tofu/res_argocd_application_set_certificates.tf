@@ -59,7 +59,7 @@ resource "argocd_application_set" "certificates" {
         # only hides the field from the diff, and a sync triggered by any other resource still
         # pushes it. Both are needed, and each is useless against the other's failure.
         #
-        # It renders for lab-pki too, where it matches no webhook and does nothing — cheaper
+        # It renders for cert-pki too, where it matches no webhook and does nothing — cheaper
         # than templating it away per element.
         ignore_difference {
           group               = "admissionregistration.k8s.io"

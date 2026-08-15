@@ -21,5 +21,5 @@ module "cert_manager" {
   trust_bundle        = var.cert_manager.trust_bundle
   cert_manager        = { chart_version = var.cert_manager.chart_version }
   trust_manager       = var.cert_manager.trust_manager
-  lab_pki             = merge(var.cert_manager.lab_pki, { revision = var.git_revision  })
+  cert_pki            = merge(var.cert_manager.cert_pki, { revision = var.git_revision })
 }

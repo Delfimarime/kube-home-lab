@@ -21,7 +21,7 @@ certificates:
       renewBefore: 720h
 
 trustBundle:
-  name: lab-ca-bundle
+  name: cert-ca-bundle
   authorities:
     - server
 

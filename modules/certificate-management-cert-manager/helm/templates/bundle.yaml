@@ -9,7 +9,7 @@ kind: Bundle
 metadata:
   name: {{ .Values.trustBundle.name }}
   labels:
-    {{- include "lab-pki.labels" . | nindent 4 }}
+    {{- include "cert-pki.labels" . | nindent 4 }}
 spec:
   sources:
     # Not optional, and the whole safety of the thing: a bundle containing only the lab root,
@@ -21,7 +21,7 @@ spec:
     {{- fail (printf "trustBundle.authorities names %q, which is not an authority" $name) }}
     {{- end }}
     - secret:
-        name: {{ include "lab-pki.caName" (dict "root" $ "name" $name) }}
+        name: {{ include "cert-pki.caName" (dict "root" $ "name" $name) }}
         key: tls.crt
     {{- end }}
   target:

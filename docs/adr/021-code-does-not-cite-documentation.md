@@ -62,6 +62,6 @@ ADR describes what it affects. Nothing points back.
   ages.
 - **The guidance that said the opposite is withdrawn.** *"Code implements the spec and cites the
   ADRs it follows"* becomes *"code implements the spec and carries its reasons"*.
-- **This says nothing about code referencing code.** The `lab-pki` chart's `_helpers.tpl` notes
+- **This says nothing about code referencing code.** The `cert-pki` chart's `_helpers.tpl` notes
   that `locals.tf` restates its naming formulas, and that stays: both are files in this
   repository, both fail visibly when they disagree, and the round-trip check exists to prove it.

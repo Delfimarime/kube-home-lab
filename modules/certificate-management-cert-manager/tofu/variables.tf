@@ -125,7 +125,7 @@ variable "default_certificate" {
 
 variable "trust_bundle" {
   type = object({
-    name        = optional(string, "lab-ca-bundle")
+    name        = optional(string, "cert-ca-bundle")
     authorities = optional(list(string), ["server"])
   })
   description = "The ConfigMap every namespace receives, and which authorities it carries."
@@ -184,9 +184,9 @@ variable "trust_manager" {
   default     = {}
 }
 
-# lab-pki is read from git rather than a chart repository, so Argo CD must have this repository
+# cert-pki is read from git rather than a chart repository, so Argo CD must have this repository
 # registered as a source.
-variable "lab_pki" {
+variable "cert_pki" {
   type = object({
     repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
     path     = optional(string, "modules/certificate-management-cert-manager/helm")

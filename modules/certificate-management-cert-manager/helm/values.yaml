@@ -9,10 +9,10 @@ namespace: cert-manager
 # would leave that to the Gateway enforcing Extended Key Usage.
 authorities:
   server:
-    commonName: lab server CA
+    commonName: example.internal server CA
     duration: 87600h # the authority outlives what it signs
   client:
-    commonName: lab client CA
+    commonName: example.internal client CA
     duration: 87600h
 
 # One entry per certificate. `server` is always present; `client` is present only when the module
@@ -38,7 +38,7 @@ certificates: {}
 
 trustBundle:
   # The ConfigMap every namespace receives. Consumers mount this name.
-  name: lab-ca-bundle
+  name: cert-ca-bundle
   # Which authorities every namespace is told to trust. The client authority does not belong
   # here: nothing in-cluster verifies a client certificate.
   authorities:

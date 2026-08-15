@@ -14,7 +14,7 @@ metadata:
   name: gateway-reads-certificates
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "lab-pki.labels" . | nindent 4 }}
+    {{- include "cert-pki.labels" . | nindent 4 }}
 spec:
   from:
     - group: gateway.networking.k8s.io

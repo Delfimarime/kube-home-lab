@@ -1,5 +1,5 @@
 locals {
-  release = "lab-pki"
+  release = "cert-pki"
 
   # `default` is issued from var.domain and is not in var.certificates — the variable refuses that
   # key. Everything downstream reads this map, so the wildcard is an ordinary entry from here on.
@@ -93,7 +93,7 @@ locals {
   # The module resolves modes into shapes; the chart renders what it is given and has no notion of
   # "mtls". An entry carrying a `client` block is a pair — that presence *is* the mode, so there is
   # no second place where the two could disagree about what mtls means.
-  lab_pki_values = yamlencode({
+  cert_pki_values = yamlencode({
     namespace = var.namespace
 
     authorities = {
@@ -147,7 +147,7 @@ locals {
   # One static entry per chart, even though two of the three come from the same registry. The
   # waves are load-bearing and not cosmetic: cert-manager's CRDs must exist before trust-manager
   # declares a webhook Certificate against them, and both controllers must be running before
-  # lab-pki declares an Issuer.
+  # cert-pki declares an Issuer.
   charts = [
     {
       name        = "cert-manager"
@@ -174,13 +174,13 @@ locals {
     {
       name        = local.release
       source_kind = "git"
-      repo_url    = var.lab_pki.repo_url
+      repo_url    = var.cert_pki.repo_url
       chart       = ""
-      path        = var.lab_pki.path
-      revision    = var.lab_pki.revision
+      path        = var.cert_pki.path
+      revision    = var.cert_pki.revision
       namespace   = var.namespace
       wave        = "2"
-      values      = local.lab_pki_values
+      values      = local.cert_pki_values
     },
   ]
 }
