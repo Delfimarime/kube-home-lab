@@ -5,14 +5,14 @@ Guidance for AI coding agents (Claude Code, Codex, etc.) working in this reposit
 This file holds only what an implementer must not get wrong. Everything else is documented
 once, elsewhere, and linked — do not restate it here.
 
-| For | Read |
-| --- | --- |
-| What has to be true, and why | [docs/requirements.md](docs/requirements.md) |
-| The domain model, the contracts, and any behaviour spanning modules | [docs/platform.md](docs/platform.md#mechanisms) |
-| A specific module | `docs/modules/<module>/README.md` and its `adr/` |
-| Why a platform-wide choice was made | [docs/adr/](docs/README.md#decisions) |
-| Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
-| How to run anything | [README.md](README.md#layout) |
+| For                                                                 | Read                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------ |
+| What has to be true, and why                                        | [docs/requirements.md](docs/requirements.md)     |
+| The domain model, the contracts, and any behaviour spanning modules | [docs/platform.md](docs/platform.md#mechanisms)  |
+| A specific module                                                   | `docs/modules/<module>/README.md` and its `adr/` |
+| Why a platform-wide choice was made                                 | [docs/adr/](docs/README.md#decisions)            |
+| Doc conventions, ID schemes, statuses                               | [docs/README.md](docs/README.md#conventions)     |
+| How to run anything                                                 | [README.md](README.md#layout)                    |
 
 ## Repository structure
 
@@ -73,7 +73,7 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
   (meaning "not wired", never "disabled by a flag"): `gateway`, `database`, `oidc`. [ADR 007]
 - **A fourth input, `metrics`, is not one of them and is not a contract.** One field,
   `enabled`, defaulting to `false`, taken by every module whose workload can emit a
-  `ServiceMonitor`; it says the environment has the CRDs *and* a collector. A module with no
+  `ServiceMonitor`; it says the environment has the CRDs _and_ a collector. A module with no
   metrics endpoint doesn't take it. [ADR 016]
 - **Related inputs are one object, not a prefix.** `cert_manager.chart_version`, not
   `chart_versions.cert_manager`; `argocd.plain_text`, not `argocd_plain_text`. The object is the
@@ -115,7 +115,7 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
   [ADR 013]
 - **The tool is OpenTofu.** `tofu`, not `terraform`, in every runbook and every `@plan`
   scenario; `required_version` is an OpenTofu version and does not read across. "Terraform"
-  in these documents means the *language*. [ADR 019]
+  in these documents means the _language_. [ADR 019]
 - **Provider configuration comes from the environment, never from a variable** — `ARGOCD_SERVER`,
   `ARGOCD_AUTH_TOKEN`, `ARGOCD_INSECURE` — so no credential reaches a tfvars file or state. The
   single exception is a field the provider offers no environment variable for: `plain_text` is a
@@ -193,14 +193,14 @@ finite amount of RAM.
   module should not exist.
 - **Nothing backs up PostgreSQL**, and two things in it cannot be regenerated from git:
   Keycloak's realm and every Grafana alert rule. Don't add a third without saying so. OpenTofu
-  state is in a PostgreSQL too but a separate one, and it *is* regenerable
+  state is in a PostgreSQL too but a separate one, and it _is_ regenerable
   [ADR 012](docs/adr/012-state-is-per-environment.md).
 - **There is no secret manager.** REQ-04 was dropped along with the module that satisfied it,
   so every `secret_name` in the repo names something created by hand. Don't reintroduce one
   without a requirement above it.
 - **The identity model is not declared anywhere.** Keycloak's realm — its clients, their
   redirect URIs, the `<SLUG>_<ROLE>` roles [ADR 013] defines, and every grant — is created by
-  hand in a console. `KeycloakRealmImport` is a *partial* fix and is deferred: it applies rather
+  hand in a console. `KeycloakRealmImport` is a _partial_ fix and is deferred: it applies rather
   than reconciles, and a realm export embeds client secrets that REQ-05 forbids reaching a
   rendered `Application`. **This is the largest gap in the platform.** Don't paper over it by
   adding a module input that carries a role list.

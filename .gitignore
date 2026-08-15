@@ -201,5 +201,5 @@ docs/decisions
 deploy.sh
 prompt/
 
-# The root module pins providers; a called module gets one only from the offline check.
+.terraform.lock.hcl
 modules/*/tofu/.terraform.lock.hcl
