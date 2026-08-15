@@ -51,15 +51,16 @@ with the layer that is actually correct.
 | [007](adr/007-modules-receive-credentials.md) | Module input contracts; providers publish addresses | accepted |
 | [008](adr/008-postgresql-is-external.md) | PostgreSQL is external to this project | accepted |
 | [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted |
-| [011](adr/011-environments-are-clusters.md) | An environment is a cluster; Terragrunt layers them | accepted |
+| [011](adr/011-environments-are-clusters.md) | An environment is a cluster | accepted, layering superseded by 20 |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and lives in PostgreSQL | accepted |
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
 | [014](adr/014-exposed-does-not-mean-authorized.md) | Exposed does not mean authorized | accepted |
-| [015](adr/015-units-are-wired-by-hand.md) | Units are wired by hand; no unit reads another's state | accepted |
+| [015](adr/015-units-are-wired-by-hand.md) | Units are wired by hand; no unit reads another's state | superseded by 20 |
 | [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted |
 | [017](adr/017-stores-are-multi-tenant.md) | The stores are multi-tenant; the caller names its tenant | accepted |
 | [018](adr/018-one-trust-bundle-for-the-cluster.md) | One trust bundle for the cluster, not a mount per workload | accepted |
 | [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
+| [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 

@@ -11,7 +11,7 @@
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
-[ADR 015](../../adr/015-units-are-wired-by-hand.md),
+[ADR 020](../../adr/020-one-root-module.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md)
 
@@ -286,11 +286,11 @@ own input.
 | `traces_url` | the console, as a datasource — `null` unless traces are on |
 
 **There is no `metrics.enabled` output.** Whether an environment scrapes is an environment's
-fact, declared once in `env.hcl` and read by this module as `enable_metrics_support` and by
-every other module as `metrics.enabled`
-([ADR 015](../../adr/015-units-are-wired-by-hand.md),
-[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)). Publishing it here would
-invite a consumer to read it from this module's state, which nothing does.
+fact, declared once as a root variable and read by this module as `enable_metrics_support` and
+by every other module as `metrics.enabled`
+([ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
+[ADR 020](../../adr/020-one-root-module.md)). Publishing it here would invite a consumer to read
+an environment's fact out of this module, which is the wrong direction.
 
 **The three store addresses are the console's whole input, and they are nullable on purpose.**
 Handing the console three booleans instead would let "metrics are on" and "there is a Mimir to

@@ -10,10 +10,10 @@
 [ADR 012](adr/012-state-is-per-environment.md),
 [ADR 013](adr/013-roles-are-carried-in-the-token.md),
 [ADR 014](adr/014-exposed-does-not-mean-authorized.md),
-[ADR 015](adr/015-units-are-wired-by-hand.md),
 [ADR 016](adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](adr/017-stores-are-multi-tenant.md),
-[ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) ·
+[ADR 018](adr/018-one-trust-bundle-for-the-cluster.md),
+[ADR 020](adr/020-one-root-module.md) ·
 **Date:** 2026-08-05
 
 This is the system: what the parts are, how they fit together, and which decision owns each
@@ -58,7 +58,7 @@ Each environment's cluster exists and already runs:
   expected: one ordinary TLS, one demanding a client certificate — see
   [exposure and authorization](#exposure-and-authorization)
 - **PostgreSQL** — reachable, with a database and credentials per consumer, described in that
-  environment's `env.hcl`. Where it runs, and whether two environments share a server, is
+  environment's var file. Where it runs, and whether two environments share a server, is
   invisible to every module. OpenTofu's state lives in a PostgreSQL too
   ([ADR 012](adr/012-state-is-per-environment.md)) and is deliberately not assumed to be this
   one, or to be in this cluster
@@ -111,17 +111,19 @@ ownership, and "reconciled by Argo CD" is true of everything without exception.
 
 **Environment** — one Kubernetes cluster with its own Argo CD
 ([ADR 011](adr/011-environments-are-clusters.md)). Environments are configured independently and
-do not interfere ([REQ-12](requirements.md)). An environment ships a module by having a
-Terragrunt unit for it; there is no inventory file, so the tree cannot disagree with reality.
+do not interfere ([REQ-12](requirements.md)) — as far as the operator's shell carries that, which
+is where the guarantee now lives ([ADR 020](adr/020-one-root-module.md)). An environment ships a
+module by having a `module` block for it; there is no inventory file, so the composition cannot
+disagree with reality.
 
-Worth being pedantic about the rest of the vocabulary: a **unit** is a Terragrunt directory, a
-**module** is the OpenTofu it calls, and a **workload** is what ends up running in a pod. One
-unit calls one module, which usually deploys more than one workload.
+Worth being pedantic about the rest of the vocabulary: the **root module** is the composition at
+the repository root, a **module** is one of the things it calls, and a **workload** is what ends
+up running in a pod. One module usually deploys more than one workload.
 
 ## Components
 
 What an environment *may* ship — not what any particular one does. That is answered by listing
-the environment's units ([ADR 011](adr/011-environments-are-clusters.md)).
+the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.md)).
 
 | Module | Capability |
 | --- | --- |
@@ -144,13 +146,16 @@ list of them — a change to any is a change here first and in the modules secon
 
 ### Wiring
 
-**Nothing is wired automatically** ([ADR 015](adr/015-units-are-wired-by-hand.md)). No unit
-reads another unit's state; a value two units share — a hostname, a store address, a tenant
-list, `metrics.enabled` — is declared once in `env.hcl` or `_envcommon/` and read from there by
-both. There are no `dependency` blocks and no `mock_outputs`.
+**Modules are wired by reference, in the root module** ([ADR 020](adr/020-one-root-module.md)).
+A value one module publishes and another consumes — a store address, an issuer URL — is
+`module.<a>.<output>` passed into `module.<b>`: one graph, resolved at plan time, reading no
+state file. A value that belongs to the cluster rather than to any module — a hostname, a tenant
+list, `metrics.enabled` — is a root variable, declared once in that environment's var file and
+passed to each module that reads it.
 
-The consequence worth knowing: a hand-written value can disagree with what it describes, and
-nothing detects it. Deriving both sides from one declaration is what keeps that narrow.
+The consequence worth knowing: the *first* kind cannot disagree with what it describes, and the
+second still can. A hostname written down twice is two facts; deriving both from one root
+variable is what keeps that narrow.
 
 ### Exposure and authorization
 

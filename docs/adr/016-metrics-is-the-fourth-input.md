@@ -49,11 +49,11 @@ accepting it and ignoring it.
   future module with a `/metrics` endpoint will. An input that crosses module boundaries and
   appears in no shared document is one that will be spelled differently the fourth time.
 - **The alternative was considered and it is not obviously worse.** Installing the
-  Prometheus-operator CRD bundle unconditionally, in a unit of its own, would let every module
+  Prometheus-operator CRD bundle unconditionally, in a module of its own, would let every module
   always set `serviceMonitor.enabled`; an orphaned `ServiceMonitor` with no collector reading it
   is inert. It was rejected because it makes every environment carry observability CRDs whether
   or not it ships observability, and because it moves CRD ownership out of the module that
-  installs the collector and into a unit that exists for no other reason. Neither objection is
+  installs the collector and into a module that exists for no other reason. Neither objection is
   crushing, and this is the decision most likely to be revisited.
 - **The flag says more than "the CRDs exist".** It also says a collector is running that will
   read what the `ServiceMonitor` declares. A module declaring scraping into a cluster with the
@@ -65,7 +65,7 @@ accepting it and ignoring it.
 - **There are four cross-module inputs, not three**, and
   [the platform spec](../platform.md#contracts) says so. `Every consumer module takes the
   same three optional inputs` was true of wiring and never true of everything.
-- **It is copied by hand like everything else** ([ADR 015](015-units-are-wired-by-hand.md)), so
+- **It is a root variable passed to each module that reads it** ([ADR 020](020-one-root-module.md)), so
   it can disagree with the environment. Two failure modes, and they are usefully different:
   claiming scraping where the CRDs are absent fails the sync loudly; claiming it where the CRDs
   exist but no collector runs produces an object nobody reads, silently. The loud one is the

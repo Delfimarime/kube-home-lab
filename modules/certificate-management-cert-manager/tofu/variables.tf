@@ -9,19 +9,17 @@ variable "namespace" {
   default     = "certificates"
 }
 
-# Everything the provider can take from the environment does — ARGOCD_SERVER, ARGOCD_AUTH_TOKEN,
-# ARGOCD_INSECURE — so no credential reaches a tfvars file or state. `plain_text` is here because
-# the provider offers no environment variable for it, and that is the only reason a field
-# belongs in this object.
+# Only the namespace. Nothing about *reaching* Argo CD is a module input: ARGOCD_SERVER,
+# ARGOCD_AUTH_TOKEN and ARGOCD_INSECURE come from the operator's environment so no credential
+# reaches a tfvars file or state, and `plain_text` — the one field with no environment variable —
+# is read from `env.hcl` by the provider block `root.hcl` generates. This module never sees it.
 #
-# `plain_text = true` matches how Argo CD is normally reached here: a port-forward, or an
-# in-cluster address where TLS terminates elsewhere. It is a default, not a recommendation.
+# Where the ApplicationSet object is created is a different question, and that one is ours.
 variable "argocd" {
   type = object({
-    namespace  = optional(string, "argocd")
-    plain_text = optional(bool, true)
+    namespace = optional(string, "argocd")
   })
-  description = "Where the ApplicationSet is created, and the one provider field the environment cannot carry."
+  description = "Where the ApplicationSet is created."
   default     = {}
 }
 

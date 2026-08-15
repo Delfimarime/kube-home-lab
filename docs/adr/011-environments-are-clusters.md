@@ -1,6 +1,17 @@
-# 011. An environment is a cluster; Terragrunt layers them
+# 011. An environment is a cluster
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 ·
+revised 2026-08-15 (the layering half is superseded by
+[ADR 020](020-one-root-module.md); the definition is not)
+
+> **What survives.** An environment is a Kubernetes cluster with its own Argo CD, nothing is
+> shared between them, and the consequences below still hold. **What does not:** environments
+> are no longer directories, and there is no Terragrunt. The tree is one root module; the
+> cluster is whichever one the shell's `ARGOCD_SERVER` names. The comparison table below is kept
+> because its verdict on *one cluster, namespace per environment* is unchanged — but its verdict
+> on workspaces rested on "no per-environment provider", which
+> [ADR 020](020-one-root-module.md) shows to be false for a provider that reads its address from
+> the environment.
 
 ## Context
 
@@ -19,33 +30,23 @@ that dimension sits in the tree.
 
 ## Decision
 
-**An environment is a Kubernetes cluster with its own Argo CD.** Environments are
-directories, following Terragrunt's standard layout with the region tier collapsed — each
-environment is exactly one cluster, so there is nothing for that tier to distinguish.
+**An environment is a Kubernetes cluster with its own Argo CD.** Nothing is shared between two
+of them: not the API server, not Argo CD, not the failure domain.
 
-```
-root.hcl                      provider + remote_state generation, included by every unit
-_envcommon/<module>.hcl       inputs shared by a module across environments
-<env>/
-  env.hcl                     cluster endpoint, hostnames, database host/port
-  <unit>/terragrunt.hcl       includes root.hcl and _envcommon/<module>.hcl; holds the deltas
-modules/<capability>-<impl>/  tofu/ and helm/
-```
-
-**An environment ships a module by having a unit directory for it.** There is no enable
-flag and no inventory file: `ls <env>/` is the answer.
+**An environment ships a module by having a `module` block for it** in the root module. There is
+no enable flag and no inventory file — the root module is the list, and it cannot drift from
+what is deployed because it *is* what is deployed ([ADR 020](020-one-root-module.md)).
 
 ## Rationale
 
 - Separate clusters are the strongest isolation available and cost nothing to state.
   Namespaces in one cluster share an API server, an Argo CD and a failure domain, which
   would make REQ-12 a promise instead of a property.
-- Workspaces share one backend and one provider configuration — precisely what cannot be
-  shared when the provider addresses a different cluster per environment.
-- `_envcommon` keeps "identical everywhere" in one file while an environment's unit holds
-  only what differs, so adding an environment is a directory plus its deltas.
-- Directory-as-inventory means the recorded module list cannot drift from the deployed one,
-  because there is no recorded list.
+- Workspaces share one backend and one provider configuration — which read as disqualifying
+  when this was written, and does not any more: the provider takes its address from the
+  environment, so a workspace is a viable second cluster ([ADR 020](020-one-root-module.md)).
+- The composition *is* the inventory, so the recorded module list cannot drift from the
+  deployed one.
 
 ## Consequences
 
@@ -55,14 +56,14 @@ flag and no inventory file: `ls <env>/` is the answer.
 - **Identities are per environment.** Each cluster runs its own issuer, so an account in one
   is not an account in another. [REQ-01](../requirements.md) is scoped accordingly.
   Federating them is machinery this lab does not need.
-- **Modules are not versioned per environment.** This is a monorepo, so units reference
-  `source = "../../modules/<m>"` — a local path, not a versioned git ref. Every environment
-  runs the same module code and a change reaches all of them at once; there is no validating
-  it in one environment first. Accepted for now: few environments, one operator. The escape
-  hatch is pinning `source` to a git ref per environment, which changes no module's contract.
+- **Modules are not versioned per environment.** This is a monorepo, so the root module
+  references `source = "./modules/<m>/tofu"` — a local path, not a versioned git ref. Every
+  environment runs whatever the checkout holds, so there is no validating a change in one
+  environment first. Accepted: few environments, one operator. The escape hatch is a git ref in
+  `source`, which changes no module's contract.
 - Argo CD, Traefik and PostgreSQL are per-environment prerequisites now rather than single
   ones. Each stays out of scope ([ADR 008](008-postgresql-is-external.md), platform spec).
-- Hostnames are per environment and live in `env.hcl`.
+- Hostnames are per environment and live in that environment's var file.
   [ADR 007](007-modules-receive-credentials.md)'s "defined once" consequence still holds —
   once *per environment*.
 - REQ-12 covers everything this repo provisions. A PostgreSQL server shared between

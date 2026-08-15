@@ -17,7 +17,7 @@ public option, and it carries two hard prerequisites:
 
 - **A domain, publicly delegated.** `.lab.internal` cannot be one. ICANN reserved `.internal`
   for private use in 2024 precisely so that it can never be publicly resolvable, so no public CA
-  can ever issue for a name under it. Choosing DNS-01 means every hostname in every `env.hcl`
+  can ever issue for a name under it. Choosing DNS-01 means every hostname in every var file
   moves to a registered domain.
 - **Outbound egress** from the cluster to the ACME endpoint and to the DNS provider's API. This
   repo currently assumes nothing about egress at all.
@@ -44,7 +44,7 @@ The chain per authority is: a self-signed `Issuer`, a CA `Certificate` it signs,
   A domain is a yearly renewal in someone's name and a DNS credential in every environment;
   egress turns a stack that currently talks only to itself into one with an external dependency
   that fails on a schedule nobody watches.
-- **Hostnames stay put.** DNS-01 would move every hostname in every `env.hcl`, and hostnames are
+- **Hostnames stay put.** DNS-01 would move every hostname in every var file, and hostnames are
   already load-bearing — [ADR 007](../../../adr/007-modules-receive-credentials.md) makes them
   the one value the issuer and its consumers must agree on.
 - **The certificates are declared, which is the actual requirement.**

@@ -14,7 +14,7 @@ already runs:
 - **k3s** — a tiny cluster; single node or a couple of them
 - **Argo CD** — its own, not shared. Everything here is applied by Argo CD, not `kubectl apply`
 - **Gateway API (Traefik)** — ingress is a `HTTPRoute`, never an `Ingress`
-- **PostgreSQL** — reachable, described in that environment's `env.hcl`
+- **PostgreSQL** — reachable, described in that environment's var file
 
 If any of those is missing, this repo does nothing useful for that environment.
 
@@ -65,18 +65,18 @@ restated between layers.
 
 ## Layout
 
-Terragrunt handles the monorepo and the environments. The OpenTofu modules provision Argo CD
+One OpenTofu root module composes the cluster; each module it calls provisions Argo CD
 resources — one `ApplicationSet` per module. Argo CD does the installing and the reconciling:
 OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 
-Specs come first; only `docs/` exists so far.
+Specs come first. One module exists so far.
 
 ```
-root.hcl                       provider + remote_state generation, included by every unit
-_envcommon/<module>.hcl        inputs shared by a module across environments
-<env>/
-  env.hcl                      cluster endpoint, hostnames, database host/port
-  <unit>/terragrunt.hcl        includes root.hcl and _envcommon; holds only the deltas
+main.tf                        required_version, required_providers, the pg backend
+providers.tf                   the one provider, configured once
+variables.tf                   everything true of the cluster being addressed
+<capability>.tf                one module block per capability this cluster ships
+outputs.tf
 modules/<capability>-<impl>/
   tofu/                        the OpenTofu that renders this module's ApplicationSet
   helm/<chart>/                a chart this repo authors, when no upstream one fits
@@ -87,8 +87,9 @@ That is the whole tree. Everything this repo contains provisions a platform capa
 environment that already exists; nothing here runs the prerequisites
 [the assumptions](#assumptions) name.
 
-**An environment ships a module by having a unit directory for it.** There is no enable flag
-and no inventory file — `ls <env>/` is the answer, so it cannot drift.
+**An environment ships a module by having a `module` block for it.** There is no enable flag
+and no inventory file — the composition *is* what is deployed, so it cannot drift
+([ADR 020](docs/adr/020-one-root-module.md)).
 
 Modules are named `<capability>-<implementation>`, and their outputs stay
 implementation-neutral — `issuer_url`, not `keycloak_realm_id` — so the implementation half of
@@ -100,24 +101,44 @@ passed as Secret references, never values — and a module needing a Secret name
 how to create it. A fourth input, `metrics.enabled`, is a plain `bool` and not a contract. The
 shapes are in [the platform spec](docs/platform.md#contracts).
 
-None of it is wired automatically. No unit reads another unit's state; a value two units share
-is written once in the environment and read from both
-([ADR 015](docs/adr/015-units-are-wired-by-hand.md)).
+Modules are wired by reference: a value one publishes and another consumes is
+`module.<a>.<output>`, resolved at plan time in one graph
+([ADR 020](docs/adr/020-one-root-module.md)).
 
 ### Running it
 
 ```sh
 export KUBECONFIG=~/.kube/config
-export PG_CONN_STR=postgres://...                # where this environment's state lives
-terragrunt run --all plan                        # from an environment directory
-cd prod/openid-connect-keycloak && terragrunt apply
+export ARGOCD_SERVER=... ARGOCD_AUTH_TOKEN=...   # this cluster's Argo CD
+export PG_CONN_STR=postgres://...                # where this cluster's state lives
+
+tofu init -backend-config=<backend file>
+tofu plan  -var-file=<vars file>
 ```
 
+**Export all three together, per environment.** They are what selects the cluster, and nothing
+checks that they agree — a shell holding one cluster's `ARGOCD_SERVER` and another's
+`PG_CONN_STR` will plan something meaningless and say nothing.
+
 OpenTofu 1.9 or later. State is per environment, in a PostgreSQL
-([ADR 012](docs/adr/012-state-is-per-environment.md)) — `env.hcl` names the schema and
-`PG_CONN_STR` carries the address and credential, so nothing in git holds one. **Which
-PostgreSQL is deliberately unspecified**: not necessarily the one this environment's workloads
-use, and not necessarily in the cluster.
+([ADR 012](docs/adr/012-state-is-per-environment.md)) — the backend file names the schema and
+`PG_CONN_STR` carries the address and credential, so nothing in git holds one. The **database**
+must already exist; the schema is created on first `init`. **Which PostgreSQL is deliberately
+unspecified**: not necessarily the one this environment's workloads use, and not necessarily in
+the cluster.
+
+Both of these run offline — no PostgreSQL, no Argo CD — and are worth having before either:
+
+```sh
+tofu init -backend=false && tofu validate          # the composition
+
+cd modules/certificate-management-cert-manager/tofu
+tofu init -backend=false && tofu validate          # a module on its own
+```
+
+A module stays plannable by itself because it declares `required_providers` and no `provider`
+block. That is also how its input `validation` blocks are exercised: they run before the
+provider is configured, so a bad `-var-file` is refused with no cluster and no database.
 
 Nothing here provisions a prerequisite. [ADR 008](docs/adr/008-postgresql-is-external.md) holds
 without qualification: PostgreSQL is external, and no module knows or cares whether the instance

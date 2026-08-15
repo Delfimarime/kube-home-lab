@@ -92,10 +92,11 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision â
 - This removes a constraint that previously looked forced: because OpenTofu never calls
   Keycloak's admin API, there is no two-phase install-then-configure split.
   `openid-connect-keycloak` is one unit.
-- **Hostnames must be defined once per environment**, in that environment's `env.hcl`, and
-  fed to both the identity provider and its consumers. Deriving a redirect URI from a
-  consumer's output while the consumer takes `client_id` from the provider is a dependency
-  cycle Terragrunt will refuse. See [ADR 011](011-environments-are-clusters.md).
+- **Hostnames must be defined once per environment**, as a root variable in that environment's
+  var file, and fed to both the identity provider and its consumers. Deriving a redirect URI
+  from a consumer's output while the consumer takes `client_id` from the provider would be a
+  cycle in the module graph, which OpenTofu refuses. See
+  [ADR 020](020-one-root-module.md).
 - Backends stay unexposed by simply not being passed a gateway. In the observability module,
   `var.gateway` means Grafana's route, because Grafana is the only exposed surface.
 - **Something must materialise the referenced Secrets, and nothing in this repo does.** When and

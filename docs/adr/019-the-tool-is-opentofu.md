@@ -4,7 +4,7 @@
 
 ## Context
 
-This repository is written in the Terraform language and driven by Terragrunt. Two
+This repository is written in the Terraform language. Two
 implementations run that language: HashiCorp Terraform, under the BUSL since 1.6, and OpenTofu,
 an MPL-2.0 fork under the Linux Foundation. They share the language and the provider protocol,
 and diverge on licence, registry, release cadence and a handful of features.
@@ -25,7 +25,7 @@ OpenTofu or `tofu`. Prose that says one and means the other is a defect, not a s
 
 - **The licence is the whole of it.** BUSL asks a homelab to accept terms it has no reason to
   accept, in exchange for nothing it needs. MPL-2.0 asks nothing.
-- **Nothing else in the stack cares.** Terragrunt drives both. The one provider this repo
+- **Nothing else in the stack cares.** The one provider this repo
   depends on — `argoproj-labs/argocd` — is published to both registries.
 - **Feature parity holds where this repo actually leans.** `required_version >= 1.9` exists
   because a `validation` block references a second variable, and OpenTofu has that; it is

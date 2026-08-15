@@ -11,17 +11,15 @@ terraform {
   }
 }
 
-# There is deliberately no `provider` block and no `backend` block here.
+# There is deliberately no `provider` block and no `backend` block here — a called module may
+# declare neither. Both live in the root module, which is where the whole cluster is composed
+# (ADR 020).
 #
-# `root.hcl` generates both for every unit that includes it, so that the provider and the
-# backend read their target from the same `env.hcl` and cannot disagree about which environment
-# is being addressed (ADR 012). Declaring either here would collide with the generated file.
+# **Nothing about reaching Argo CD is an input.** ARGOCD_SERVER, ARGOCD_AUTH_TOKEN and
+# ARGOCD_INSECURE come from the operator's environment, so no credential reaches a var file or
+# state, and `plain_text` — the one field with no environment variable — is the root module's.
+# `var.argocd.namespace` is an input, because *where the ApplicationSet object goes* is this
+# module's business rather than the connection's.
 #
-# **What the generated provider reads.** Everything the provider can take from the environment
-# comes from there and never from a variable: ARGOCD_SERVER, ARGOCD_AUTH_TOKEN, ARGOCD_INSECURE.
-# That keeps the token out of tfvars and out of state. `plain_text` has no environment variable,
-# so it — and only it — is a module input with a default. A field that cannot come from the
-# environment is the only reason to add one.
-#
-# Driving this module directly, before the scaffolding exists, means writing that provider block
-# by hand; see prompt/certificate-management-cert-manager.plan.md.
+# This module is still written to be plannable on its own: `tofu init -backend=false` in this
+# directory validates it and exercises its `validation` blocks with no cluster and no database.

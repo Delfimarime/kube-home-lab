@@ -1,6 +1,18 @@
 # 015. Units are wired by hand
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
+**Status:** superseded by [ADR 020](020-one-root-module.md) · **Scope:** platform ·
+**Date:** 2026-08-15 · superseded 2026-08-15
+
+> **Superseded.** There are no units and no Terragrunt. A value one module publishes and another
+> consumes is `module.<a>.<output>` in the root module — resolved at plan time, reading no state
+> file and needing no `mock_outputs`. That answers the question this ADR was asked and removes
+> the cost it accepted: the hand-written address that "can disagree with reality" no longer
+> exists, so the weakening this ADR admitted to the observability split's reasoning is undone.
+> Its conclusion about *ordering* survives on other grounds — a module declares what it needs,
+> not when it is satisfied ([ADR 007](007-modules-receive-credentials.md)).
+>
+> Kept for the record of why reading another unit's state was rejected, which is still the
+> reason not to reintroduce a second state.
 
 ## Context
 

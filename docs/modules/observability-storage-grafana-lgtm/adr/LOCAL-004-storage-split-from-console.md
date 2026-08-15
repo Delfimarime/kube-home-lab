@@ -27,7 +27,7 @@ Four shapes were real:
 - **Split into storage and console.** The seam falls exactly on the PostgreSQL-and-identity
   boundary, which is also the read/write boundary.
 - **Split three ways** — collector, stores, console. The collector and the stores are driven by
-  the same three flags and are useless apart; separating them would produce two units that must
+  the same three flags and are useless apart; separating them would produce two modules that must
   always agree and a third contract to keep them agreeing.
 - **One console reading stores in other clusters.** Rejected on sight:
   [ADR 011](../../../adr/011-environments-are-clusters.md) makes an environment a cluster and
@@ -67,7 +67,7 @@ this repository.
   get wrong separately. A value that is either an address or `null` collapses them into one, and
   the four correlation links then derive from exactly the same fact that put the store there.
 - **Three ways would have been one seam too many.** The collector exists to feed the stores and
-  is gated by the same flags; the third module would have been a unit with no independent
+  is gated by the same flags; the third module would have had no independent
   reason to change.
 - **`gateway` did not need widening, only re-reading.** The contract says *emit a route for this
   workload*. It never said the workload had to be a UI — that was a fact about the modules that
@@ -88,7 +88,7 @@ this repository.
 
 ## Consequences
 
-- **Two Terragrunt units per environment, with one dependency**: the console reads this module's
+- **Two `module` blocks in the root module, with one reference**: the console reads this module's
   three addresses. One direction, no cycle, and an environment may ship this module alone.
 - **An environment can now collect telemetry without a PostgreSQL.** It gets no way to look at
   it, which is honest — that is what the second unit is for.

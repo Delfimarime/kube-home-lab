@@ -106,7 +106,7 @@ realm = "lab"
 
 bootstrap_admin_secret_name = "keycloak-bootstrap-admin"
 
-metrics = { enabled = false }   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```
 
 **`realm` is an input with no useful default.** Keycloak's `master` realm administers Keycloak;
@@ -128,8 +128,8 @@ There is deliberately no client output. See
 [ADR 007](../../adr/007-modules-receive-credentials.md).
 
 **The realm is in the address**, which is a change in shape rather than in meaning — a consumer
-still receives one URL and never assembles it. Both are read by hand into a consumer's `oidc`
-input ([ADR 015](../../adr/015-units-are-wired-by-hand.md)).
+still receives one URL and never assembles it. Both reach a consumer's `oidc` input as
+`module.<this>.issuer_url` in the root module ([ADR 020](../../adr/020-one-root-module.md)).
 
 ## Acceptance criteria
 
@@ -217,7 +217,7 @@ Feature: An issuer, and only an issuer
   the realm is misconfigured, and it is a static credential outside the OIDC path. If it is kept
   — and it should be — it needs an owner.
 - **Registering clients by hand means redirect URIs are typed by a human**, once per
-  environment. Hostnames are declared once in `env.hcl` so both sides read the same value
-  ([ADR 015](../../adr/015-units-are-wired-by-hand.md)).
-- **Revisit at roughly fifteen clients**: a dedicated registration unit would not change this
+  environment. Hostnames are one root variable so both sides read the same value
+  ([ADR 020](../../adr/020-one-root-module.md)).
+- **Revisit at roughly fifteen clients**: a dedicated registration module would not change this
   module's contract, only add a sibling.

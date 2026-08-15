@@ -31,7 +31,7 @@ one fewer backup story, and no opinion imposed on where the data actually lives.
 - Each consumer needs a `host_port`, a database, and a Secret with `username` and `password`
   keys supplied to it. Creating those is a manual prerequisite.
 - `host_port` is one string, so each module pays a `split(":", …)`. One line.
-- Each environment describes its own database configuration in `env.hcl`
+- Each environment describes its own database configuration in its var file
   ([ADR 011](011-environments-are-clusters.md)). Whether two environments point at the same
   server is invisible to every module and is not constrained here — which also means REQ-12
   does not cover it.

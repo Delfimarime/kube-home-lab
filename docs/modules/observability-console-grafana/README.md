@@ -8,7 +8,7 @@
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
-[ADR 015](../../adr/015-units-are-wired-by-hand.md),
+[ADR 020](../../adr/020-one-root-module.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)
 
@@ -54,9 +54,9 @@ its default.
 
 **`tenants` is a read-side choice and cannot disagree with reality.** Nothing validates a tenant
 name on write either, so there is no set of "real" tenants for this list to be wrong about — it
-says which ones are worth looking at. That is why it is a plain environment value read by this
-module and by the storage module, rather than anything passing between them
-([ADR 015](../../adr/015-units-are-wired-by-hand.md)).
+says which ones are worth looking at. That is why it is a root variable read by this module and
+by the storage module, rather than anything passing between them
+([ADR 020](../../adr/020-one-root-module.md)).
 
 ### Correlation
 
@@ -186,9 +186,10 @@ replaces the default claim path for role lookup.
 
 **The three addresses come from the storage module's outputs**, and each is either a URL or
 `null`. They are addresses rather than a copy of that module's three `enable_*` flags on
-purpose: a flag and the store it claims to describe are two truths that can disagree once they
-live in different units, and every correlation link above would then be wired against a
-datasource that is not there.
+purpose: a flag and the store it claims to describe are two truths that could disagree, and
+every correlation link above would then be wired against a datasource that is not there. Since
+[ADR 020](../../adr/020-one-root-module.md) they arrive as `module.<storage>.<output>`, so they
+cannot — but an address still says more than a boolean, which is why the shape stands.
 
 **`database` is required, and there is no SQLite fallback.** Grafana's state — users,
 preferences, annotations, and now every alert rule — is the only thing in either observability

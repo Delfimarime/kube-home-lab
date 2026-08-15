@@ -61,7 +61,7 @@ database = {          # required; SQLite is not used
 
 gateway = null        # default: not exposed. See the security note below.
 
-metrics = { enabled = false }   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```
 
 There is no `oidc` input, because Auditum has no authentication to delegate.

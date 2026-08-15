@@ -137,14 +137,6 @@ Temporary Items
 # iCloud generated files
 *.icloud
 
-### Terragrunt ###
-# terragrunt cache directories
-**/.terragrunt-cache/*
-
-# Terragrunt debug output file (when using `--terragrunt-debug` option)
-# See: https://terragrunt.gruntwork.io/docs/reference/cli-options/#terragrunt-debug
-terragrunt-debug.tfvars.json
-
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
@@ -207,6 +199,7 @@ docs/decisions
 */.deploy-values
 */*/.deploy-values/
 deploy.sh
-.terraform.lock.hcl
 prompt/
-modules/*/tofu/provider.tf
+
+# The root module pins providers; a called module gets one only from the offline check.
+modules/*/tofu/.terraform.lock.hcl

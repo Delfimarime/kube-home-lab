@@ -149,7 +149,7 @@ trust_bundle = {
 
 gateway_namespace = null        # whose Gateway may reference these Secrets
 
-metrics = { enabled = false }   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```
 
 **`certificate_authorities` is the module.** Everything else is placement. An authority declares
@@ -174,6 +174,13 @@ Gateway in another namespace cannot use these Secrets.
 
 **This module therefore takes none of the three contracts.** It has no route, no database and no
 issuer, which is the same fact as having no consumer inside this repository.
+
+**Almost none of it is written down per environment.** The root module composes
+`certificate_authorities` from `var.domain`, so the only cluster-specific value is the domain
+itself — which is why the `*.lab.internal` in the variable's default is a convenience for driving
+the module in isolation rather than the value an environment actually gets. `namespace`,
+`trust_bundle`, `cert_manager`, `trust_manager` and `lab_pki` stay at their defaults, and
+`argocd.namespace`, `gateway_namespace` and `metrics` come from root variables.
 
 ## Outputs
 
