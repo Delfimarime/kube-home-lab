@@ -29,6 +29,8 @@ outputs.tf
 modules/<capability>-<impl>/
   tofu/                        the OpenTofu that renders this module's ApplicationSet
   helm/<chart>/                a chart this repo authors, when no upstream one fits
+helm/placeholder-secret/       the one chart belonging to no module: every credential
+                               a module needs, rendered empty for an operator to fill
 docs/                          requirements, specs, decisions
 ```
 
@@ -60,6 +62,11 @@ Live state, not rules. Each of these is a reason to stop and ask rather than pro
   realm and every Grafana alert rule. Don't add a third without saying so. OpenTofu state is in a
   PostgreSQL too, but a separate one, and it *is* regenerable
   ([ADR 012](docs/adr/012-state-is-per-environment.md)).
+- **The object store is pre-1.0, and nothing creates its buckets.** `object-storage-rustfs` pins
+  a chart whose appVersion is `1.0.0-beta.12`, and every stored signal now lives behind it. The
+  buckets each store writes to are created by hand, per environment; a missing one is not a sync
+  failure — every store comes up healthy and fails on its first write. Don't add a bucket input
+  to a module that cannot create one.
 - **Three things are unverified, and each would change a spec.** Check before implementing, not
   after:
   - whether Alloy's `otelcol.auth.headers` accepts `from_context` and `default_value` at the

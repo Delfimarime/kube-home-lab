@@ -100,7 +100,8 @@ decisions are cited as `<module> LOCAL-NNN`.
 **A scenario absent from this table verifies a decision rather than a requirement**, and the
 decision is among those its spec's header lists. `CON-10` checks that nothing is provisioned to
 alert, which is `observability-console-grafana LOCAL-003`'s consequence and no requirement's;
-`CERT-06` and `CERT-08` check input validations. Absence here is a statement rather than an omission — a
+`CERT-06` and `CERT-08` check input validations; `OBS-27` and `OBJ-06` through `OBJ-09` check
+consequences of the decision to put the stores' data in an object store. Absence here is a statement rather than an omission — a
 scenario that verifies neither a requirement nor a decision its spec cites should not exist.
 
 | Requirement | Decided in | Specified in | Verified by |
@@ -108,12 +109,12 @@ scenario that verifies neither a requirement nor a decision its spec cites shoul
 | REQ-01 one identity | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md), [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | OIDC-01, OIDC-02, OIDC-03, CON-08, CON-13 |
 | REQ-02 independent signals | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | OBS-01, OBS-17, OBS-19, OBS-22, CON-05 |
 | REQ-03 one query surface | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-02, CON-03, CON-04 |
-| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md) | [platform](platform.md) | PLAT-02, OIDC-06, AUD-02 |
-| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, OBS-21, CON-06, OIDC-07, AUD-04 |
+| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-02, OIDC-06, AUD-02, OBJ-02, OBS-28 |
+| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, OBS-21, CON-06, OIDC-07, AUD-04, OBJ-04, OBJ-05 |
 | REQ-07 audit records | [ADR 008](adr/008-postgresql-is-external.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [audit-management-auditum](modules/audit-management-auditum/README.md) | AUD-01, AUD-03, AUD-05 |
-| REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [platform](platform.md) | PLAT-01 |
-| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08 |
-| REQ-10 fits a tiny cluster | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09 |
+| REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-01 |
+| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md), [object-storage-rustfs LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08, OBJ-03 |
+| REQ-10 fits a tiny cluster | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [object-storage-rustfs LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09, OBJ-01 |
 | REQ-11 recoverable decisions | every ADR | this repository | — |
 | REQ-12 environments don't interfere | [ADR 011](adr/011-environments-are-clusters.md), [ADR 012](adr/012-state-is-per-environment.md) | [platform](platform.md) | PLAT-05 |
 | REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [observability-console-grafana LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | [platform](platform.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-07 |
@@ -131,12 +132,15 @@ Each is owned by the ADR or spec that would resolve it.
   These are different systems and only one of them is Auditum. Until this is answered, REQ-07
   is not one requirement but two candidates wearing one name — see
   [audit-management-auditum](modules/audit-management-auditum/README.md#blocking-question).
-- **Nothing stores secrets, and nothing delivers them.** Every `secret_name` in this repo names
-  a Secret that must now be created by hand, in every environment, and recreated after every
-  rebuild. The by-reference contract ([ADR 007](adr/007-modules-receive-credentials.md)) is
-  unaffected — it always said a module declares what it needs and is indifferent to who
-  satisfies it — but nobody satisfies it. This is what dropping REQ-04 costs, and it is stated
-  here rather than left to be discovered at the next rebuild.
+- **Nothing stores secrets. Something now creates them, empty, when nobody else has.** A module
+  given no name for a credential renders the Secret itself, keys present and values blank, and
+  Argo CD leaves the contents alone ([ADR 022](adr/022-secrets-are-rendered-empty.md)) — so a
+  rebuild recreates every credential *object*, and what remains is discoverable by listing
+  Secrets rather than by reading five specs. An environment that does have something creating
+  Secrets names them instead, and no module fights it. Either way the value is typed in by a
+  person, per environment, held nowhere, backed up by nothing and rotated by nothing. The by-reference contract
+  ([ADR 007](adr/007-modules-receive-credentials.md)) is unaffected throughout. This is what
+  dropping REQ-04 still costs, narrowed to the half that is actually a secret.
 - **Nothing declares the realm.** REQ-01 and REQ-13 are satisfied by an issuer whose clients,
   roles and grants exist only in its own console — typed in by hand, per environment, and again
   after any rebuild that loses the database. The claim *shape* is fixed

@@ -33,18 +33,27 @@ runs, why it was chosen, and what happens if they change it.
 
 **In scope.** Argo CD `ApplicationSet`/`Application` resources and their configuration, for:
 observability (metrics, logs, traces), OIDC identity, certificate management, audit trail
-management — per environment.
+management, and the object storage those workloads keep their data in — per environment.
+
+**Object storage is in scope where PostgreSQL is not**, and the line is not size. A database is
+something an environment already has, administered and older than this repository
+([ADR 008](adr/008-postgresql-is-external.md)); an S3 endpoint is not, and no environment here
+would grow one for its own sake. What a cluster plausibly already runs is the test, and object
+storage falls on the other side of it.
 
 **Out of scope.** Cluster bootstrap. Argo CD itself. Traefik and the Gateway. PostgreSQL
 ([ADR 008](adr/008-postgresql-is-external.md)). Backup of any of it. Each is a per-environment
 prerequisite this repo addresses and never creates.
 
-**Secret storage and delivery is also out of scope, and that is the exclusion with teeth.**
-A `secret_name` a module declares names a Secret somebody creates by hand, per environment, and
-again after every rebuild — see [the open questions](requirements.md#open-questions). The one
-exception is certificate material, which
-[`certificate-management-cert-manager`](modules/certificate-management-cert-manager/README.md)
-issues and a controller owns; nothing else here creates a Secret, and nothing here stores one.
+**Secret storage is also out of scope, and that is the exclusion with teeth.** The *object* is
+now declared: a module given no name for a credential renders the Secret itself, keys present and
+values empty, and Argo CD is told not to touch the contents again
+([ADR 022](adr/022-secrets-are-rendered-empty.md)) — while an environment that has something else
+creating Secrets names them and is left alone. The *value* is typed in by a person, per
+environment and again after every rebuild, stored nowhere and rotated by nothing — see
+[the open questions](requirements.md#open-questions). The one exception is certificate material,
+which [`certificate-management-cert-manager`](modules/certificate-management-cert-manager/README.md)
+issues and a controller owns, values and all.
 
 ## Assumptions
 
@@ -129,6 +138,7 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | --- | --- |
 | [`certificate-management-cert-manager`](modules/certificate-management-cert-manager/README.md) | issues every certificate the environment uses, and distributes the root |
 | [`openid-connect-keycloak`](modules/openid-connect-keycloak/README.md) | one OIDC issuer per environment |
+| [`object-storage-rustfs`](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint the stores write into |
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
 | [`audit-management-auditum`](modules/audit-management-auditum/README.md) | an audit record API — **blocked** |

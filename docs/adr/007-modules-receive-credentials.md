@@ -1,7 +1,8 @@
 # 007. Module input contracts: providers publish addresses, consumers receive references
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05 ·
-revised 2026-08-09 (absorbed [ADR 006](006-shared-gateway-input.md))
+revised 2026-08-09 (absorbed [ADR 006](006-shared-gateway-input.md)) ·
+revised 2026-08-16 (`secret_name` is optional — [ADR 022](022-secrets-are-rendered-empty.md))
 
 ## Context
 
@@ -42,7 +43,7 @@ variable "database" {
   type = object({
     host_port     = string
     database_name = string
-    secret_name   = string
+    secret_name   = optional(string) # null: the module renders the Secret — ADR 022
     username_key  = optional(string, "username")
     password_key  = optional(string, "password")
     sslmode       = optional(string, "require")
@@ -54,7 +55,7 @@ variable "oidc" {
   type = object({
     issuer_url   = string
     client_id    = string
-    secret_name  = string
+    secret_name  = optional(string) # null: the module renders the Secret — ADR 022
     secret_key   = optional(string, "client-secret")
     scopes       = optional(list(string), ["openid", "profile", "email"])
     groups_claim = optional(string)

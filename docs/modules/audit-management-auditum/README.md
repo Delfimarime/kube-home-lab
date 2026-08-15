@@ -56,10 +56,11 @@ and override config-file keys, which is what makes this possible.
 database = {          # required; SQLite is not used
   host_port     = "postgres.example:5432"
   database_name = "auditum"
-  secret_name   = "auditum-db"
+  secret_name   = null           # null renders it here, empty; set names an existing one
 }
 
 gateway = null        # default: not exposed. See the security note below.
+                      # database.secret_name null renders the Secret here, empty — ADR 022.
 
 metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```

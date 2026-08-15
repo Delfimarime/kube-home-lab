@@ -1,7 +1,7 @@
 # LOCAL-001. Observability: the Grafana stack, three single-binary components
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-12
+**Date:** 2026-08-12 · revised 2026-08-16 (the stores keep their data in an object store)
 
 ## Context
 
@@ -41,8 +41,9 @@ All three default to `false`. A validation requires at least one to be `true`. G
 collector are deployed unconditionally, because each spans all three signals and so cannot be
 gated by any one flag.
 
-Every component runs as a single process on local filesystem storage. No object store, no
-operator, no distributed topology anywhere in the module.
+Every component runs as a single process. No operator and no distributed topology anywhere in
+the module — where the bytes land is [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)'s
+subject, and it does not change the topology chosen here.
 
 ## Rationale
 
@@ -51,8 +52,8 @@ operator, no distributed topology anywhere in the module.
   than integration work.
 - **Native datasources.** Loki and Tempo are first-class in Grafana — no plugin to install, and
   no trace store addressed through a compatibility API pretending to be something it is not.
-- **Single-binary charts exist for logs and traces**, on filesystem storage, so the flags stay
-  genuinely independent: `traces` without `metrics` drags in nothing extra. That property is
+- **Single-binary charts exist for logs and traces**, so the flags stay genuinely independent:
+  `traces` without `metrics` drags in nothing extra. That property is
   what [REQ-02](../../../requirements.md) is actually asking for, and it is the reason the
   monolithic `tempo` chart is used rather than `tempo-distributed`.
 - **Grafana's own state goes to PostgreSQL, and `database` is required** — the standard contract

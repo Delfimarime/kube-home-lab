@@ -6,6 +6,7 @@
 [LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md),
 [LOCAL-003](adr/LOCAL-003-scrape-first-one-otlp-address.md),
 [LOCAL-004](adr/LOCAL-004-storage-split-from-console.md),
+[LOCAL-006](adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md),
 [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
@@ -13,7 +14,8 @@
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
 [ADR 020](../../adr/020-one-root-module.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
-[ADR 017](../../adr/017-stores-are-multi-tenant.md)
+[ADR 017](../../adr/017-stores-are-multi-tenant.md),
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
 
 ## Intent
 
@@ -37,10 +39,11 @@ design.
 ## Provisions
 
 One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)), whose
-`List` generator produces five Applications, of which **one** is unconditional:
+`List` generator produces up to six Applications, of which **one** is unconditional:
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
+| 0 | `object-storage-credentials` | `placeholder-secret` — the repository's, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `object_storage.secret_name` is null |
 | 0 | `prometheus-operator-crds` | `prometheus-operator-crds` (prometheus-community) | `enable_metrics_support` |
 | 1 | `mimir` | `mimir-monolithic` — authored by this repo | `enable_metrics_support` |
 | 1 | `loki` | `loki`, `deploymentMode: SingleBinary` | `enable_logs_support` |
@@ -58,16 +61,23 @@ with an error that does not obviously say so.
 store without it, so tying it to one signal's flag would silently disable the rest. Which
 *collectors* it creates does follow the flags — see below.
 
-**Mimir** runs as a single process, `-target=all`, on a filesystem blocks backend and with
-multitenancy on ([ADR 017](../../adr/017-stores-are-multi-tenant.md)). There is no
+**Mimir** runs as a single process, `-target=all`, with multitenancy on
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)). There is no
 upstream monolithic chart and Grafana does not intend to write one, which is why this module
 ships its own ([LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md)) — and because it is this
 repo's chart rather than somebody else's, its per-tenant override surface is shaped to match
 Loki's and Tempo's rather than being a third dialect.
 
-**Loki** and **Tempo** both have real single-binary charts on local filesystem storage — one
-pod each, no object store. Loki's `gateway`, `chunksCache` and `resultsCache` are switched
-off; they are the chart's defaults and pure overhead at this size.
+**Loki** and **Tempo** both have real single-binary charts — one pod each. Loki's `gateway`,
+`chunksCache` and `resultsCache` are switched off; they are the chart's defaults and pure
+overhead at this size.
+
+**No store owns a volume.** All three write their blocks, chunks and traces to buckets in the
+environment's object store ([LOCAL-006](adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md)),
+which is what their vendors support and what the earlier filesystem backends were not. The
+endpoint arrives as `var.object_storage` and is required; there is no filesystem fallback,
+because a fallback is what you get by forgetting an input and this one would be the unsupported
+configuration.
 
 **`k8s-monitoring-routed` is this repo's first wrapped chart** — the case
 [ADR 010](../../adr/010-resources-delivered-via-chart.md) defined and until now nothing needed.
@@ -220,6 +230,35 @@ metrics off it stays disabled, so the console has no Service Graph tab offering 
 can answer. That is a genuine dent in [REQ-02](../../requirements.md) — the signals stay
 independent, but the best feature spans two of them — and it is recorded rather than discovered.
 
+## Prerequisites
+
+**An S3-compatible endpoint**, and its buckets. Which module provides it is the root's business
+— [`object-storage-rustfs`](../object-storage-rustfs/README.md) is the one that does today — and
+the buckets are created by hand there, per environment, because nothing creates them. A bucket
+that is missing is not a sync failure: every store starts healthy and the error appears on the
+first write.
+
+**The access key, filled in, in this module's namespace.** A Secret is namespaced, so the object
+store's own copy is not readable from here — the credential has to exist a second time. With
+`object_storage.secret_name` left null this module renders its own placeholder, empty and with
+both keys present, and its contents are ignored on every sync
+([ADR 022](../../adr/022-secrets-are-rendered-empty.md)); naming an existing Secret instead means
+this module only reads it. Either way what an environment owes is the value:
+
+```sh
+kubectl patch secret rustfs-credentials -n observability \
+  --type merge -p "$(jq -n --arg a "$(printf %s "$ACCESS_KEY" | base64)" \
+                          --arg s "$(printf %s "$SECRET_KEY" | base64)" \
+                          '{data:{access_key:$a,secret_key:$s}}')"
+
+kubectl rollout restart statefulset/mimir statefulset/loki statefulset/tempo -n observability
+```
+
+**It must be the same value the object store was given**, and nothing checks that it is. Two
+copies of one credential, filled in by hand, drifting independently: that is what having no
+secret manager costs ([platform scope](../../platform.md#scope)), and the symptom of getting it
+wrong is every write returning `403` while all three stores look healthy.
+
 ## Inputs
 
 ```hcl
@@ -239,7 +278,19 @@ tenants = {                      # at least one; limits and retention per signal
 
 default_tenant = "lab"           # what Alloy's own scraping and log tailing are written as
 
-storage_node_selector = null   # e.g. { "kubernetes.io/hostname" = "k3s-01" }
+object_storage = {               # required — every store writes here
+  endpoint       = "rustfs.object-storage.svc.cluster.local:9000"
+  region         = "us-east-1"
+  secret_name    = null                   # null: rendered here, in *this* namespace
+                                          # set:  an existing Secret, only read
+  access_key_key = "access_key"
+  secret_key_key = "secret_key"
+  buckets = {
+    metrics = "mimir"
+    logs    = "loki"
+    traces  = "tempo"
+  }
+}
 ```
 
 Plus a namespace, chart versions, and a per-component values override.
@@ -267,13 +318,21 @@ scraped metrics and tailed logs arrive with no request behind them and no header
 A push that omits the header gets `unattributed`, which is a different thing on purpose —
 one is telemetry nobody had to label, the other is telemetry somebody forgot to.
 
-**`storage_node_selector` applies to Mimir, Loki and Tempo only** — the three components that
-own a volume. It must never reach `alloy-logs` or `node-exporter`: those are DaemonSets, and
-running on every node is the whole point of them. `nodeSelector` rather than `affinity`, because
-`kubernetes.io/hostname` is a built-in label on every node, so naming a specific machine needs
-no labelling step and no set expression. Where one component needs a different node than the
-others, the per-component values override is the escape hatch; that case does not deserve its
-own input.
+**`object_storage` is required and is not one of the shared contracts.** It carries an address, a
+region, a bucket per signal, and a Secret name plus the two keys inside it — the credential by
+reference, never by value ([ADR 007](../../adr/007-modules-receive-credentials.md)). It is an
+ordinary input wired at the root like any other
+([ADR 020](../../adr/020-one-root-module.md)); a fourth contract gets added when a second module
+needs one, not in anticipation of it.
+
+**Only the buckets a switched-on signal needs are read.** `buckets.traces` with
+`enable_traces_support` false is a name nothing uses, so an environment shipping one signal
+creates one bucket. Nothing validates that any of them exists — see
+[Prerequisites](#prerequisites).
+
+**There is no `storage_node_selector` any more.** It placed the three components that owned a
+volume, and none of them owns one now. Placing the machine that holds the data is the object
+store module's input, where the volume actually is.
 
 ## Outputs
 
@@ -301,7 +360,9 @@ point at" disagree; an address that is either a URL or `null` cannot. No output,
 
 Scenario IDs are not reused, so the numbering has gaps: the scenarios that moved to the console
 module took new `CON-` IDs and left their `OBS-` numbers behind, and the three that asserted
-something about both halves at once were retired rather than split.
+something about both halves at once were retired rather than split. `OBS-11` is retired too — it
+asserted that `storage_node_selector` placed the three components owning a volume, and none of
+them owns one any more.
 
 ```gherkin
 Feature: Telemetry is collected and stored, independently per signal
@@ -335,11 +396,26 @@ Feature: Telemetry is collected and stored, independently per signal
      And no alloy-logs DaemonSet and no alloy-singleton exist
 
   @cluster
-  Scenario: [OBS-11] Storage placement is chosen, and DaemonSets are exempt
-    Given storage_node_selector names a node
-    When the module is applied
-    Then every Mimir, Loki and Tempo pod runs on that node
-     And alloy-logs and node-exporter still run on every node
+  Scenario: [OBS-27] No store owns a volume
+    Given all three enable flags are true
+    When PersistentVolumeClaims in the namespace are listed
+    Then none belongs to Mimir, Loki or Tempo
+     And each store's data is in its own bucket
+
+  @cluster
+  Scenario: [OBS-28] The object store credential is never rendered
+    Given object_storage names the Secret this module renders
+    When each Application spec is read from the API server
+    Then no access key or secret key appears in any rendered Helm values
+     And each store reads them from the named Secret
+
+  @cluster
+  Scenario: [OBS-29] Only a switched-on signal's bucket is read
+    Given only enable_logs_support is true
+     And only the logs bucket exists
+    When the module is applied and a log line is tailed
+    Then it arrives in Loki
+     And nothing attempted to reach the metrics or traces buckets
 
   @cluster
   Scenario: [OBS-15] One address ingests every signal that cannot be scraped
@@ -459,10 +535,11 @@ Feature: Telemetry is collected and stored, independently per signal
   disabled signal has no route and returns `404`. In-cluster the receiver accepts it and the
   data goes nowhere, because `alloy-receiver` is unconditional. The external behaviour is the
   better one; the asymmetry is a consequence of where the gate can be placed, not a choice.
-- **Flipping a flag off is destructive, and nothing warns you.** Setting
-  `enable_logs_support = false` removes the Application, and with pruning enabled the PVC goes
-  with it. The flags are this module's headline feature, which makes this the sharpest edge on
-  the page. Decide whether the PVCs carry a retain annotation before anyone flips one in anger.
+- **Flipping a flag off no longer destroys the data, and nothing says so either.** Setting
+  `enable_logs_support = false` removes the Application; the bucket and everything in it stay,
+  because nothing in this module owns them. Switching the flag back on finds the old data
+  waiting, which is the good version of this surprise and is worth knowing before someone
+  deletes a bucket by hand assuming otherwise.
 - **Two local charts now, and Argo CD must be able to read this repository.** `mimir-monolithic`
   and `k8s-monitoring-routed` are both sourced from here rather than an upstream Helm registry.
   That joins k3s, Argo CD and the Gateway as a per-environment prerequisite.
@@ -472,15 +549,15 @@ Feature: Telemetry is collected and stored, independently per signal
 - **Tempo's metrics-generator is the most expensive optional thing in the module**, because it
   processes every span to produce the service graph — and the service graph is most of why this
   stack was chosen. Measure it before assuming it fits on two nodes.
-- **Local-path PVCs pin a pod to a node, permanently.** `volumeBindingMode:
-  WaitForFirstConsumer` binds the volume to whichever node the pod first landed on, and the
-  scheduler will not move it afterwards. The failure mode is not lost data — it is a pod stuck
-  `Pending` once that machine is gone. `storage_node_selector` makes the choice deliberate;
-  nothing here makes it recoverable.
-- **Confirm Mimir's filesystem blocks backend across a restart.** Compactor and store-gateway
-  are in `-target=all` and share one volume. Grafana documents the filesystem backend as not
-  for production. The ruler is also in `-target=all` and unused — give `ruler_storage` a
-  benign setting rather than leaving the component to find out.
+- **This module does not start without the object store, and nothing sequences the two.** Argo CD
+  may sync a store before the endpoint is serving; the crash loop resolves itself and looks
+  exactly like a wrong address, which does not.
+- **A missing bucket is silent until the first write.** Every store starts healthy against a
+  bucket that does not exist. The error then appears here, hours later, about a resource another
+  module's spec documents creating by hand.
+- **The ruler is in `-target=all` and unused** — give `ruler_storage` a benign setting rather
+  than leaving the component to find out. It now has a bucket to be pointed at, which makes this
+  cheaper to satisfy than it was and no less necessary.
 - **Loki deletes nothing without its compactor.** `limits_config.retention_period` is a
   declaration; `compactor.retention_enabled` is what enforces it. Easy to set, and easy to
   believe you already did.
@@ -488,8 +565,8 @@ Feature: Telemetry is collected and stored, independently per signal
   `compactor.blocks-retention-period`, Loki's `limits_config.retention_period`, Tempo's
   `compaction.block_retention`, each overridable per tenant. `var.tenants` hides that behind one
   shape; nothing hides that a global default still exists underneath and applies to any tenant
-  the map does not name. Set a size cap too; disk is the limit, and it is a different limit in
-  each environment.
+  the map does not name. Set a size cap too; disk is the limit, and it is now **one** disk,
+  sized in another module by different reasoning, with nothing comparing the two numbers.
 - **Pin `k8s-monitoring` and read its changelog before bumping.** The pod-logs feature has
   already split into three (`podLogsViaLoki`, `podLogsViaOpenTelemetry`,
   `podLogsViaKubernetesAPI`) and `onlyGatherNewLogLines` has already flipped its default. Its

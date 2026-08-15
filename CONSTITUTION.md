@@ -8,7 +8,8 @@ behind them. **Before changing a rule that cites one, read that decision** — i
 section is usually why the rule looks odd. Cite a rule as `§4.2`.
 
 ADR links are by number: [`004`](docs/adr/004-scrape-config-via-prometheus-crds.md) …
-[`020`](docs/adr/020-one-root-module.md), indexed in [docs/README.md](docs/README.md#decisions).
+[`022`](docs/adr/022-secrets-are-rendered-empty.md), indexed in
+[docs/README.md](docs/README.md#decisions).
 
 ---
 
@@ -35,8 +36,11 @@ product — `issuer_url`, not `keycloak_realm_id` — so the implementation half
 [keycloak LOCAL-001](docs/modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md)
 
 **2.2** A module directory holds exactly two things: `tofu/` and `helm/<chart>/`. No `.tf` at the
-module root, no chart outside `helm/`, nothing else.
-[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md)
+module root, no chart outside `helm/`, nothing else. **One chart belongs to no module** and lives
+at the repository root under `helm/`: `helm/placeholder-secret/`, which every module with a
+credential renders (§5.2). A second such chart needs the argument that one made.
+[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md),
+[`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
 **2.3** Each module renders exactly one Argo CD `ApplicationSet` — a `List` generator, one static
 entry per chart, even at one entry. No shared `ApplicationSet` module; no bare `Application`,
@@ -52,10 +56,15 @@ author one from scratch when no upstream chart exists (*custom*).
 chart's values schema changing underneath a module silently.
 [`010`](docs/adr/010-resources-delivered-via-chart.md)
 
-**2.6** No chart here generates a credential, so nothing needs `ignoreDifferences` to protect one.
-The single legitimate use is cert-manager's cainjector rewriting
-`/webhooks/*/clientConfig/caBundle`. **Reaching for that mechanism anywhere else means the chart
-is wrong.** [`007`](docs/adr/007-modules-receive-credentials.md)
+**2.6** No chart here generates a credential. `ignoreDifferences` has exactly **two** legitimate
+uses, and both protect a field whose content is owned by something other than the chart:
+cert-manager's cainjector rewriting `/webhooks/*/clientConfig/caBundle`, and the `.data` of a
+placeholder Secret an operator fills (§5.2) — the latter always paired with
+`RespectIgnoreDifferences=true`, which is the half people miss. **Reaching for that mechanism
+anywhere else means the chart is wrong**, and protecting a credential a chart *generated* is
+still the case that means it.
+[`007`](docs/adr/007-modules-receive-credentials.md),
+[`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
 ## 3. Module inputs
 
@@ -113,14 +122,26 @@ three together, per environment — and don't try to fix it inside a module.
 
 ## 5. Secrets
 
-**5.1** **There is no secret manager.** Every `secret_name` in the repo names something created by
-hand, per environment, and again after every rebuild. Don't write a module that assumes
-otherwise; don't reintroduce a manager without a requirement above it.
-[`007`](docs/adr/007-modules-receive-credentials.md)
+**5.1** **There is no secret manager.** A credential's *value* is typed in by a person, per
+environment, and again after every rebuild — managed by nobody, stored nowhere, backed up by
+nothing. Don't write a module that assumes otherwise; don't reintroduce a manager without a
+requirement above it.
+[`007`](docs/adr/007-modules-receive-credentials.md),
+[`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
-**5.2** Because of §5.1, a module needing a Secret **names it and shows a placeholder
-`kubectl create secret` in its spec**. That documentation is the only record of what must exist,
-so a new `secret_name` without an example is an incomplete change.
+**5.2** **A `secret_name` names a Secret; whether the module also declares it is the caller's
+choice.** Set, the module references it and creates nothing. Null, the module **renders a
+placeholder** from `helm/placeholder-secret/` into its own namespace — **keys present**, taken
+from the same `*_key` inputs the workload's configuration is built from, values empty — with
+`ignoreDifferences` on `.data` *and* `RespectIgnoreDifferences=true` (§2.6), and publishes the
+name it chose. Either way the module holds a name and a key and never a value. A module renders
+only its own and **never adopts an object it did not create**; where two modules need one
+credential, each renders a placeholder and both get filled, and **a provider never renders a
+Secret into a consumer's namespace**. Its spec **shows the `kubectl patch` that fills each
+Secret** and says the workload needs a rollout restart afterwards: the object declares the shape,
+the spec is still the only record of what the value has to be, so a new `secret_name` without
+that example is an incomplete change.
+[`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
 **5.3** Provider configuration comes from the environment, never a variable — `ARGOCD_SERVER`,
 `ARGOCD_AUTH_TOKEN`, `ARGOCD_INSECURE`. The one exception is a field the provider offers no

@@ -36,6 +36,7 @@ with the layer that is actually correct.
 | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | the lab's certificate authorities, its wildcard, its client certificate, its trust bundle |
 | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | collecting metrics, logs and traces, storing them, and their tenants |
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
+| [object-storage-rustfs](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
 | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | the OIDC issuer |
 | [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
 
@@ -62,6 +63,7 @@ with the layer that is actually correct.
 | [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
 | [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
 | [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
+| [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
@@ -70,10 +72,12 @@ with the layer that is actually correct.
 | [cert-manager LOCAL-001](modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md) | Certificates come from an internal CA, not a public one | accepted |
 | [cert-manager LOCAL-002](modules/certificate-management-cert-manager/adr/LOCAL-002-one-certificate-per-authority.md) | One certificate per authority; no client list | accepted |
 | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md) | OIDC provider is Keycloak, deployed by its operator | accepted |
+| [object-storage LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md) | The object store is RustFS, running standalone | accepted |
 | [observability-storage LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
 | [observability-storage LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |
 | [observability-storage LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |
 | [observability-storage LOCAL-004](modules/observability-storage-grafana-lgtm/adr/LOCAL-004-storage-split-from-console.md) | Storage splits from the console; the receiver gets a route | accepted |
+| [observability-storage LOCAL-006](modules/observability-storage-grafana-lgtm/adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md) | The three stores keep their data in an object store | accepted |
 | [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 | [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
 | [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |
@@ -148,7 +152,7 @@ question* and a *Security note*, and both are the most important things on the p
 | Header | `Status`, `Satisfies` (REQ ids), `Decisions` (its `LOCAL-NNN` plus the platform ADRs it obeys) |
 | Intent | What this module is for, in a few sentences |
 | Provisions | What it creates: Applications, charts, resources |
-| *Prerequisites* | Optional. What must exist before it runs and who makes it — Secrets, with a placeholder `kubectl create secret`, and any Gateway configuration it references. Omit it only where there is nothing |
+| *Prerequisites* | Optional. What must exist before it runs and who makes it — the `kubectl patch` filling each Secret, whether the module rendered it or was given one ([ADR 022](adr/022-secrets-are-rendered-empty.md)), the restart that follows, plus any Gateway configuration it references. Omit it only where there is nothing |
 | Inputs | The HCL a caller writes |
 | Outputs | What consumers read from it — addresses, never credentials |
 | Acceptance criteria | Gherkin, one `Feature`, IDed and tagged scenarios |

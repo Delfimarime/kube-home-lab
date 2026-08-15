@@ -9,7 +9,8 @@
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 011](../../adr/011-environments-are-clusters.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
-[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
 
 ## Intent
 
@@ -63,21 +64,28 @@ metrics and a `ServiceMonitor` is rendered
 
 ## Prerequisites
 
-Two Secrets, created by hand, per environment. Nothing in this repository creates them
-([ADR 007](../../adr/007-modules-receive-credentials.md)), and a PostgreSQL database exists
-already ([ADR 008](../../adr/008-postgresql-is-external.md)).
+Two Secrets, each **rendered empty by this module unless it was given one**, and filled by hand,
+per environment ([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Where a name is not
+supplied the object arrives with the sync carrying the right keys and no values, and Argo CD
+ignores its contents from then on; where one is, this module only reads it. A PostgreSQL database
+exists already ([ADR 008](../../adr/008-postgresql-is-external.md)).
 
 ```sh
 # The database this instance stores its realm, users and sessions in.
-kubectl create secret generic keycloak-db -n identity \
-  --from-literal=username='<role>' \
-  --from-literal=password='<password>'
+kubectl patch secret keycloak-db -n identity --type merge -p "$(jq -n \
+  --arg u "$(printf %s "$DB_USER" | base64)" \
+  --arg p "$(printf %s "$DB_PASSWORD" | base64)" '{data:{username:$u,password:$p}}')"
 
 # The first administrator, used once to sign in and create the realm.
-kubectl create secret generic keycloak-bootstrap-admin -n identity \
-  --from-literal=username='<admin>' \
-  --from-literal=password='<password>'
+kubectl patch secret keycloak-bootstrap-admin -n identity --type merge -p "$(jq -n \
+  --arg u "$(printf %s "$ADMIN_USER" | base64)" \
+  --arg p "$(printf %s "$ADMIN_PASSWORD" | base64)" '{data:{username:$u,password:$p}}')"
+
+kubectl rollout restart statefulset/keycloak -n identity
 ```
+
+Until both are filled, Keycloak starts and fails to reach its database. The restart afterwards is
+required — the values are read at start and do not reload.
 
 The bootstrap admin is a static credential outside the OIDC path and outside anyone's
 attention. It is also the only way back in if the realm's configuration breaks, which is why it
@@ -89,7 +97,7 @@ is not deleted after first use — and why it needs an owner.
 database = {            # required
   host_port     = "postgresql.storage.svc.cluster.local:5432"
   database_name = "keycloak"
-  secret_name   = "keycloak-db"
+  secret_name   = null    # null renders it here, empty; set names an existing one
   username_key  = "username"
   password_key  = "password"
   sslmode       = "require"
@@ -104,7 +112,8 @@ gateway = {             # required in practice: an unreachable issuer is useless
 
 realm = "lab"
 
-bootstrap_admin_secret_name = "keycloak-bootstrap-admin"
+bootstrap_admin_secret_name = null   # null: rendered here, empty, keys in place
+                                     # set:  an existing Secret, only read
 
 metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```

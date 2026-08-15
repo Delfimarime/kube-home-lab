@@ -10,7 +10,8 @@
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
 [ADR 020](../../adr/020-one-root-module.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
-[ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)
+[ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
 
 ## Intent
 
@@ -34,11 +35,12 @@ ingest a span.
 ## Provisions
 
 One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)), whose
-`List` generator produces one Application — one static entry, as that ADR requires even at one:
+`List` generator produces one Application, or two when it renders its own credential:
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
-| 0 | `grafana` | `grafana` (grafana-community) | always |
+| 0 | `grafana-db-credentials` | `placeholder-secret` — the repository's, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `database.secret_name` is null |
+| 1 | `grafana` | `grafana` (grafana-community) | always |
 
 **Datasources are generated from the three address inputs crossed with the tenant list** — one
 per non-`null` address, per tenant. Their *types* are not inputs: an address named `metrics_url`
@@ -156,6 +158,34 @@ absent: nothing fires until somebody has had a reason to make it fire. No separa
 is deployed — Grafana embeds one, and a second would be a second place a rule could be
 authored.
 
+## Prerequisites
+
+**A PostgreSQL database**, reachable, with a role that owns it
+([ADR 008](../../adr/008-postgresql-is-external.md)). Grafana does not start without one and
+there is no SQLite fallback.
+
+**Its credential, filled in.** With `database.secret_name` left null the Secret is rendered by
+this module — empty, with `username` and `password` present — and its contents are ignored on
+every sync ([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Naming an existing Secret
+instead means this module only reads it:
+
+```sh
+kubectl patch secret grafana-db -n observability --type merge -p "$(jq -n \
+  --arg u "$(printf %s "$DB_USER" | base64)" \
+  --arg p "$(printf %s "$DB_PASSWORD" | base64)" '{data:{username:$u,password:$p}}')"
+
+kubectl rollout restart deployment/grafana -n observability
+```
+
+**The trust bundle ConfigMap**, whenever `oidc` is set — distributed by
+[`certificate-management-cert-manager`](../certificate-management-cert-manager/README.md) into
+every namespace ([ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)). This module mounts
+it and does not create it; if it is absent the pod does not start.
+
+**An OIDC client**, registered by hand in the issuer's console with this module's `grafana_url`
+as a redirect URI, and the two roles the [Access](#access) section names. Nothing in this
+repository declares it ([ADR 013](../../adr/013-roles-are-carried-in-the-token.md)).
+
 ## Inputs
 
 ```hcl
@@ -166,8 +196,8 @@ traces_url  = null
 database = {          # required — Grafana's own state
   host_port     = "postgres.example:5432"
   database_name = "grafana"
-  secret_name   = "grafana-db"
-}
+  secret_name   = null    # null: rendered here, empty, keys in place
+}                         # set:  an existing Secret, only read
 
 gateway = null   # exposes Grafana
 oidc    = null   # Grafana delegates authentication and authorization when set
