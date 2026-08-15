@@ -8,7 +8,7 @@
 consumer receives a fully-formed reference. It never says how the value gets from one to the
 other, and by now several do: the console reads three store addresses, every consumer reads an
 issuer URL, a Gateway listener references two Secret names, and three modules read
-`metrics_enabled` ([ADR 016](016-metrics-enabled-is-the-fourth-input.md)).
+`metrics.enabled` ([ADR 016](016-metrics-is-the-fourth-input.md)).
 
 Terragrunt answers this with `dependency` blocks — a unit reads another unit's outputs from its
 state. The alternative is that the environment writes the value down once and both sides read it

@@ -12,7 +12,7 @@
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
 [ADR 015](../../adr/015-units-are-wired-by-hand.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md),
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md)
 
 ## Intent
@@ -285,11 +285,11 @@ own input.
 | `logs_url` | the console, as a datasource — `null` unless logs are on |
 | `traces_url` | the console, as a datasource — `null` unless traces are on |
 
-**There is no `metrics_enabled` output.** Whether an environment scrapes is an environment's
+**There is no `metrics.enabled` output.** Whether an environment scrapes is an environment's
 fact, declared once in `env.hcl` and read by this module as `enable_metrics_support` and by
-every other module as `metrics_enabled`
+every other module as `metrics.enabled`
 ([ADR 015](../../adr/015-units-are-wired-by-hand.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)). Publishing it here would
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)). Publishing it here would
 invite a consumer to read it from this module's state, which nothing does.
 
 **The three store addresses are the console's whole input, and they are nullable on purpose.**
@@ -309,7 +309,7 @@ Feature: Telemetry is collected and stored, independently per signal
   @plan
   Scenario: [OBS-01] At least one component is required
     Given all three enable flags are false
-    When terraform plan runs
+    When tofu plan runs
     Then it fails with a validation error naming the three flags
 
   @cluster

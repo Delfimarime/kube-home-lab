@@ -21,7 +21,7 @@ docs/
 ```
 
 Start at [requirements.md](requirements.md) if you are new. Start at a module's folder if you
-are about to change that module — its spec, its decisions and (later) its Terraform are all
+are about to change that module — its spec, its decisions and (later) its OpenTofu are all
 in the one place.
 
 There is deliberately no fifth "one page compiling all four" document. Such a page restates,
@@ -50,15 +50,16 @@ with the layer that is actually correct.
 | [006](adr/006-shared-gateway-input.md) | One `gateway` input shape | superseded by 7 |
 | [007](adr/007-modules-receive-credentials.md) | Module input contracts; providers publish addresses | accepted |
 | [008](adr/008-postgresql-is-external.md) | PostgreSQL is external to this project | accepted |
-| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; Terraform creates no bare manifests | accepted |
+| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted |
 | [011](adr/011-environments-are-clusters.md) | An environment is a cluster; Terragrunt layers them | accepted |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and lives in PostgreSQL | accepted |
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
 | [014](adr/014-exposed-does-not-mean-authorized.md) | Exposed does not mean authorized | accepted |
 | [015](adr/015-units-are-wired-by-hand.md) | Units are wired by hand; no unit reads another's state | accepted |
-| [016](adr/016-metrics-enabled-is-the-fourth-input.md) | `metrics_enabled` is the fourth cross-module input | accepted |
+| [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted |
 | [017](adr/017-stores-are-multi-tenant.md) | The stores are multi-tenant; the caller names its tenant | accepted |
 | [018](adr/018-one-trust-bundle-for-the-cluster.md) | One trust bundle for the cluster, not a mount per workload | accepted |
+| [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
@@ -166,7 +167,7 @@ Scenario: [OBS-01] At least one component is required
 The ID (`<MODULE>-<NN>`) is what the traceability matrix cites; it is never reused for a
 different scenario. The tag says where the check can run:
 
-- `@plan` — assertable against `terraform plan -json`, no cluster needed
+- `@plan` — assertable against `tofu plan -json`, no cluster needed
 - `@cluster` — needs the thing actually running
 
 ### Status
@@ -176,7 +177,7 @@ written down but **not made** — no ADR currently holds it; ADR 012 did, until 
 chosen. `accepted` is agreed; changing it means changing its consequences too. `implemented` is
 matched by code. `superseded` links its replacement in the header.
 
-Every spec here is `draft`: no module's Terraform exists yet.
+Every spec here is `draft` until its module is built and its `@cluster` criteria have run.
 
 ### Revising an ADR
 
@@ -188,7 +189,7 @@ worth keeping. ADR 006 is the worked example.
 ## Making the criteria executable
 
 They are prose today, checked by hand. The path to executable is a policy tool such as
-conftest asserting against `terraform plan -json` for the `@plan` scenarios, and `kubectl`
+conftest asserting against `tofu plan -json` for the `@plan` scenarios, and `kubectl`
 assertions for the `@cluster` ones. The tags exist so that harness can select its half without
 anyone re-reading every file first.
 

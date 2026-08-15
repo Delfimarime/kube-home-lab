@@ -85,11 +85,11 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision â
 
 ## Consequences
 
-- **Client registration happens outside Terraform.** For a handful of consumers that change
+- **Client registration happens outside OpenTofu.** For a handful of consumers that change
   approximately never, registering them by hand in Keycloak's console is less machinery than
   a provider plus a machine user plus a PAT bootstrap. Revisit at ~fifteen clients with a
   dedicated registration unit; the consumer contract above would not change.
-- This removes a constraint that previously looked forced: because Terraform never calls
+- This removes a constraint that previously looked forced: because OpenTofu never calls
   Keycloak's admin API, there is no two-phase install-then-configure split.
   `openid-connect-keycloak` is one unit.
 - **Hostnames must be defined once per environment**, in that environment's `env.hcl`, and

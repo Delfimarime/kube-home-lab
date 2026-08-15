@@ -8,7 +8,7 @@
 [ADR 008](../../adr/008-postgresql-is-external.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)
 
 ## Intent
 
@@ -34,7 +34,7 @@ Auditum publishes no Helm chart — the documentation says one is "currently in 
 Per [ADR 010](../../adr/010-resources-delivered-via-chart.md), this is the **custom case**: a
 chart local to this repository, authored from scratch, that this module's single-entry
 `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)) points its generated
-Application at. That also gives it a way to receive Terraform-computed values — host, port,
+Application at. That also gives it a way to receive OpenTofu-computed values — host, port,
 secret name — which static manifests never had:
 
 | Resource | Detail |
@@ -44,7 +44,7 @@ secret name — which static manifests never had:
 | `PodDisruptionBudget` | `maxUnavailable: 1` |
 | `Service` | 8080 HTTP, 9090 gRPC |
 | `HTTPRoute` | when `gateway` is set |
-| scrape resource | hand-authored (no chart to flip a `serviceMonitor.enabled` switch on — [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md)), when `metrics_enabled` is `true` |
+| scrape resource | hand-authored (no chart to flip a `serviceMonitor.enabled` switch on — [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md)), when `metrics.enabled` is `true` |
 
 The database password is supplied as `AUDITUM_STORE_POSTGRES_PASSWORD` from a `secretKeyRef`,
 never written into the ConfigMap. Auditum's environment variables are prefixed `AUDITUM_`
@@ -61,7 +61,7 @@ database = {          # required; SQLite is not used
 
 gateway = null        # default: not exposed. See the security note below.
 
-metrics_enabled = false   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # declared once in env.hcl — ADR 016
 ```
 
 There is no `oidc` input, because Auditum has no authentication to delegate.
@@ -109,7 +109,7 @@ Feature: Auditum stores audit records durably
   @plan
   Scenario: [AUD-01] PostgreSQL is mandatory
     Given database is null
-    When terraform plan runs
+    When tofu plan runs
     Then it fails
      And SQLite is never selected as a fallback
 

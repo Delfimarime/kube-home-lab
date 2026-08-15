@@ -208,3 +208,5 @@ docs/decisions
 */*/.deploy-values/
 deploy.sh
 .terraform.lock.hcl
+prompt/
+modules/*/tofu/provider.tf

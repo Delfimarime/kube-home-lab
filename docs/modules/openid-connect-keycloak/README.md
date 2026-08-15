@@ -9,7 +9,7 @@
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 011](../../adr/011-environments-are-clusters.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)
 
 ## Intent
 
@@ -56,10 +56,10 @@ renders a `Keycloak` resource the way this platform wants one. It renders:
   ([README § Assumptions](../../../README.md#assumptions)) and the operator does not speak it,
   so exactly one path in exists and this chart owns it.
 
-**Scraping.** When `metrics_enabled` is `true`, the instance's management interface exposes
+**Scraping.** When `metrics.enabled` is `true`, the instance's management interface exposes
 metrics and a `ServiceMonitor` is rendered
 ([ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)).
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)).
 
 ## Prerequisites
 
@@ -106,7 +106,7 @@ realm = "lab"
 
 bootstrap_admin_secret_name = "keycloak-bootstrap-admin"
 
-metrics_enabled = false   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # declared once in env.hcl — ADR 016
 ```
 
 **`realm` is an input with no useful default.** Keycloak's `master` realm administers Keycloak;
@@ -149,7 +149,7 @@ Feature: An issuer, and only an issuer
   @plan
   Scenario: [OIDC-02] A database is mandatory
     Given database is null
-    When terraform plan runs
+    When tofu plan runs
     Then it fails
 
   @cluster

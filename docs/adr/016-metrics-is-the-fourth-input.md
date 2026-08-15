@@ -1,4 +1,4 @@
-# 016. `metrics_enabled` is the fourth cross-module input
+# 016. `metrics.enabled` is the fourth cross-module input
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
@@ -16,7 +16,7 @@ without the CRD fails the sync outright.
 
 This has been solved once per module and named nowhere.
 [`openid-connect-keycloak`](../modules/openid-connect-keycloak/README.md) takes a
-`metrics_enabled` input; so does
+`metrics.enabled` input; so does
 [`certificate-management-cert-manager`](../modules/certificate-management-cert-manager/README.md).
 Neither appears in the platform spec's contracts, and its component list names neither as
 something those modules consume. [ADR 007](007-modules-receive-credentials.md) says *every*
@@ -24,9 +24,13 @@ consumer takes the same three optional inputs, which has quietly not been the wh
 
 ## Decision
 
-**`metrics_enabled` is a named platform input**, taken by every module whose workload can emit
-a `ServiceMonitor`. It is a `bool`, defaulting to `false`, and it is listed in
+**`metrics` is a named platform input**, taken by every module whose workload can emit a
+`ServiceMonitor`. It carries one field, `enabled`, defaulting to `false`, and it is listed in
 [the platform spec](../platform.md#contracts) beside the three contracts.
+
+**An object rather than a bare `metrics_enabled`**, so that whatever scraping needs next — an
+interval, a label, a port — has somewhere to go without renaming the input in every module a
+second time.
 
 **It is not a fourth contract, and does not become one.** The three carry a reference to
 something addressable — a Gateway, a database, an issuer. This carries a fact about the
@@ -37,8 +41,8 @@ accepting it and ignoring it.
 
 ## Rationale
 
-- **A boolean is right here, where an address was right for the console.** There is nothing to
-  address: a collector *discovers* `ServiceMonitor`s, it is not dialled. No URL exists that a
+- **A boolean field is right here, where an address was right for the console.** There is
+  nothing to address: a collector *discovers* `ServiceMonitor`s, it is not dialled. No URL exists that a
   module could be handed, so the objection raised elsewhere against booleans — that a flag and
   the thing it describes can disagree — has no better alternative to be measured against here.
 - **Naming it stops it being a per-module accident.** Three modules take it today and every

@@ -15,11 +15,11 @@ Three backends were real, and each fails somewhere different.
 with nothing else reachable. It also lives on one machine, so a second operator or a rebuilt
 laptop starts from nothing.
 
-**Terraform's `kubernetes` backend** — a Secret in the cluster the state describes — needs no
+**OpenTofu's `kubernetes` backend** — a Secret in the cluster the state describes — needs no
 credential beyond the kubeconfig already in use. It carries the weakest mechanics of the three:
 locking through a Lease, and an object size ceiling of roughly a megabyte.
 
-**Terraform's `pg` backend** stores state in a table in a PostgreSQL somewhere. Locking is a
+**OpenTofu's `pg` backend** stores state in a table in a PostgreSQL somewhere. Locking is a
 PostgreSQL advisory lock and state is a text column, so neither limitation above applies. It is
 the only option that needs a credential, and the only one that does not have to live in the
 cluster it describes.
@@ -58,10 +58,10 @@ and are set per environment.
   one, so this adds no *new* class of dependency to operate, back up or reason about — even
   where the instance is a different one.
 - **Its mechanics are the ones that will not have to be revisited.** Advisory locking is the
-  same mechanism Terraform uses against every other SQL backend, and a text column has no
+  same mechanism OpenTofu uses against every other SQL backend, and a text column has no
   ceiling worth calculating. Both of the `kubernetes` backend's open questions were about
   limits that PostgreSQL simply does not have.
-- **The credential is handled the way Terraform's own credentials already are.** The Argo CD
+- **The credential is handled the way OpenTofu's own credentials already are.** The Argo CD
   provider `root.hcl` generates has the same problem — a token that must not reach a tfvars
   file or state — and the same answer: it reads `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` from
   the environment. `PG_CONN_STR` is that rule applied to the backend rather than a new
@@ -78,7 +78,7 @@ and are set per environment.
   for the provider, and the state database for the backend.
 - **Losing the state database loses state.** Recoverable, because state describes
   `ApplicationSet`s and nothing unique — re-applying regenerates it — but the recovery order is
-  the database first, Terraform second. Nothing in this repo backs it up, and nothing in this
+  the database first, OpenTofu second. Nothing in this repo backs it up, and nothing in this
   repo knows where it is.
 - **`PG_CONN_STR` is a credential with no home.** It is not a Kubernetes Secret, so it does not
   appear in any module's prerequisites; it lives wherever the operator keeps such things, and it

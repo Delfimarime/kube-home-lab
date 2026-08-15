@@ -65,9 +65,9 @@ restated between layers.
 
 ## Layout
 
-Terragrunt handles the monorepo and the environments. The Terraform modules provision Argo CD
+Terragrunt handles the monorepo and the environments. The OpenTofu modules provision Argo CD
 resources — one `ApplicationSet` per module. Argo CD does the installing and the reconciling:
-Terraform never talks to a workload, and never creates a bare Kubernetes object.
+OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 
 Specs come first; only `docs/` exists so far.
 
@@ -77,7 +77,9 @@ _envcommon/<module>.hcl        inputs shared by a module across environments
 <env>/
   env.hcl                      cluster endpoint, hostnames, database host/port
   <unit>/terragrunt.hcl        includes root.hcl and _envcommon; holds only the deltas
-modules/<capability>-<impl>/   the Terraform, plus helm/<chart>/ for any chart it authors
+modules/<capability>-<impl>/
+  tofu/                        the OpenTofu that renders this module's ApplicationSet
+  helm/<chart>/                a chart this repo authors, when no upstream one fits
 docs/                          requirements, specs, decisions
 ```
 
@@ -95,7 +97,7 @@ the name is genuinely swappable.
 Every consumer module takes the same three optional inputs, each defaulting to `null`:
 `gateway` (expose it), `database` (connect it), `oidc` (authenticate it). Credentials are
 passed as Secret references, never values — and a module needing a Secret names it and shows
-how to create it. A fourth input, `metrics_enabled`, is a plain `bool` and not a contract. The
+how to create it. A fourth input, `metrics.enabled`, is a plain `bool` and not a contract. The
 shapes are in [the platform spec](docs/platform.md#contracts).
 
 None of it is wired automatically. No unit reads another unit's state; a value two units share
@@ -111,7 +113,7 @@ terragrunt run --all plan                        # from an environment directory
 cd prod/openid-connect-keycloak && terragrunt apply
 ```
 
-Terraform 1.9 or later. State is per environment, in a PostgreSQL
+OpenTofu 1.9 or later. State is per environment, in a PostgreSQL
 ([ADR 012](docs/adr/012-state-is-per-environment.md)) — `env.hcl` names the schema and
 `PG_CONN_STR` carries the address and credential, so nothing in git holds one. **Which
 PostgreSQL is deliberately unspecified**: not necessarily the one this environment's workloads

@@ -1,24 +1,24 @@
-# 010. Resources are delivered via chart, not Terraform-created manifests
+# 010. Resources are delivered via chart, not OpenTofu-created manifests
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 · revised 2026-08-15
 
 ## Context
 
 [ADR 006](006-shared-gateway-input.md) originally had every module emit its own `HTTPRoute` as
-a `kubernetes_manifest` — a resource Terraform creates directly, outside the module's Argo CD
+a `kubernetes_manifest` — a resource OpenTofu creates directly, outside the module's Argo CD
 `Application`. That was deliberate at the time: charts disagreed on Gateway API support, and a
-Terraform-managed resource was the one code path guaranteed to work everywhere, chart-based or
+OpenTofu-managed resource was the one code path guaranteed to work everywhere, chart-based or
 not.
 
 That premise no longer holds for the charts actually in use here. `grafana` (`route.main`)
 renders Gateway API resources from its own values today, and where a chart does not, a thin
-local one adds the template rather than Terraform reaching past the Application.
+local one adds the template rather than OpenTofu reaching past the Application.
 And the underlying problem was never
 route-specific: a `kubernetes_manifest` resource is, by construction, outside the Application
 it conceptually belongs to — untracked in Argo CD's resource tree, and not self-healed by it.
 Auditum has the same problem in a different shape: it has no chart at all, so its resources
 were going to be static manifests this repo points an Application at directly, with no way to
-receive a Terraform-computed value (a hostname, a secret name).
+receive a OpenTofu-computed value (a hostname, a secret name).
 
 Each module already renders its own `ApplicationSet`, one generated `Application` per chart
 ([ADR 005](005-modules-are-applicationsets.md)); this decision is about what those generated
@@ -27,11 +27,11 @@ Each module already renders its own `ApplicationSet`, one generated `Application
 ## Decision
 
 **Each chart's generated Argo CD `Application` owns every in-cluster resource it needs.
-Terraform never creates a bare Kubernetes object directly.** Each module resolves this per
+OpenTofu never creates a bare Kubernetes object directly.** Each module resolves this per
 chart, in order of preference:
 
 1. **Native** — the workload's own chart already renders what's needed (e.g. Gateway API
-   resources) from its values. Terraform sets those values on the existing chart. Nothing else
+   resources) from its values. OpenTofu sets those values on the existing chart. Nothing else
    to build.
 2. **Wrapped** — the workload's chart doesn't cover it. A chart local to this repo declares
    the workload's chart as a Helm dependency (`Chart.yaml` → `dependencies`) and adds the
@@ -41,8 +41,9 @@ chart, in order of preference:
    scratch, covering every resource the workload needs.
 
 **A chart this repo authors, wrapped or custom, lives at `helm/<chart-name>/` inside the module
-that owns it** — so a module directory holds its Terraform and every chart it is responsible
-for, and no chart is shared between modules by accident.
+that owns it** — beside the `tofu/` that renders the `ApplicationSet` pointing at it. A module
+directory holds exactly those two, so what a module *is* and what it *deploys* are one level
+apart and never interleaved, and no chart is shared between modules by accident.
 
 This is deliberately stated without naming a specific resource type: it applies to
 `HTTPRoute` today — the case that surfaced it — and to whatever a future module's chart
@@ -50,7 +51,7 @@ doesn't cover, without needing a new ADR to say so again.
 
 ## Rationale
 
-- The gap was never really about routes — it's that a Terraform-created resource can't be
+- The gap was never really about routes — it's that a OpenTofu-created resource can't be
   owned by an Application. Stating the decision at that level means it holds the next time a
   workload needs something its chart doesn't provide.
 - Native first keeps the cost near zero wherever a chart already does the job — no wrapper,
@@ -58,7 +59,7 @@ doesn't cover, without needing a new ADR to say so again.
 - Wrapping beats reinventing: Helm's dependency mechanism lets a thin local chart add one
   template on top of an upstream chart instead of re-authoring the whole workload.
 - This also closes a gap in [the platform spec's](../platform.md) own acceptance
-  criterion — every workload owned by an Application, none created directly by Terraform —
+  criterion — every workload owned by an Application, none created directly by OpenTofu —
   which routes, and Auditum's resources, were in practice quietly exempted from.
 
 ## Consequences

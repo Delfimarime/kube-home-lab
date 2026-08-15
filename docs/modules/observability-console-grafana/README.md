@@ -227,7 +227,7 @@ Feature: One console over whatever observability is switched on
   @plan
   Scenario: [CON-01] Something must be readable
     Given metrics_url, logs_url and traces_url are all null
-    When terraform plan runs
+    When tofu plan runs
     Then it fails with a validation error naming the three inputs
 
   @cluster
@@ -279,7 +279,7 @@ Feature: One console over whatever observability is switched on
   @plan
   Scenario Outline: [CON-08] Local login follows oidc, and nothing else
     Given oidc is <oidc>
-    When terraform plan runs
+    When tofu plan runs
     Then the login form is <form>
      And no input governs it
 
@@ -291,7 +291,7 @@ Feature: One console over whatever observability is switched on
   @plan
   Scenario: [CON-12] The default tenant is one of the tenants
     Given default_tenant names a tenant absent from tenants
-    When terraform plan runs
+    When tofu plan runs
     Then it fails, naming both inputs
 
   @cluster
@@ -304,7 +304,7 @@ Feature: One console over whatever observability is switched on
   @plan
   Scenario: [CON-09] A database is mandatory
     Given database is null
-    When terraform plan runs
+    When tofu plan runs
     Then it fails
      And SQLite is never selected as a fallback
 

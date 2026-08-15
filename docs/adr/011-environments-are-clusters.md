@@ -14,7 +14,7 @@ that dimension sits in the tree.
 | | Isolation | Per-environment provider | Notes |
 | --- | --- | --- | --- |
 | **Directory layering** | separate clusters | yes, from `env.hcl` | Terragrunt's own recommended structure |
-| Terraform workspaces | one state, one backend | no — one provider config | A workspace is not a cluster |
+| OpenTofu workspaces | one state, one backend | no — one provider config | A workspace is not a cluster |
 | One cluster, namespace per environment | none worth the name | n/a | One API server, one Argo CD, one failure domain |
 
 ## Decision
@@ -29,7 +29,7 @@ _envcommon/<module>.hcl       inputs shared by a module across environments
 <env>/
   env.hcl                     cluster endpoint, hostnames, database host/port
   <unit>/terragrunt.hcl       includes root.hcl and _envcommon/<module>.hcl; holds the deltas
-modules/<capability>-<impl>/  the Terraform
+modules/<capability>-<impl>/  tofu/ and helm/
 ```
 
 **An environment ships a module by having a unit directory for it.** There is no enable

@@ -11,7 +11,7 @@
 [ADR 013](adr/013-roles-are-carried-in-the-token.md),
 [ADR 014](adr/014-exposed-does-not-mean-authorized.md),
 [ADR 015](adr/015-units-are-wired-by-hand.md),
-[ADR 016](adr/016-metrics-enabled-is-the-fourth-input.md),
+[ADR 016](adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](adr/017-stores-are-multi-tenant.md),
 [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) ·
 **Date:** 2026-08-05
@@ -59,11 +59,13 @@ Each environment's cluster exists and already runs:
   [exposure and authorization](#exposure-and-authorization)
 - **PostgreSQL** — reachable, with a database and credentials per consumer, described in that
   environment's `env.hcl`. Where it runs, and whether two environments share a server, is
-  invisible to every module. Terraform's state lives in a PostgreSQL too
+  invisible to every module. OpenTofu's state lives in a PostgreSQL too
   ([ADR 012](adr/012-state-is-per-environment.md)) and is deliberately not assumed to be this
   one, or to be in this cluster
 
-Terraform 1.9 or later, because variable `validation` blocks reference other variables.
+OpenTofu 1.9 or later ([ADR 019](adr/019-the-tool-is-opentofu.md)), because a variable
+`validation` block references a second variable. The version is an OpenTofu version and does
+not read across to Terraform.
 
 If any of these is false, this repo does nothing useful for that environment, and it fails at
 plan or sync time rather than degrading quietly.
@@ -103,7 +105,7 @@ purpose: adding a consumer is never a change to its provider.
 **ApplicationSet and Application** — a module renders exactly one Argo CD `ApplicationSet` with
 a `List` generator, one static entry per chart it needs, even at one entry
 ([ADR 005](adr/005-modules-are-applicationsets.md)). Each generated `Application` owns every
-in-cluster resource its chart needs, and Terraform creates no bare Kubernetes object
+in-cluster resource its chart needs, and OpenTofu creates no bare Kubernetes object
 ([ADR 010](adr/010-resources-delivered-via-chart.md)) — so the Application is the unit of
 ownership, and "reconciled by Argo CD" is true of everything without exception.
 
@@ -113,7 +115,7 @@ do not interfere ([REQ-12](requirements.md)). An environment ships a module by h
 Terragrunt unit for it; there is no inventory file, so the tree cannot disagree with reality.
 
 Worth being pedantic about the rest of the vocabulary: a **unit** is a Terragrunt directory, a
-**module** is the Terraform it calls, and a **workload** is what ends up running in a pod. One
+**module** is the OpenTofu it calls, and a **workload** is what ends up running in a pod. One
 unit calls one module, which usually deploys more than one workload.
 
 ## Components
@@ -144,7 +146,7 @@ list of them — a change to any is a change here first and in the modules secon
 
 **Nothing is wired automatically** ([ADR 015](adr/015-units-are-wired-by-hand.md)). No unit
 reads another unit's state; a value two units share — a hostname, a store address, a tenant
-list, `metrics_enabled` — is declared once in `env.hcl` or `_envcommon/` and read from there by
+list, `metrics.enabled` — is declared once in `env.hcl` or `_envcommon/` and read from there by
 both. There are no `dependency` blocks and no `mock_outputs`.
 
 The consequence worth knowing: a hand-written value can disagree with what it describes, and
@@ -208,8 +210,8 @@ for limits and by the console for datasources, and passes between neither.
 **A workload declares scraping through its own chart**
 ([ADR 004](adr/004-scrape-config-via-prometheus-crds.md)) — `serviceMonitor.enabled`, read
 directly by the collector, never hand-written scrape config. It may only do so when the
-environment has the CRDs and a collector, which is what `metrics_enabled` says
-([ADR 016](adr/016-metrics-enabled-is-the-fourth-input.md)).
+environment has the CRDs and a collector, which is what `metrics.enabled` says
+([ADR 016](adr/016-metrics-is-the-fourth-input.md)).
 
 ## Contracts
 
@@ -228,7 +230,7 @@ about the environment rather than a reference to something addressable:
 
 | Variable | Meaning when `true` | Meaning when `false` |
 | --- | --- | --- |
-| `metrics_enabled` | the CRDs exist and a collector is reading them, so declare scraping | declare nothing; a `ServiceMonitor` would fail the sync or go unread |
+| `metrics` | one field, `enabled`: the CRDs exist and a collector is reading them, so declare scraping | declare nothing; a `ServiceMonitor` would fail the sync or go unread |
 
 Shapes are defined in [ADR 007](adr/007-modules-receive-credentials.md) and are not repeated
 here. How a module turns `gateway` into resources is per-module — see
@@ -260,7 +262,7 @@ Feature: Platform provisioning
     Given a module has been applied to an environment
     When its Deployments, StatefulSets, Services and HTTPRoutes are inspected
     Then each has an Argo CD Application among its owners
-     And none of them is present in Terraform state
+     And none of them is present in OpenTofu state
 
   @cluster
   Scenario: [PLAT-02] No secret value is written to the cluster in plaintext
@@ -283,7 +285,7 @@ Feature: Platform provisioning
   @plan
   Scenario: [PLAT-05] An environment plans against its own cluster only
     Given two environments are configured
-    When terraform plan runs for one of them
+    When tofu plan runs for one of them
     Then every resource in the plan targets that environment's cluster
      And no resource belonging to the other appears in the plan
 ```
@@ -294,7 +296,7 @@ Prose today, checked by hand. The route to executable, and what the tags mean, i
 [docs/README.md](README.md#making-the-criteria-executable).
 
 Worth noting that four of the five are `@cluster`: what is being asserted is mostly ownership by
-a controller Terraform never talks to. PLAT-05 is the exception and the one worth automating
+a controller OpenTofu never talks to. PLAT-05 is the exception and the one worth automating
 first — it is checkable from a plan, and it is the criterion behind REQ-12.
 
 ## Open questions
@@ -311,6 +313,6 @@ would resolve them:
   See [`openid-connect-keycloak`](modules/openid-connect-keycloak/README.md#open-items)
 - **What backs up PostgreSQL?** — nothing. The environment's database holds the realm and every
   Grafana alert rule, neither of which is regenerable from git, and it is [out of scope](#scope)
-  by [ADR 008](adr/008-postgresql-is-external.md). Terraform's state database is a separate
+  by [ADR 008](adr/008-postgresql-is-external.md). OpenTofu's state database is a separate
   concern and a separate instance ([ADR 012](adr/012-state-is-per-environment.md)); its contents
   *are* regenerable

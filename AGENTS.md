@@ -22,12 +22,13 @@ _envcommon/<module>.hcl        inputs shared by a module across environments
 <env>/
   env.hcl                      cluster endpoint, hostnames, database host/port
   <unit>/terragrunt.hcl        includes root.hcl and _envcommon; holds only the deltas
-modules/<capability>-<impl>/   the Terraform, plus helm/<chart>/ for any chart it authors
+modules/<capability>-<impl>/
+  tofu/                        the OpenTofu that renders this module's ApplicationSet
+  helm/<chart>/                a chart this repo authors, when no upstream one fits
 docs/                          requirements, specs, decisions
 ```
 
-Specs come first. `docs/` is the only part with substance today and no module's Terraform
-exists yet, so work here is writing and refining requirements, specs and ADRs ahead of code.
+Specs come first: a module's spec and its ADRs are written before its `tofu/` is.
 
 **Everything in this repository provisions a platform capability, and nothing provisions a
 prerequisite.** k3s, Argo CD, the Gateway and PostgreSQL are things an environment already has
@@ -70,12 +71,18 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
   `ApplicationSet` module, and no module ever creates a bare `Application` directly. [ADR 005]
 - **Every consumer module takes the same three optional inputs**, each defaulting to `null`
   (meaning "not wired", never "disabled by a flag"): `gateway`, `database`, `oidc`. [ADR 007]
-- **A fourth input, `metrics_enabled`, is not one of them and is not a contract.** It is a
-  `bool` defaulting to `false`, taken by every module whose workload can emit a
-  `ServiceMonitor`, and it says the environment has the CRDs *and* a collector. A module with
-  no metrics endpoint doesn't take it. [ADR 016]
+- **A fourth input, `metrics`, is not one of them and is not a contract.** One field,
+  `enabled`, defaulting to `false`, taken by every module whose workload can emit a
+  `ServiceMonitor`; it says the environment has the CRDs *and* a collector. A module with no
+  metrics endpoint doesn't take it. [ADR 016]
+- **Related inputs are one object, not a prefix.** `cert_manager.chart_version`, not
+  `chart_versions.cert_manager`; `argocd.plain_text`, not `argocd_plain_text`. The object is the
+  subject, and it is where the next field about that subject goes without renaming anything.
+- **A module declares the fields it reads and no others.** Taking a contract's whole shape to
+  use one field forces a caller to invent values nothing reads — `certificate-management-cert-manager`
+  takes `gateway_namespace` rather than `gateway`, because it renders no route. [ADR 007, rule 3]
 - **Each chart's generated Argo CD `Application` owns every resource it needs, including its
-  route — Terraform never creates a bare Kubernetes object.** Prefer the workload's own chart
+  route — OpenTofu never creates a bare Kubernetes object.** Prefer the workload's own chart
   when it already renders what's needed (native, e.g. Grafana's `route.main`); wrap it with a
   local chart that adds a Helm dependency plus one template when it doesn't (wrapped); author
   a local chart from scratch when there's no upstream chart at all (custom — e.g. Auditum,
@@ -105,8 +112,18 @@ Load-bearing decisions from the ADRs. Violating one is a regression, not a style
   `<SLUG>_ADMIN`/`<SLUG>_VIEWER` from `resource_access.<slug>.roles`, maps them to its own
   native roles, and **refuses anyone carrying none** — never falls back to a default role.
   [ADR 013]
-- **A chart this repo authors lives at `helm/<chart-name>/` inside the module that owns it.**
-  Wrapped or custom, same place. [ADR 010]
+- **The tool is OpenTofu.** `tofu`, not `terraform`, in every runbook and every `@plan`
+  scenario; `required_version` is an OpenTofu version and does not read across. "Terraform"
+  in these documents means the *language*. [ADR 019]
+- **Provider configuration comes from the environment, never from a variable** — `ARGOCD_SERVER`,
+  `ARGOCD_AUTH_TOKEN`, `ARGOCD_INSECURE` — so no credential reaches a tfvars file or state. The
+  single exception is a field the provider offers no environment variable for: `plain_text` is a
+  module input with a default, and a new one needs the same justification. Nothing is hardcoded
+  in a `provider` block. [ADR 012]
+- **A module directory holds exactly two things: `tofu/` and `helm/`.** The OpenTofu that
+  renders the `ApplicationSet` goes in `tofu/`; a chart this repo authors goes in
+  `helm/<chart-name>/`, wrapped or custom, same place. No `.tf` at the module root, no chart
+  outside `helm/`, and nothing else in the directory. [ADR 010, ADR 019]
 - **Chart versions are pinned exactly.** An upgrade is a deliberate edit, which is what keeps
   a native chart's values schema from changing underneath a module silently. [ADR 010]
 - **Nothing in this repo creates the Secrets that `var.database` and `var.oidc` reference.**
@@ -163,7 +180,7 @@ finite amount of RAM.
   Don't build it out further without resolving that; if the answer is the second one, the
   module should not exist.
 - **Nothing backs up PostgreSQL**, and two things in it cannot be regenerated from git:
-  Keycloak's realm and every Grafana alert rule. Don't add a third without saying so. Terraform
+  Keycloak's realm and every Grafana alert rule. Don't add a third without saying so. OpenTofu
   state is in a PostgreSQL too but a separate one, and it *is* regenerable
   [ADR 012](docs/adr/012-state-is-per-environment.md).
 - **There is no secret manager.** REQ-04 was dropped along with the module that satisfied it,

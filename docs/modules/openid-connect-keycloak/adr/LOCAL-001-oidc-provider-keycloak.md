@@ -85,5 +85,5 @@ environment's initial instance — an operator with no instance is not an identi
 - **The Zitadel decision is gone rather than superseded.** Nothing implemented it, and
   [docs/README.md](../../../README.md#revising-an-adr) permits revision in place until something
   does. The reasoning that survives — one issuer per environment, no client registration in
-  Terraform, no client secrets in state — was never Zitadel's and is
+  OpenTofu, no client secrets in state — was never Zitadel's and is
   [ADR 007](../../../adr/007-modules-receive-credentials.md)'s.

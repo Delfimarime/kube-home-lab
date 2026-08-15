@@ -26,11 +26,11 @@ shared `ApplicationSet` module; each module still authors its own, inline.
 - One Argo CD resource kind for "a module," regardless of how many charts it happens to bundle
   today or later. Adding a second chart to what's currently a one-chart module is a new list
   entry, not a resource-kind migration.
-- The `List` generator's entries are static and known at Terraform plan time — previously read
+- The `List` generator's entries are static and known at plan time — previously read
   as a reason *against* `ApplicationSet` ("a generator earns its place when it discovers
-  things Terraform does not already know"). That still holds for dynamic generators, but a
+  things OpenTofu does not already know"). That still holds for dynamic generators, but a
   static list needs no discovery to benefit from templating: the entries stay fully visible in
-  the module's own Terraform code, just expressed as generator elements instead of `for_each`.
+  the module's own OpenTofu code, just expressed as generator elements instead of `for_each`.
 - An `ApplicationSet`'s shared `template` centralizes what used to be repeated per
   `Application` — `project`, `syncPolicy`, common labels — which fixes this ADR's own
   previously named cost of ~25 lines of boilerplate repeated per Application. A `syncPolicy`
@@ -38,10 +38,10 @@ shared `ApplicationSet` module; each module still authors its own, inline.
 
 ## Consequences
 
-- Every module's Terraform creates exactly one `ApplicationSet`, never a bare `Application`.
-- `terraform plan` shows the `ApplicationSet` object and its generator entries — still fully
+- Every module's OpenTofu creates exactly one `ApplicationSet`, never a bare `Application`.
+- `tofu plan` shows the `ApplicationSet` object and its generator entries — still fully
   declared in the module's HCL — but the `Application`s it expands to are created and
-  reconciled by Argo CD's own controller, not directly visible as Terraform-managed resources.
+  reconciled by Argo CD's own controller, not directly visible as OpenTofu-managed resources.
 - An `ApplicationSet`'s generated `Application`s are owned by it and are removed with it via
   Argo CD's own garbage collection — `terraform destroy` still only has to remove one object
   per module.

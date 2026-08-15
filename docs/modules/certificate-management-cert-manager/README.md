@@ -8,7 +8,7 @@
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md),
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)
 
 ## Intent
@@ -40,11 +40,19 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 
 **The waves are load-bearing**, for two different reasons. cert-manager's CRDs must exist before
 anything declares a `Certificate`. trust-manager issues its own webhook certificate *through*
-cert-manager, so it cannot start first. The CRD Application also sets `ServerSideApply=true`:
+cert-manager, so it cannot start first. `ServerSideApply=true` is set on all three:
 cert-manager's CRDs exceed the 262144-byte `last-applied-configuration` annotation limit, and
 without it the first sync fails with an error that does not obviously say so. The chart installs
-them itself — the flag is `crds.enabled`, renamed from `installCRDs` at v1.15, which is a
-version bump that can silently install nothing.
+them itself — the flag is `crds.enabled`, **which defaults to `false`**, and which replaced
+`installCRDs` at v1.15; the old name is still accepted and silently ignored, so a bump that
+missed the rename would install a controller with no types to reconcile.
+
+**All three land in one namespace, and that is not tidiness.** A `ClusterIssuer` resolves its CA
+Secret in cert-manager's `--cluster-resource-namespace`, and trust-manager reads a `Bundle`'s
+sources from its `--trust-namespace`, which defaults to `cert-manager`. Splitting the
+controllers from the authorities means setting both, and forgetting either produces a
+`ClusterIssuer` that never becomes ready and says only "secret not found". One namespace makes
+the first correct by default; the module sets both explicitly anyway.
 
 **`lab-pki` is the custom case** of [ADR 010](../../adr/010-resources-delivered-via-chart.md):
 there is no upstream chart for "this lab's authorities", so this repo authors one. It renders,
@@ -57,17 +65,17 @@ per entry in `var.certificate_authorities`:
 
 plus one `Bundle` distributing the trusted authorities cluster-wide
 ([ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)), and one `ReferenceGrant` when
-`var.gateway` is set.
+`var.gateway_namespace` is set.
 
 **The `ReferenceGrant` is why this module needs to know about the Gateway at all.** A listener's
 `certificateRefs` reads a Secret in another namespace, and that is a cross-namespace reference
 Gateway API requires a grant for. The platform's existing assumption —
 `allowedRoutes.namespaces.from: All` — governs route *attachment* and does not cover it.
 
-**Scraping.** When `metrics_enabled` is `true`, the chart's own `prometheus.servicemonitor`
+**Scraping.** When `metrics.enabled` is `true`, the chart's own `prometheus.servicemonitor`
 values are set, producing a `ServiceMonitor` the collector reads directly
 ([ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
-[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)). cert-manager exposes
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md)). cert-manager exposes
 `certmanager_certificate_expiration_timestamp_seconds` and
 `certmanager_certificate_ready_status`, which is the whole of this module's user interface —
 there is no console, and `cmctl status certificate` is the other half.
@@ -139,9 +147,9 @@ trust_bundle = {
   authorities = ["server"]      # which authorities every namespace is told to trust
 }
 
-gateway = null                  # only .namespace is read: who may reference these Secrets
+gateway_namespace = null        # whose Gateway may reference these Secrets
 
-metrics_enabled = false   # declared once in env.hcl — ADR 016
+metrics = { enabled = false }   # declared once in env.hcl — ADR 016
 ```
 
 **`certificate_authorities` is the module.** Everything else is placement. An authority declares
@@ -156,12 +164,16 @@ metric then describes the new certificate and says nothing about the one actuall
 an alert built on it is worse than no alert. Renewing close to expiry keeps the metric and
 reality talking about the same object.
 
-**`gateway` is the shared contract, re-read.** This module renders no route and exposes nothing;
-what it needs from the contract is the namespace holding the Gateway that reads these Secrets.
-`null` means no `ReferenceGrant`, which means a Gateway in another namespace cannot use them —
-the same "not wired" meaning the contract has everywhere else
-([ADR 007](../../adr/007-modules-receive-credentials.md)). A second input of the same shape
-would be two ways to say one thing.
+**`gateway_namespace` is not the `gateway` contract, and is deliberately not shaped like it.**
+That contract carries a name, a hostname and a section — everything a module needs to *emit a
+route*. This module emits no route. Taking the whole shape to read one field would force a
+caller to invent a hostname nothing here reads, which is the opposite of
+[ADR 007](../../adr/007-modules-receive-credentials.md)'s third rule: a module declares what it
+needs. `null` keeps the contract's ordinary meaning — not wired, so no `ReferenceGrant`, so a
+Gateway in another namespace cannot use these Secrets.
+
+**This module therefore takes none of the three contracts.** It has no route, no database and no
+issuer, which is the same fact as having no consumer inside this repository.
 
 ## Outputs
 
@@ -206,14 +218,14 @@ Feature: Certificates come from authorities this repository owns
 
   @cluster
   Scenario Outline: [CERT-04] The Gateway reads these Secrets only when wired
-    Given gateway is <gateway>
+    Given gateway_namespace is <gateway_namespace>
     When ReferenceGrants in the namespace are listed
     Then <outcome>
 
     Examples:
-      | gateway | outcome                                                  |
-      | null    | none exists                                              |
-      | set     | one exists, permitting that namespace to read Secrets    |
+      | gateway_namespace | outcome                                              |
+      | null              | none exists                                          |
+      | set               | one exists, permitting that namespace to read Secrets |
 
   @cluster
   Scenario: [CERT-05] A server certificate is not a client certificate
@@ -225,7 +237,7 @@ Feature: Certificates come from authorities this repository owns
   @plan
   Scenario: [CERT-06] An authority outlives what it signs
     Given an authority whose duration is shorter than its certificate's
-    When terraform plan runs
+    When tofu plan runs
     Then it fails, naming both durations
 
   @cluster
@@ -265,6 +277,14 @@ Feature: Certificates come from authorities this repository owns
   certificates and [REQ-14](../../requirements.md)'s "not made by hand" do. Build the client
   half first — it is the half that pays for the module.
 - **cainjector will fight Argo CD.** It rewrites `caBundle` on the validating and mutating
-  webhook configurations, which Argo CD sees as drift. The Application needs
-  `ignoreDifferences` on `/webhooks/*/clientConfig/caBundle`, and this is the one place in the
+  webhook configurations, which Argo CD sees as drift. The `ApplicationSet` template carries
+  `ignore_difference` on `.webhooks[]?.clientConfig.caBundle` for both kinds, together with
+  `RespectIgnoreDifferences=true` — without the second, the rule only hides the field from the
+  diff and a sync triggered by anything else still writes the empty value back, which breaks the
+  webhook and with it every certificate the cluster tries to issue. This is the one place in the
   repository where that mechanism is needed for something other than a generated credential.
+- **The two vendor charts put the same switch in different places.** cert-manager's is
+  `prometheus.servicemonitor.enabled`; trust-manager's is
+  `app.metrics.service.servicemonitor.enabled`, and `app.webhook.service` exists but does not
+  take one. The values schema rejects the wrong path, which is the good case — a chart without
+  one would have accepted it silently. Render against the pinned chart before believing a key.
