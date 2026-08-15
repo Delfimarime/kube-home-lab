@@ -45,23 +45,25 @@ variable "cert_manager" {
     authority = optional(object({
       duration = optional(string, "87600h")
     }), {})
-
     trust_bundle = optional(object({
       name        = optional(string, "lab-ca-bundle")
       authorities = optional(list(string), ["server"])
     }), {})
-
     chart_version = optional(string, "v1.21.1")
-
     trust_manager = optional(object({
       chart_version = optional(string, "v0.24.0")
     }), {})
 
     lab_pki = optional(object({
       repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-      path     = optional(string, "modules/certificate-management-cert-manager/helm/lab-pki")
+      path     = optional(string, "modules/certificate-management-cert-manager/helm")
       revision = optional(string, "main")
     }), {})
   })
   description = "Certificate management: the domain it issues for, the certificates it issues, and the charts it installs."
+}
+
+variable "git_revision" {
+  type = string
+  default = "main"
 }
