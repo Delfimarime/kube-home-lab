@@ -189,7 +189,7 @@ variable "trust_manager" {
 variable "lab_pki" {
   type = object({
     repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-    path     = optional(string, "modules/certificate-management-cert-manager/helm/lab-pki")
+    path     = optional(string, "modules/certificate-management-cert-manager/helm")
     revision = optional(string, "main")
   })
   description = "Where Argo CD reads the authorities chart from."
