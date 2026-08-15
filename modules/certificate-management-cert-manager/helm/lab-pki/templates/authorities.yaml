@@ -1,7 +1,10 @@
 {{/*
 Per authority: a self-signed Issuer, the CA Certificate it signs, and a ClusterIssuer backed by
 that CA's Secret. Three objects, one authority, and the chain is entirely inside this cluster —
-there is no ACME account and no external CA (LOCAL-001).
+there is no ACME account, no external CA and no public DNS record anywhere in it.
+
+There are exactly two authorities, `server` and `client`. The range is over a map because the
+three objects are identical in shape, not because the set is open.
 */}}
 {{- range $name, $authority := .Values.authorities }}
 {{- $ctx := dict "root" $ "name" $name }}

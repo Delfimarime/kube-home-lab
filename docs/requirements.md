@@ -100,7 +100,7 @@ decisions are cited as `<module> LOCAL-NNN`.
 **A scenario absent from this table verifies a decision rather than a requirement**, and the
 decision is among those its spec's header lists. `CON-10` checks that nothing is provisioned to
 alert, which is `observability-console-grafana LOCAL-003`'s consequence and no requirement's;
-`CERT-06` checks an input validation. Absence here is a statement rather than an omission — a
+`CERT-06` and `CERT-08` check input validations. Absence here is a statement rather than an omission — a
 scenario that verifies neither a requirement nor a decision its spec cites should not exist.
 
 | Requirement | Decided in | Specified in | Verified by |

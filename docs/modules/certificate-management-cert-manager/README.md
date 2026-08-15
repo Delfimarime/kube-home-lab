@@ -56,14 +56,22 @@ the first correct by default; the module sets both explicitly anyway.
 
 **`lab-pki` is the custom case** of [ADR 010](../../adr/010-resources-delivered-via-chart.md):
 there is no upstream chart for "this lab's authorities", so this repo authors one. It renders,
-per entry in `var.certificate_authorities`:
+for each of the two authorities — `server` and `client`, which are not configurable:
 
 - a self-signed `Issuer`, and the CA `Certificate` it signs
 - a `ClusterIssuer` backed by that CA's Secret
-- **exactly one** leaf `Certificate` from that `ClusterIssuer`
-  ([LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md))
 
-plus one `Bundle` distributing the trusted authorities cluster-wide
+and, per entry in `var.certificates` plus the always-issued `default`:
+
+- a server `Certificate` from the `server` ClusterIssuer, `server auth`
+- when `mode = "mtls"`, **also** a client `Certificate` from the `client` ClusterIssuer,
+  `client auth` ([LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md))
+
+The chart has no notion of a mode: the module resolves it into shapes, and an entry carrying a
+`client` block *is* the pair. That is why there is no second place the two could disagree about
+what mtls means.
+
+Plus one `Bundle` distributing the trusted authorities cluster-wide
 ([ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)), and one `ReferenceGrant` when
 `var.gateway_namespace` is set.
 
@@ -118,29 +126,21 @@ key that a person types is a private key that lives somewhere else too.
 ## Inputs
 
 ```hcl
-namespace = "certificates"      # where the authorities and their Secrets live
+domain    = "lab.internal"      # required; every issued name is built from it
+namespace = "cert-manager"      # where the authorities and their Secrets live
 
-certificate_authorities = {
-  server = {
-    common_name = "lab server CA"
-    duration    = "87600h"      # 10y
-    certificate = {
-      dns_names = ["*.lab.internal"]
-      usages    = ["server auth"]
-      duration  = "8760h"       # 1y
-    }
+# Additional to `default`, which is always issued: the wildcard *.lab.internal and the shared
+# client identity paired with it. "default" is a reserved key here.
+certificates = {
+  storage = {
+    mode      = "mtls"          # a pair: server certificate + client certificate
+    dns_names = ["mimir.lab.internal"]
   }
-  client = {
-    common_name = "lab client CA"
-    duration    = "87600h"
-    certificate = {
-      common_name = "lab client"
-      usages      = ["client auth"]
-      duration    = "8760h"
-      renew_before = "720h"     # 30d — see below
-    }
-  }
+  console = {}                  # mode defaults to "tls"; dns_names to ["console.lab.internal"]
 }
+
+default_certificate = { duration = "8760h" }   # 1y
+authority           = { duration = "87600h" }  # 10y — an authority outlives what it signs
 
 trust_bundle = {
   name        = "lab-ca-bundle"
@@ -152,17 +152,21 @@ gateway_namespace = null        # whose Gateway may reference these Secrets
 metrics = { enabled = false }   # a root variable, declared once — ADR 016
 ```
 
-**`certificate_authorities` is the module.** Everything else is placement. An authority declares
-the one certificate it signs, so the 1:1 rule
-([LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md)) is enforced by the type rather
-than by review. Two entries is the default and not the limit.
+**`domain` and `certificates` are the module.** Everything else is placement or a lifetime. A
+name is enough on its own: an entry with no `dns_names` gets `<name>.<domain>`, and its client
+half gets `CN=<name>.<domain>`, so nothing makes a caller repeat the domain it already declared.
 
-**`renew_before` is short on the client certificate on purpose.** cert-manager renews at two
-thirds of lifetime by default, so a one-year certificate is replaced in-cluster at month eight
-while the copy on the laptop keeps working until month twelve. Nothing breaks — but the expiry
-metric then describes the new certificate and says nothing about the one actually deployed, so
-an alert built on it is worse than no alert. Renewing close to expiry keeps the metric and
-reality talking about the same object.
+**`mode` decides how many certificates an entry produces, not what usages one carries.** Adding
+`client auth` to the server certificate would render more simply and would defeat the two
+authorities — that separation is what `CERT-05` rests on
+([LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md)).
+
+**`renew_before` is unset by default, and the client half then gets `720h`.** cert-manager renews
+at two thirds of lifetime, so a one-year certificate is replaced in-cluster at month eight while
+the copy on the laptop keeps working until month twelve. Nothing breaks — but the expiry metric
+then describes the new certificate and says nothing about the one actually deployed, so an alert
+built on it is worse than no alert. The in-cluster server halves have no such problem, which is
+why the shorter window applies only to the half that leaves.
 
 **`gateway_namespace` is not the `gateway` contract, and is deliberately not shaped like it.**
 That contract carries a name, a hostname and a section — everything a module needs to *emit a
@@ -175,19 +179,20 @@ Gateway in another namespace cannot use these Secrets.
 **This module therefore takes none of the three contracts.** It has no route, no database and no
 issuer, which is the same fact as having no consumer inside this repository.
 
-**Almost none of it is written down per environment.** The root module composes
-`certificate_authorities` from `var.domain`, so the only cluster-specific value is the domain
-itself — which is why the `*.lab.internal` in the variable's default is a convenience for driving
-the module in isolation rather than the value an environment actually gets. `namespace`,
-`trust_bundle`, `cert_manager`, `trust_manager` and `lab_pki` stay at their defaults, and
-`argocd.namespace`, `gateway_namespace` and `metrics` come from root variables.
+**Almost none of it is written down per environment.** `domain` is the one value with no
+default, and everything else is derived from it: both authorities' common names, the wildcard, and
+each entry's `dns_names` and client subject. `namespace`, `default_certificate`, `authority`,
+`trust_bundle` and the three chart pins stay at their defaults; `argocd.namespace`,
+`gateway_namespace` and `metrics` come from root variables, because they describe the cluster
+rather than this module. The root module is a pass-through — it composes nothing.
 
 ## Outputs
 
 | Output | Used by |
 | --- | --- |
-| `ca_secret_names` | map, authority → Secret holding that authority's certificate. The Gateway's `frontendValidation` reads the client one |
-| `certificate_secret_names` | map, authority → Secret holding its issued certificate. The Gateway's `certificateRefs` reads the server one |
+| `ca_secret_names` | `server`/`client` → Secret holding that authority's own certificate. A listener's `frontendValidation` reads the client one |
+| `certificate_secret_names` | certificate name → Secret holding its server certificate. A listener's `certificateRefs` reads one; `default` is the wildcard |
+| `client_certificate_secret_names` | certificate name → Secret holding its client certificate. Only `mtls` entries appear |
 | `trust_bundle_name` | the ConfigMap present in every namespace; consumers mount it |
 
 **Nothing cert-manager-shaped crosses the boundary.** No `Issuer` name, no `ClusterIssuer` kind,
@@ -204,11 +209,17 @@ property ends.
 Feature: Certificates come from authorities this repository owns
 
   @cluster
-  Scenario: [CERT-01] An authority signs exactly one certificate
-    Given certificate_authorities declares server and client
+  Scenario Outline: [CERT-01] A certificate's mode decides how many it produces
+    Given a certificate entry named <name> with mode <mode>
     When Certificates in the namespace are listed
-    Then exactly one exists per authority, excluding the authorities' own
-     And each names the ClusterIssuer of the authority that declared it
+    Then <count> exist for that entry, excluding the authorities' own
+     And every server certificate names the server ClusterIssuer
+     And every client certificate names the client ClusterIssuer
+
+    Examples:
+      | name    | mode | count |
+      | console | tls  | one   |
+      | storage | mtls | two   |
 
   @cluster
   Scenario: [CERT-02] The bundle reaches every namespace, and adds rather than replaces
@@ -242,10 +253,16 @@ Feature: Certificates come from authorities this repository owns
      And the refusal does not depend on Extended Key Usage being enforced
 
   @plan
-  Scenario: [CERT-06] An authority outlives what it signs
-    Given an authority whose duration is shorter than its certificate's
+  Scenario: [CERT-06] An authority outlives everything it signs
+    Given authority.duration is shorter than any certificate's duration
     When tofu plan runs
     Then it fails, naming both durations
+
+  @plan
+  Scenario: [CERT-08] The reserved certificate name is refused
+    Given certificates declares an entry named default
+    When tofu plan runs
+    Then it fails, saying default is derived from domain
 
   @cluster
   Scenario: [CERT-07] No private key is rendered
@@ -276,9 +293,11 @@ Feature: Certificates come from authorities this repository owns
   exactly as it would have with no trust-manager at all, and
   [`observability-console-grafana`](../observability-console-grafana/README.md) is the one that
   fails today.
-- **The client certificate is shared, so revocation is all or nothing**
+- **`default`'s client certificate is shared, so revoking it is all or nothing**
   ([LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md)). One pusher compromised means
-  every pusher refreshed on the same afternoon.
+  every holder refreshed on the same afternoon. Giving a pusher its own `mtls` entry narrows
+  that to one holder, and is the only reason to add one — per-client certificates are otherwise
+  a distinction nothing in this stack reads.
 - **Three pods for a capability that is mostly one wildcard.** cert-manager, its webhook and
   cainjector, plus trust-manager. The wildcard alone would not justify them; the client
   certificates and [REQ-14](../../requirements.md)'s "not made by hand" do. Build the client

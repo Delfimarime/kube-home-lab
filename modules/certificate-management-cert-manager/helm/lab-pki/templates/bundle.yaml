@@ -1,6 +1,7 @@
 {{/*
-One Bundle, distributed to every namespace by trust-manager (ADR 018). It reads its sources from
-trust-manager's --trust-namespace, which the module pins to .Values.namespace.
+One Bundle for the whole cluster, distributed to every namespace by trust-manager rather than
+mounted per workload. It reads its sources from trust-manager's --trust-namespace, which the
+module pins to .Values.namespace.
 */}}
 {{- if .Values.trustBundle.authorities }}
 apiVersion: trust.cert-manager.io/v1alpha1

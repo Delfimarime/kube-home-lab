@@ -1,17 +1,50 @@
 locals {
+  release = "lab-pki"
+
+  # `default` is issued from var.domain and is not in var.certificates — the variable refuses that
+  # key. Everything downstream reads this map, so the wildcard is an ordinary entry from here on.
+  certificates = merge(
+    {
+      default = {
+        mode         = "mtls"
+        dns_names    = ["*.${var.domain}"]
+        duration     = var.default_certificate.duration
+        renew_before = var.default_certificate.renew_before
+      }
+    },
+    {
+      for name, c in var.certificates :
+      name => {
+        mode = c.mode
+        # An entry that names no hosts gets the obvious one. Nothing here should require a caller
+        # to repeat the domain it already declared.
+        dns_names    = length(c.dns_names) > 0 ? c.dns_names : ["${name}.${var.domain}"]
+        duration     = c.duration
+        renew_before = c.renew_before
+      }
+    },
+  )
+
+  mtls_certificates = {
+    for name, c in local.certificates : name => c if c.mode == "mtls"
+  }
+
   # These formulas are the chart's `_helpers.tpl`, restated. The Helm release name is the
   # generated Application's name, so the two agree by construction — but if you change one,
   # change the other, or this module publishes a Secret name that does not exist.
-  release = "lab-pki"
-
   ca_secret_names = {
-    for name, _ in var.certificate_authorities :
+    for name in ["server", "client"] :
     name => "${local.release}-${name}-ca"
   }
 
   certificate_secret_names = {
-    for name, _ in var.certificate_authorities :
+    for name, _ in local.certificates :
     name => "${local.release}-${name}-tls"
+  }
+
+  client_certificate_secret_names = {
+    for name, _ in local.mtls_certificates :
+    name => "${local.release}-${name}-client"
   }
 
   # cert-manager: the CRDs are not installed by default, and the flag was renamed from
@@ -36,16 +69,17 @@ locals {
   })
 
   # trust-manager reads a Bundle's sources from its trust namespace, which defaults to
-  # "cert-manager" and is not where the authorities live. Its own CRDs default to enabled.
+  # "cert-manager" and is not necessarily where the authorities live. Its own CRDs default to
+  # enabled.
   trust_manager_values = yamlencode({
     app = {
       trust = {
         namespace = var.namespace
       }
       # Not app.webhook.service — that path exists and takes no servicemonitor, and the chart's
-      # values schema is what said so. Two charts from the same vendor put the same switch in
-      # two different places; this is why ADR 010 pins versions exactly and why the round-trip
-      # check renders against the real chart rather than trusting the key.
+      # values schema is what said so. Two charts from the same vendor put the same switch in two
+      # different places, which is why versions are pinned exactly and why the round-trip check
+      # renders against the real chart rather than trusting the key.
       metrics = {
         service = {
           servicemonitor = {
@@ -56,36 +90,64 @@ locals {
     }
   })
 
-  # The chart's values mirror the Terraform variable shape, camel-cased. Nothing is computed
-  # here that the chart could compute itself — the module passes intent, the chart renders it.
+  # The module resolves modes into shapes; the chart renders what it is given and has no notion of
+  # "mtls". An entry carrying a `client` block is a pair — that presence *is* the mode, so there is
+  # no second place where the two could disagree about what mtls means.
   lab_pki_values = yamlencode({
     namespace = var.namespace
+
     authorities = {
-      for name, a in var.certificate_authorities :
-      name => {
-        commonName = a.common_name
-        duration   = a.duration
-        certificate = merge(
-          { usages = a.certificate.usages, duration = a.certificate.duration },
-          a.certificate.common_name == null ? {} : { commonName = a.certificate.common_name },
-          length(a.certificate.dns_names) == 0 ? {} : { dnsNames = a.certificate.dns_names },
-          a.certificate.renew_before == null ? {} : { renewBefore = a.certificate.renew_before },
-        )
+      server = {
+        commonName = "${var.domain} server CA"
+        duration   = var.authority.duration
+      }
+      client = {
+        commonName = "${var.domain} client CA"
+        duration   = var.authority.duration
       }
     }
+
+    certificates = {
+      for name, c in local.certificates :
+      name => merge(
+        {
+          server = merge(
+            {
+              dnsNames = c.dns_names
+              duration = c.duration
+            },
+            c.renew_before == null ? {} : { renewBefore = c.renew_before },
+          )
+        },
+        c.mode != "mtls" ? {} : {
+          client = {
+            # A client certificate names itself; there is no hostname to name. The subject is an
+            # identity label — what authorizes it is the authority that signed it.
+            commonName = "${name}.${var.domain}"
+            duration   = c.duration
+            # Short by default: cert-manager renews at two thirds of lifetime, which would leave
+            # the expiry metric describing a certificate nobody has deployed — and a client
+            # certificate is the one that lives on a laptop rather than in the cluster.
+            renewBefore = coalesce(c.renew_before, "720h")
+          }
+        },
+      )
+    }
+
     trustBundle = {
       name        = var.trust_bundle.name
       authorities = var.trust_bundle.authorities
     }
+
     gateway = var.gateway_namespace == null ? null : {
       namespace = var.gateway_namespace
     }
   })
 
-  # One static entry per chart, even though two of the three come from the same registry
-  # (ADR 005). The waves are load-bearing and not cosmetic: cert-manager's CRDs must exist
-  # before trust-manager declares a webhook Certificate against them, and both controllers must
-  # be running before lab-pki declares an Issuer.
+  # One static entry per chart, even though two of the three come from the same registry. The
+  # waves are load-bearing and not cosmetic: cert-manager's CRDs must exist before trust-manager
+  # declares a webhook Certificate against them, and both controllers must be running before
+  # lab-pki declares an Issuer.
   charts = [
     {
       name        = "cert-manager"

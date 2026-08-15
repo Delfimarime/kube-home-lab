@@ -1,6 +1,7 @@
 terraform {
-  # OpenTofu, not Terraform (ADR 019). 1.9 is the floor because a `validation` block below
-  # references a second variable, which earlier versions reject.
+  # An OpenTofu version, which does not read across to Terraform. 1.9 is the floor because a
+  # `validation` block in variables.tf references a second variable, which earlier versions
+  # reject.
   required_version = ">= 1.9"
 
   required_providers {
@@ -12,8 +13,7 @@ terraform {
 }
 
 # There is deliberately no `provider` block and no `backend` block here — a called module may
-# declare neither. Both live in the root module, which is where the whole cluster is composed
-# (ADR 020).
+# declare neither. Both live in the root module, which is where the whole cluster is composed.
 #
 # **Nothing about reaching Argo CD is an input.** ARGOCD_SERVER, ARGOCD_AUTH_TOKEN and
 # ARGOCD_INSECURE come from the operator's environment, so no credential reaches a var file or

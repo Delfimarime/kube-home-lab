@@ -61,6 +61,7 @@ with the layer that is actually correct.
 | [018](adr/018-one-trust-bundle-for-the-cluster.md) | One trust bundle for the cluster, not a mount per workload | accepted |
 | [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
 | [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
+| [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 

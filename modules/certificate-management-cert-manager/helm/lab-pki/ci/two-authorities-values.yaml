@@ -1,26 +1,30 @@
-# Checkpoint 1's fixture: the shape an environment actually ships. Two authorities, a wildcard
-# server certificate, one shared client certificate, and a Gateway to grant.
-namespace: certificates
+# The shape an environment actually ships: the wildcard as an mTLS pair, one extra server-only
+# certificate, and a Gateway to grant.
+namespace: cert-manager
 
 authorities:
   server:
-    commonName: lab server CA
+    commonName: lab.internal server CA
     duration: 87600h
-    certificate:
+  client:
+    commonName: lab.internal client CA
+    duration: 87600h
+
+certificates:
+  default:
+    server:
       dnsNames:
         - "*.lab.internal"
-      usages:
-        - server auth
       duration: 8760h
-  client:
-    commonName: lab client CA
-    duration: 87600h
-    certificate:
-      commonName: lab client
-      usages:
-        - client auth
+    client:
+      commonName: default.lab.internal
       duration: 8760h
       renewBefore: 720h
+  storage:
+    server:
+      dnsNames:
+        - mimir.lab.internal
+      duration: 8760h
 
 trustBundle:
   name: lab-ca-bundle

@@ -1,21 +1,24 @@
-# The same environment with nothing wired to a Gateway. Asserts the second half of CERT-04:
-# no grant exists, so no Gateway in another namespace can read these Secrets.
-namespace: certificates
+# Same, without a Gateway: asserts zero ReferenceGrant.
+namespace: cert-manager
 
 authorities:
   server:
-    commonName: lab server CA
-    certificate:
+    commonName: lab.internal server CA
+    duration: 87600h
+  client:
+    commonName: lab.internal client CA
+    duration: 87600h
+
+certificates:
+  default:
+    server:
       dnsNames:
         - "*.lab.internal"
-      usages:
-        - server auth
-  client:
-    commonName: lab client CA
-    certificate:
-      commonName: lab client
-      usages:
-        - client auth
+      duration: 8760h
+    client:
+      commonName: default.lab.internal
+      duration: 8760h
+      renewBefore: 720h
 
 trustBundle:
   name: lab-ca-bundle

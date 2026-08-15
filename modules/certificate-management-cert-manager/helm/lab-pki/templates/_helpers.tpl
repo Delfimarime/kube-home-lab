@@ -25,7 +25,12 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{- printf "%s-%s-ca" (include "lab-pki.fullname" .root) .name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* The one certificate an authority signs, and the Secret holding it. */}}
+{{/* An entry's server certificate, and the Secret holding it. */}}
 {{- define "lab-pki.certName" -}}
 {{- printf "%s-%s-tls" (include "lab-pki.fullname" .root) .name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/* An entry's client certificate. Only mtls entries have one. */}}
+{{- define "lab-pki.clientCertName" -}}
+{{- printf "%s-%s-client" (include "lab-pki.fullname" .root) .name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

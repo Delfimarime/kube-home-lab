@@ -37,9 +37,10 @@ docs/                          requirements, specs, decisions
 1. **Read [CONSTITUTION.md](CONSTITUTION.md).** Most mistakes here are a rule in it, already
    written down with its reasoning.
 2. **Read the module's `README.md` and every ADR it links** — its own `LOCAL-` ones and the
-   platform ADRs it obeys (§10.5).
-3. **Specs before code** (§10.2). A new decision needs the scope test in §10.3, and the tell in
-   §10.4 is worth checking before you write it in the wrong place.
+   platform ADRs it obeys (§10.6).
+3. **Specs before code** (§10.2). A new decision needs the scope test in §10.4, and the tell in
+   §10.5 is worth checking before you write it in the wrong place.
+4. **Don't cite a document from code** (§10.3). Write the reason into the comment instead.
 
 ## Blocked and undecided
 
