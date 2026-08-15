@@ -1,0 +1,31 @@
+# Checkpoint 1's fixture: the shape an environment actually ships. Two authorities, a wildcard
+# server certificate, one shared client certificate, and a Gateway to grant.
+namespace: certificates
+
+authorities:
+  server:
+    commonName: lab server CA
+    duration: 87600h
+    certificate:
+      dnsNames:
+        - "*.lab.internal"
+      usages:
+        - server auth
+      duration: 8760h
+  client:
+    commonName: lab client CA
+    duration: 87600h
+    certificate:
+      commonName: lab client
+      usages:
+        - client auth
+      duration: 8760h
+      renewBefore: 720h
+
+trustBundle:
+  name: lab-ca-bundle
+  authorities:
+    - server
+
+gateway:
+  namespace: kube-system

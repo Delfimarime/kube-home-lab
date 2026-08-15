@@ -1,0 +1,38 @@
+# Where the authorities, their certificates and their Secrets live. cert-manager's
+# --cluster-resource-namespace and trust-manager's --trust-namespace must both be set to this,
+# or a ClusterIssuer looks for its CA Secret somewhere it is not. The module sets both.
+namespace: certificates
+
+# One entry per authority; each declares the single certificate it signs. The 1:1 rule is the
+# whole of LOCAL-002 — a second certificate needs a second authority, and that is a claim the
+# two are genuinely different.
+#
+# authorities:
+#   server:
+#     commonName: lab server CA
+#     duration: 87600h                  # the authority outlives what it signs
+#     certificate:
+#       dnsNames: ["*.lab.internal"]
+#       usages: ["server auth"]
+#       duration: 8760h
+#   client:
+#     commonName: lab client CA
+#     certificate:
+#       commonName: lab client
+#       usages: ["client auth"]
+#       duration: 8760h
+#       renewBefore: 720h               # short, so the expiry metric describes the deployed cert
+authorities: {}
+
+trustBundle:
+  # The ConfigMap every namespace receives. Consumers mount this name.
+  name: lab-ca-bundle
+  # Which authorities every namespace is told to trust. The client authority does not belong
+  # here: nothing in-cluster verifies a client certificate.
+  authorities: []
+
+# The namespace whose Gateway may reference the certificate Secrets. Not the gateway contract:
+# this chart renders no route, so it needs a namespace and nothing else. null means no
+# ReferenceGrant, which means a Gateway elsewhere cannot use them.
+gateway: null
+#   namespace: kube-system

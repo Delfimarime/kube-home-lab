@@ -1,0 +1,58 @@
+{{/*
+Per authority: a self-signed Issuer, the CA Certificate it signs, and a ClusterIssuer backed by
+that CA's Secret. Three objects, one authority, and the chain is entirely inside this cluster —
+there is no ACME account and no external CA (LOCAL-001).
+*/}}
+{{- range $name, $authority := .Values.authorities }}
+{{- $ctx := dict "root" $ "name" $name }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "lab-pki.selfSignedName" $ctx }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "lab-pki.labels" $ | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "lab-pki.caName" $ctx }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "lab-pki.labels" $ | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ required (printf "authorities.%s.commonName is required" $name) $authority.commonName | quote }}
+  # The Secret this produces is the authority. It is the one object in this repository that
+  # cannot be regenerated into the same value: reissuing produces a different root, and every
+  # device that trusted the old one has to be visited.
+  secretName: {{ include "lab-pki.caName" $ctx }}
+  duration: {{ $authority.duration | default "87600h" }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    name: {{ include "lab-pki.selfSignedName" $ctx }}
+    kind: Issuer
+    group: cert-manager.io
+---
+{{/*
+Cluster-scoped so that a future consumer in another namespace can request from it without this
+chart knowing who. It resolves its Secret in cert-manager's --cluster-resource-namespace, which
+the module pins to .Values.namespace; a mismatch there is a ClusterIssuer that never becomes
+ready and says only "secret not found".
+*/}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "lab-pki.caName" $ctx }}
+  labels:
+    {{- include "lab-pki.labels" $ | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ include "lab-pki.caName" $ctx }}
+{{- end }}

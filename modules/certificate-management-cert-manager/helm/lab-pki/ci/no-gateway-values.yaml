@@ -1,0 +1,25 @@
+# The same environment with nothing wired to a Gateway. Asserts the second half of CERT-04:
+# no grant exists, so no Gateway in another namespace can read these Secrets.
+namespace: certificates
+
+authorities:
+  server:
+    commonName: lab server CA
+    certificate:
+      dnsNames:
+        - "*.lab.internal"
+      usages:
+        - server auth
+  client:
+    commonName: lab client CA
+    certificate:
+      commonName: lab client
+      usages:
+        - client auth
+
+trustBundle:
+  name: lab-ca-bundle
+  authorities:
+    - server
+
+gateway: null

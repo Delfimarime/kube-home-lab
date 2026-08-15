@@ -1,0 +1,11 @@
+apiVersion: v2
+name: lab-pki
+description: >-
+  The environment's certificate authorities, the one certificate each of them signs, the trust
+  bundle every namespace receives, and the grant that lets the Gateway read them.
+type: application
+version: 0.1.0
+
+# No dependencies. Everything here is a cert-manager or trust-manager custom resource, which is
+# why this is ADR 010's custom case rather than a wrapper: there is no upstream chart for "this
+# lab's authorities" to wrap.
