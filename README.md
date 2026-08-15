@@ -55,11 +55,12 @@ restated between layers.
 
 | Read this | To find out |
 | --- | --- |
+| [CONSTITUTION.md](CONSTITUTION.md) | the rules, each citing the decision behind it |
 | [docs/requirements.md](docs/requirements.md) | what the platform has to do, and which decision satisfies each |
 | [docs/platform.md](docs/platform.md) | the system: the domain model, the mechanisms that span modules, the contracts |
 | [docs/modules/](docs/README.md#specifications) | one folder per module: its spec and its own ADRs |
 | [docs/adr/](docs/README.md#decisions) | platform-wide decisions — why, what it cost, when to revisit |
-| [AGENTS.md](AGENTS.md) | the conventions an implementer must not break |
+| [AGENTS.md](AGENTS.md) | orientation for coding agents, and what is currently blocked |
 
 [docs/README.md](docs/README.md) is the map.
 
@@ -72,8 +73,7 @@ OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 Specs come first. One module exists so far.
 
 ```
-main.tf                        required_version, required_providers, the pg backend
-providers.tf                   the one provider, configured once
+main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
 <capability>.tf                one module block per capability this cluster ships
 outputs.tf

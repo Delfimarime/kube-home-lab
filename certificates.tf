@@ -14,8 +14,8 @@ module "certificates" {
     client = {
       common_name = "${var.domain} client CA"
       certificate = {
-        common_name = "${var.domain} client"
-        usages      = ["client auth"]
+        common_name  = "${var.domain} client"
+        usages       = ["client auth"]
         renew_before = "720h"
       }
     }
