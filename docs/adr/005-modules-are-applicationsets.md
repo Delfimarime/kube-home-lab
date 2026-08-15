@@ -8,7 +8,7 @@ An earlier scaffold had a shared `argocd-app` module that every unit called with
 and values. The alternative is for each module to render its own Argo CD resources inline.
 
 Modules vary in how many charts they need — one today
-([openid-connect-zitadel](../modules/openid-connect-zitadel/README.md)), six
+([openid-connect-keycloak](../modules/openid-connect-keycloak/README.md)), six
 ([observability-storage-grafana-lgtm](../modules/observability-storage-grafana-lgtm/README.md)) — and
 that count can grow under [ADR 010](010-resources-delivered-via-chart.md)'s wrapped/custom
 cases. Modeling a module as a single `Application` only works until it needs a second chart,

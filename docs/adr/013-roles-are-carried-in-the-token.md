@@ -27,6 +27,11 @@ them in — is the one a chart picks when nobody chooses.
 `<slug>` is the consuming system's short name — `grafana`, `argocd` — lowercase in the claim
 path and uppercase in the role name. `<ROLE>` is `ADMIN` or `VIEWER`.
 
+**The slug is the OIDC client ID**, not a label chosen alongside it. Keycloak keys
+`resource_access` by client ID, so a slug that differs from
+[ADR 007](007-modules-receive-credentials.md)'s `oidc.client_id` names an object that does not
+exist.
+
 ```
 resource_access.grafana.roles = ["GRAFANA_ADMIN"]
 ```
@@ -41,7 +46,7 @@ Three rules follow, and hold for every consumer:
    keeps the `<SLUG>_<ROLE>` shape and the slug scoping.
 
 A module declares the claim it reads; whether the issuer emits it is operational, per the third
-shared-contract rule in [the platform spec](../platform.md#shared-contracts). Where an issuer
+shared-contract rule in [the platform spec](../platform.md#contracts). Where an issuer
 puts roles somewhere else, `oidc.groups_claim` overrides the path.
 
 ## Rationale
@@ -80,3 +85,12 @@ puts roles somewhere else, `oidc.groups_claim` overrides the path.
   no authentication at all, so nothing here applies to it.
 - Adding a third role later is a values change in one consumer, not a change to this decision,
   as long as it keeps the shape.
+- **`<slug>` and `oidc.client_id` are two inputs holding one value, and nothing compares them.**
+  A mismatch produces a token whose `resource_access` has no entry under the slug the consumer
+  reads, so the consumer sees no role and refuses the login — correct behaviour by rule 2, and
+  indistinguishable from a person who genuinely has no role. The check belongs in each
+  consumer, since no single module sees both.
+- **The role catalogue is not declared anywhere.** This ADR fixes the shape of a set whose
+  members exist only in the issuer's console — see
+  [`openid-connect-keycloak`'s open items](../modules/openid-connect-keycloak/README.md#open-items).
+  A convention with no instance is a convention nobody can check against.

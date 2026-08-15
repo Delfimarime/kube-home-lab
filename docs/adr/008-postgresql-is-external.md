@@ -4,7 +4,7 @@
 
 ## Context
 
-Zitadel needs PostgreSQL. Auditum supports SQLite or PostgreSQL, and PostgreSQL is the
+Keycloak needs PostgreSQL. Auditum supports SQLite or PostgreSQL, and PostgreSQL is the
 choice there because it allows more than one replica and therefore a meaningful rolling
 update.
 
@@ -35,5 +35,9 @@ one fewer backup story, and no opinion imposed on where the data actually lives.
   ([ADR 011](011-environments-are-clusters.md)). Whether two environments point at the same
   server is invisible to every module and is not constrained here — which also means REQ-12
   does not cover it.
+- **Terraform's own state lives in a PostgreSQL too**
+  ([ADR 012](012-state-is-per-environment.md)), and this decision covers it by the same
+  reasoning: which instance, and where it runs, is not this repo's business. It is a separate
+  concern from a consumer's database and is deliberately not assumed to be the same one.
 - Revisit if supplying databases by hand becomes the annoying part. The consumer contract
   would not change — only who satisfies it.

@@ -1,7 +1,7 @@
 # LOCAL-002. Mimir runs monolithic, from a chart this repo authors
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-12
+**Date:** 2026-08-12 · revised 2026-08-15 (multitenancy is on; the override surface conforms)
 
 ## Context
 
@@ -32,14 +32,17 @@ Run Mimir as a single process from a chart authored in this repository, at
 
 - `-target=all` — one binary, one StatefulSet, one pod
 - `common.storage.backend: filesystem`, one PVC, no object store and no MinIO
-- `-auth.multitenancy-enabled=false`, so nothing anywhere carries `X-Scope-OrgID`
+- `-auth.multitenancy-enabled=true`, so every read and write carries `X-Scope-OrgID`
+  ([ADR 017](../../../adr/017-stores-are-multi-tenant.md))
+- a runtime overrides file for per-tenant limits and retention, **shaped to match Loki's and
+  Tempo's** rather than expressing the same idea a third way — this is the chart this repo
+  controls, so it is the one that conforms
 - ruler and Alertmanager unused — nothing in this module alerts, and the console module owns
   that decision
 
 The custom-chart case is the one
-[ADR 010](../../../adr/010-resources-delivered-via-chart.md) already allows, and
-`dependencies/postgresql/helm/` is the existing precedent for this repo authoring a chart
-because no upstream one fits.
+[ADR 010](../../../adr/010-resources-delivered-via-chart.md) already allows: a chart authored
+here, at `helm/<chart-name>/` inside the module that owns it, because no upstream one fits.
 
 ## Rationale
 
@@ -50,8 +53,16 @@ because no upstream one fits.
   it does not run.
 - Monolithic mode is a supported Mimir deployment mode, documented and flagged. It is not a
   hack; it is the mode without a chart.
-- Turning multitenancy off removes a header from every write path, every datasource and every
-  future debugging session, for a lab with one tenant.
+- **Multitenancy is on, and this ADR previously said the opposite.** Turning it off does remove
+  a header from every write path, every datasource and every future debugging session — which
+  was the right trade for a lab with one tenant and no way to bound what an external pusher
+  writes. Per-tenant limits are that bound, and switching this on later would be a data
+  migration rather than a configuration change. The argument and its reversal are both in
+  [ADR 017](../../../adr/017-stores-are-multi-tenant.md); revised here rather than
+  superseded because nothing implements this yet.
+- **Owning the chart is what makes the override surface conform.** Loki's and Tempo's per-tenant
+  configuration is whatever their charts expose; this one can be written to match, so
+  `var.tenants` has one shape across three stores instead of three shapes behind one input.
 - The chart is small — a StatefulSet, a Service, a ConfigMap and a PVC — because everything
   that makes `mimir-distributed` large is topology this deployment does not have.
 

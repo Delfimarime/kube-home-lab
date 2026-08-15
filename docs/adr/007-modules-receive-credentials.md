@@ -9,7 +9,7 @@ An identity provider, a database and a Gateway all have to be wired to the thing
 them. Two questions follow: which side owns the credential, and what shape the wiring takes
 at the call site.
 
-An earlier draft had `openid-connect-zitadel` accept a map of clients and output their IDs
+An earlier draft had `openid-connect-keycloak` accept a map of clients and output their IDs
 and secrets. That makes the identity provider aware of every consumer, and puts every client
 secret in one module's state.
 
@@ -21,7 +21,7 @@ happens to expect â€” which makes every call site an exercise in per-chart archa
 **A provider module publishes only its own address. A consumer module receives a
 fully-formed reference.**
 
-`openid-connect-zitadel` outputs `issuer_url` and `discovery_url`. It accepts no client list
+`openid-connect-keycloak` outputs `issuer_url` and `discovery_url`. It accepts no client list
 and outputs no client credentials.
 
 **Every consumer module takes the same three optional inputs, in one shape each**, and each
@@ -75,7 +75,7 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision â
 - Credential values never enter a values.yaml, and therefore never enter the rendered Helm
   values inside an Argo CD `Application` spec â€” which would otherwise sit in etcd in
   plaintext.
-- The alternative, each consumer registering its own client, requires Zitadel admin
+- The alternative, each consumer registering its own client, requires Keycloak admin
   credentials in every module's state. Worse.
 - One input shape means no per-chart archaeology at the call site: every module reads
   `var.gateway` the same way, regardless of what its own chart expects internally.
@@ -86,12 +86,12 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision â
 ## Consequences
 
 - **Client registration happens outside Terraform.** For a handful of consumers that change
-  approximately never, registering them by hand in Zitadel's console is less machinery than
+  approximately never, registering them by hand in Keycloak's console is less machinery than
   a provider plus a machine user plus a PAT bootstrap. Revisit at ~fifteen clients with a
   dedicated registration unit; the consumer contract above would not change.
 - This removes a constraint that previously looked forced: because Terraform never calls
-  Zitadel's management API, there is no two-phase install-then-configure split.
-  `openid-connect-zitadel` is one unit.
+  Keycloak's admin API, there is no two-phase install-then-configure split.
+  `openid-connect-keycloak` is one unit.
 - **Hostnames must be defined once per environment**, in that environment's `env.hcl`, and
   fed to both the identity provider and its consumers. Deriving a redirect URI from a
   consumer's output while the consumer takes `client_id` from the provider is a dependency
@@ -101,5 +101,5 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision â
 - **Something must materialise the referenced Secrets, and nothing in this repo does.** When and
   by whom is an operational matter, not a module's concern â€” but it is currently nobody's. See
   [the open questions](../requirements.md#open-questions).
-- State holds no credential, which is what makes an in-cluster state backend defensible â€”
+- State holds no credential, which is what makes keeping it beside the workloads defensible â€”
   see [ADR 012](012-state-is-per-environment.md).

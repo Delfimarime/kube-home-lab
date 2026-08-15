@@ -50,7 +50,7 @@ flag and no inventory file: `ls <env>/` is the answer.
 ## Consequences
 
 - Every module an environment ships runs in that environment's cluster. N environments means
-  N Zitadels, N Grafanas — and N copies of any per-instance problem, operated N times by the
+  N Keycloaks, N Grafanas — and N copies of any per-instance problem, operated N times by the
   same one person.
 - **Identities are per environment.** Each cluster runs its own issuer, so an account in one
   is not an account in another. [REQ-01](../requirements.md) is scoped accordingly.

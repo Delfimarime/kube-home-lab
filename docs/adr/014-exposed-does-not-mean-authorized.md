@@ -1,6 +1,7 @@
 # 014. Exposed does not mean authorized
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-15 ·
+revised 2026-08-15 (certificate material is now provisioned; the decision is unchanged)
 
 ## Context
 
@@ -8,7 +9,7 @@
 has been deliberately exposed. It says nothing about what happens to a request once it arrives,
 and until now nothing had to: every exposed surface in this repo was a UI that authorizes
 itself. Grafana delegates to an issuer and refuses anyone carrying no role
-([ADR 013](013-roles-are-carried-in-the-token.md)). Zitadel *is* the issuer. In both cases the
+([ADR 013](013-roles-are-carried-in-the-token.md)). Keycloak *is* the issuer. In both cases the
 question was answered by the workload, and the Gateway only had to deliver the request.
 
 The observability storage module is the first exposed surface that cannot answer it. It
@@ -82,9 +83,11 @@ listener, so pointing an endpoint at a protected one is a call-site edit.
 
 ## Consequences
 
-- **Anything that resolves the OTLP hostname can write into the stores**, and multitenancy is
-  off, so all of it lands in one tenant alongside real data. There is no per-sender attribution
-  to filter on afterwards.
+- **Anything that reaches the OTLP endpoint can write into the stores.** The stores are
+  multi-tenant, and the tenant comes from the caller's own `X-Scope-OrgID` with nothing
+  validating it — so a writer is distinguishable by cooperation, not by proof, and per-tenant
+  limits cap the volume rather than the sender. That is a better answer to "the failure mode is
+  a full volume" than this ADR had when it was written, and it is not attribution.
 - **REQ-06 gains a boundary paragraph** in [requirements.md](../requirements.md), stating that
   it claims reachability and not what happens to a request that arrives. The other requirements
   with boundaries got them for the same reason: to stop a reader inferring a stronger claim
@@ -103,3 +106,22 @@ listener, so pointing an endpoint at a protected one is a call-site edit.
 - Any future module exposing a workload with no authentication of its own inherits this
   decision rather than re-arguing it. One that exposes a *read* surface does not — that would
   be a new decision, and this ADR's rationale is where it would have to start.
+- **The material for the reversal now exists, and the decision still stands.** The rejected
+  `ingress-gateway-api` alternative above was priced as one module doing two jobs: minting
+  certificates *and* owning the `Gateway`.
+  [`certificate-management-cert-manager`](../modules/certificate-management-cert-manager/README.md)
+  takes only the first half — it provisions a client authority and one shared client
+  certificate ([REQ-14](../requirements.md)) and provisions no `Gateway` at all. The listener
+  that demands them is still configured per environment, outside this repository, so *this
+  repo* still adds no authorization to an exposed endpoint. What changed is that an environment
+  choosing to is now a listener edit rather than a module that has to be built.
+- **`OBS-21` is now environment-dependent.** It asserted that an unauthenticated push is
+  accepted; where an environment points the OTLP route at an mTLS listener, it is not. The half
+  this decision actually rests on — that nothing can be read back through that host — is
+  unconditional and is what the scenario now asserts.
+- **One client certificate, not one per pusher.** The rationale above named "one client CA per
+  listener so that *one listener, one client* is enforced rather than merely documented" as part
+  of the price. That is not what was built: the certificate module issues a single shared client
+  certificate, on the grounds that per-client identity is a distinction nothing downstream
+  reads. The rotation problem this ADR named is unchanged in
+  kind and smaller in reach: one copy to refresh instead of one per pusher.

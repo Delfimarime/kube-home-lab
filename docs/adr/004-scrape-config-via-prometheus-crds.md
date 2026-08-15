@@ -31,7 +31,7 @@ it ships must consume those CRDs — natively if it can, through a conversion la
 
 The alternative — emitting the metrics stack's own scrape resource and skipping the extra CRDs
 — looks leaner until you notice that every upstream chart already has a ServiceMonitor switch.
-Zitadel's does. With the CRDs present, those switches work and no scrape resource is ever
+cert-manager's does. With the CRDs present, those switches work and no scrape resource is ever
 written by hand. Without them, each one has to be reimplemented in whatever dialect the current
 stack speaks.
 

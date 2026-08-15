@@ -2,8 +2,13 @@
 
 **Status:** draft, **blocked on an open question** ·
 **Satisfies:** [REQ-07](../../requirements.md) — which is itself unresolved ·
-**Decisions:** [ADR 007](../../adr/007-modules-receive-credentials.md),
-[ADR 008](../../adr/008-postgresql-is-external.md)
+**Decisions:** [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
+[ADR 005](../../adr/005-modules-are-applicationsets.md),
+[ADR 007](../../adr/007-modules-receive-credentials.md),
+[ADR 008](../../adr/008-postgresql-is-external.md),
+[ADR 010](../../adr/010-resources-delivered-via-chart.md),
+[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
+[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)
 
 ## Intent
 
@@ -56,7 +61,7 @@ database = {          # required; SQLite is not used
 
 gateway = null        # default: not exposed. See the security note below.
 
-metrics_enabled = false   # set from observability-storage-grafana-lgtm's `metrics_enabled` output
+metrics_enabled = false   # declared once in env.hcl — ADR 016
 ```
 
 There is no `oidc` input, because Auditum has no authentication to delegate.
@@ -75,14 +80,26 @@ to `null` and should stay there — see the security note below.
 ## Security note
 
 Auditum's default configuration file has sections for `store`, `http`, `grpc`, `telemetry`
-and `log`. **It has no authentication section, and no UI.** Exposing it through the Gateway
-publishes an unauthenticated write API for audit records — a record anything on the network
-can forge, which is worse than no record at all because it looks authoritative.
+and `log`. **It has no authentication section, and no UI.** It is therefore the second workload
+here that cannot answer for a request once it arrives, and
+[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) is the decision that governs it.
 
-`gateway` therefore defaults to `null`, and should stay that way until either:
+**It is not the same case as the OTLP ingest endpoint, and the difference is the whole point.**
+That surface is write-only, so an unauthenticated caller costs disk and data quality. This one
+is read *and* write: Auditum's HTTP API queries records as well as accepting them, so exposing
+it without authorization discloses the audit trail and lets anything on the network forge
+entries into it — a record that looks authoritative and is not, which is worse than no record.
+ADR 014's rationale says explicitly that an unauthenticated read surface would make that
+decision indefensible; this is that surface.
 
-- something outside the cluster genuinely needs to write records, and
-- oauth2-proxy fronts the HTTP port, with gRPC left internal.
+`gateway` therefore defaults to `null` and should stay there. If something outside the cluster
+genuinely needs to write records, the mechanism now exists and needs no module change: point
+`gateway.section_name` at the environment's mTLS listener, so a caller must present the client
+certificate
+[`certificate-management-cert-manager`](../certificate-management-cert-manager/README.md)
+issues. That authenticates a *machine*, not a person, and Auditum still applies no
+authorization of its own — acceptable for a write path, and still not enough to expose the
+query path to anything but a trusted host.
 
 ## Acceptance criteria
 

@@ -10,7 +10,10 @@
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
-[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)
+[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
+[ADR 015](../../adr/015-units-are-wired-by-hand.md),
+[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md),
+[ADR 017](../../adr/017-stores-are-multi-tenant.md)
 
 ## Intent
 
@@ -56,9 +59,11 @@ store without it, so tying it to one signal's flag would silently disable the re
 *collectors* it creates does follow the flags — see below.
 
 **Mimir** runs as a single process, `-target=all`, on a filesystem blocks backend and with
-multitenancy off. There is no upstream monolithic chart and Grafana does not intend to write
-one, which is why this module ships its own
-([LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md)).
+multitenancy on ([ADR 017](../../adr/017-stores-are-multi-tenant.md)). There is no
+upstream monolithic chart and Grafana does not intend to write one, which is why this module
+ships its own ([LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md)) — and because it is this
+repo's chart rather than somebody else's, its per-tenant override surface is shaped to match
+Loki's and Tempo's rather than being a third dialect.
 
 **Loki** and **Tempo** both have real single-binary charts on local filesystem storage — one
 pod each, no object store. Loki's `gateway`, `chunksCache` and `resultsCache` are switched
@@ -117,6 +122,47 @@ listener serves everything: **4317** is OTLP/gRPC, **4318** is OTLP/HTTP, and on
 signal is selected by the caller — by gRPC method, or by path (`/v1/traces`, `/v1/metrics`,
 `/v1/logs`).
 
+### Tenancy
+
+**All three stores run multi-tenant, and the tenant comes from the caller**
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)). `X-Scope-OrgID` is mandatory
+on every read and write — `multitenancy_enabled` in Mimir and Tempo, `auth_enabled` in Loki,
+which enables *tenancy* and not authentication despite its name.
+
+**Nothing validates the header.** A caller states its tenant and is believed. This is not
+isolation and is not meant to be: what it buys is per-tenant ingestion limits, per-tenant
+retention, and reads that can be scoped. The limits are the part that matters here — they are
+what bounds an external pusher, which
+[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) accepted having no answer for.
+
+**The collector propagates rather than stamps, and only where a request exists.** The chart's
+destinations split in two, and each feature selects the one it belongs to:
+
+| Path | Destination | Tenant |
+| --- | --- | --- |
+| scraped metrics, tailed logs, operator objects | built-in `prometheus` / `loki` | static, from `default_tenant` |
+| anything pushed to the receiver | `custom`, `ecosystem: otlp` | propagated from the request |
+
+The pushed side declares one `otelcol.exporter.otlphttp` per store, each carrying an
+`otelcol.auth.headers` handler that reads `X-Scope-OrgID` from the incoming request and re-emits
+it — so a workload's choice survives the hop. The receiver is told to keep request metadata
+through `applicationObservability.receivers.otlp.{grpc,http}.includeMetadata`.
+
+The scrape path is untouched by any of this: `prometheus.remote_write` and `loki.write` with one
+static tenant, because a scrape has no request behind it to carry a header
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)).
+
+**A write with no header lands in `unattributed`.** That tenant is never one of the configured
+ones and carries a short retention. It exists because the alternative is worse: Alloy answers
+`200` and the store rejects the write afterwards, so a forgotten header silently loses data.
+An `unattributed` tenant filling up says who forgot.
+
+| Signal | Limits under `var.tenants` | Applied by |
+| --- | --- | --- |
+| metrics | ingestion rate, series, retention | Mimir runtime overrides |
+| logs | ingestion rate, stream limits, retention | Loki runtime `overrides` |
+| traces | ingestion rate, retention | Tempo per-tenant overrides |
+
 ### Exposure
 
 **Route.** Wrapped case per [ADR 010](../../adr/010-resources-delivered-via-chart.md): the local
@@ -143,12 +189,22 @@ environment does not store gets a `404` rather than a silent drop.
 **No store is ever routed.** Mimir, Loki and Tempo are reachable only from inside the cluster,
 whatever `gateway` is set to.
 
-**Nothing authorizes the endpoint** ([ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)).
-Anything that resolves the hostname can write into the stores, and multitenancy is off, so all
-of it lands in one tenant. The surface is write-only — OTLP accepts telemetry and returns
-nothing, so there is no read path through it — and that, rather than the size of the cluster,
-is what makes the posture defensible. Adding authorization at the listener costs this module
-nothing: `gateway.section_name` already names it.
+**Authorization is the listener's, and `gateway.section_name` is how this module asks for it**
+([ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)). Pointing it at an mTLS listener
+means only a caller holding the environment's client certificate
+([certificate-management-cert-manager](../certificate-management-cert-manager/README.md)) can
+reach the receiver at all. Pointing it at the ordinary TLS listener means anything that resolves
+the hostname can write. **Both remain valid**, and no module change distinguishes them — which
+is exactly what ADR 014 said the reversal would cost.
+
+The posture that does not depend on which listener is chosen: **the surface is write-only**.
+OTLP accepts telemetry and returns nothing, no store is ever routed, and there is no read path
+through this host. That, rather than the size of the cluster, is what made the unauthenticated
+case defensible and what still bounds the authenticated one.
+
+**A client certificate says nothing about a tenant.** It admits the caller; `X-Scope-OrgID`
+decides where the write lands, and the two are deliberately unrelated
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)).
 
 ### What the console reads
 
@@ -173,6 +229,16 @@ enable_traces_support  = false
 
 gateway = null   # exposes the OTLP receiver; no store is ever routed
 
+tenants = {                      # at least one; limits and retention per signal
+  lab = {
+    metrics = { limits = { ingestion_rate = 25000, retention = "168h" } }
+    logs    = { limits = { ingestion_rate_mb = 4, retention = "168h" } }
+    traces  = { limits = { retention = "168h" } }
+  }
+}
+
+default_tenant = "lab"           # what Alloy's own scraping and log tailing are written as
+
 storage_node_selector = null   # e.g. { "kubernetes.io/hostname" = "k3s-01" }
 ```
 
@@ -187,6 +253,19 @@ Note that `gateway` here exposes an ingest endpoint rather than a UI, which is t
 that contract has been used for something a person does not look at. Its shape and meaning are
 unchanged — *emit a route for this workload* — and what happens to a request once it arrives is
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)'s subject, not this input's.
+`gateway.section_name` is the whole of how this module asks for mTLS.
+
+**`tenants` names tenants and bounds them; it does not create or restrict them.** Any caller may
+write to any name it likes, including one absent from this map, and such a write lands under the
+store's defaults rather than being refused
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)). What the map is for is limits
+and retention — a tenant listed here has a ceiling, and disk is the thing this module runs out
+of first. `unattributed` is reserved and must not appear in it.
+
+**`default_tenant` is not a fallback for callers.** It is what this module's *own* writes carry:
+scraped metrics and tailed logs arrive with no request behind them and no header to propagate.
+A push that omits the header gets `unattributed`, which is a different thing on purpose —
+one is telemetry nobody had to label, the other is telemetry somebody forgot to.
 
 **`storage_node_selector` applies to Mimir, Loki and Tempo only** — the three components that
 own a volume. It must never reach `alloy-logs` or `node-exporter`: those are DaemonSets, and
@@ -205,7 +284,13 @@ own input.
 | `metrics_url` | the console, as a datasource — `null` unless metrics are on |
 | `logs_url` | the console, as a datasource — `null` unless logs are on |
 | `traces_url` | the console, as a datasource — `null` unless traces are on |
-| `metrics_enabled` | consumers deciding whether to declare scraping |
+
+**There is no `metrics_enabled` output.** Whether an environment scrapes is an environment's
+fact, declared once in `env.hcl` and read by this module as `enable_metrics_support` and by
+every other module as `metrics_enabled`
+([ADR 015](../../adr/015-units-are-wired-by-hand.md),
+[ADR 016](../../adr/016-metrics-enabled-is-the-fourth-input.md)). Publishing it here would
+invite a consumer to read it from this module's state, which nothing does.
 
 **The three store addresses are the console's whole input, and they are nullable on purpose.**
 Handing the console three booleans instead would let "metrics are on" and "there is a Mimir to
@@ -305,11 +390,45 @@ Feature: Telemetry is collected and stored, independently per signal
      And otlp_url is null
 
   @cluster
-  Scenario: [OBS-21] Ingest is unauthenticated, and write-only
+  Scenario: [OBS-21] Ingest is write-only, whatever the listener demands
     Given a gateway is supplied and enable_traces_support is true
-    When a span is pushed to /v1/traces carrying no credential of any kind
-    Then it is accepted and arrives in Tempo
-     And no request to that host returns any stored telemetry
+    When any request is made to that host
+    Then no stored telemetry is returned by any of them
+     And no route in the namespace addresses Mimir, Loki or Tempo
+
+  @cluster
+  Scenario Outline: [OBS-23] The listener decides who may write, and nothing else does
+    Given gateway.section_name names <listener>
+    When a span is pushed to /v1/traces carrying <credential>
+    Then it is <outcome>
+
+    Examples:
+      | listener  | credential           | outcome                        |
+      | web-tls   | no credential at all | accepted and arrives in Tempo  |
+      | otlp-mtls | no credential at all | refused at the TLS handshake   |
+      | otlp-mtls | the client certificate | accepted and arrives in Tempo |
+
+  @cluster
+  Scenario: [OBS-24] The caller's tenant is honoured, not replaced
+    Given tenants names lab and scratch
+     And a workload pushing traces with X-Scope-OrgID set to scratch
+    When Tempo is queried as tenant scratch
+    Then the span is there
+     And querying as tenant lab does not return it
+
+  @cluster
+  Scenario: [OBS-25] A write with no tenant is kept, not lost
+    Given enable_metrics_support is true
+    When a metric is pushed to the receiver carrying no X-Scope-OrgID
+    Then it is stored under the unattributed tenant
+     And unattributed is not present in var.tenants
+
+  @cluster
+  Scenario: [OBS-26] A tenant's ceiling is its own
+    Given tenants gives lab and scratch different ingestion rate limits
+    When each is written to beyond its limit
+    Then each is throttled at its own limit
+     And neither throttling affects the other
 
   @cluster
   Scenario: [OBS-22] The generator follows both of its ends
@@ -321,12 +440,21 @@ Feature: Telemetry is collected and stored, independently per signal
 
 ## Open items
 
-- **Nothing bounds what an external pusher can write.**
-  [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) accepts an unauthenticated
-  endpoint on the grounds that the failure is a full volume rather than a leak — but nothing
-  here caps the volume. A rate limit or a body-size limit is the cheapest thing that turns an
-  accident into a nuisance, and it needs the same `ExtensionRef` filter that authorization
-  would.
+- **The pushed side's exporters are this module's to maintain.** A `custom` destination renders
+  its `config` verbatim, so the retry, queue, TLS and compression settings the built-in `otlp`
+  destination would have provided are written here, three times, and do not follow a chart
+  upgrade.
+- **`otelcol.auth.headers` is unvalidated by Helm.** Rendering confirms the chart wiring — the
+  block is emitted intact and the feature's destination lists point at it — but not that Alloy
+  accepts `from_context` and `default_value` at the pinned version. That is the one check left
+  before implementing.
+- **Loki's and Tempo's per-tenant override surfaces are unverified.** Loki exposes runtime
+  configuration and Tempo exposes per-tenant overrides; whether both are reachable from chart
+  values, and in what shape, is what `mimir-monolithic` then has to be shaped to match.
+- **A caller can write to a tenant that has no limits.** `var.tenants` bounds the tenants it
+  names; a caller inventing a name gets the store's defaults. The volume cap that
+  [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) had no answer for now exists,
+  and it is opt-in per tenant rather than global.
 - **In-cluster and external ingest disagree about a switched-off signal.** Externally a
   disabled signal has no route and returns `404`. In-cluster the receiver accepts it and the
   data goes nowhere, because `alloy-receiver` is unconditional. The external behaviour is the
@@ -356,9 +484,12 @@ Feature: Telemetry is collected and stored, independently per signal
 - **Loki deletes nothing without its compactor.** `limits_config.retention_period` is a
   declaration; `compactor.retention_enabled` is what enforces it. Easy to set, and easy to
   believe you already did.
-- **Retention is expressed three different ways** — Mimir's `compactor.blocks-retention-period`,
-  Loki's `limits_config.retention_period`, Tempo's `compaction.block_retention`. Seven days
-  each. Set a size cap too; disk is the limit, and it is a different limit in each environment.
+- **Retention is expressed three different ways, and now once per tenant** — Mimir's
+  `compactor.blocks-retention-period`, Loki's `limits_config.retention_period`, Tempo's
+  `compaction.block_retention`, each overridable per tenant. `var.tenants` hides that behind one
+  shape; nothing hides that a global default still exists underneath and applies to any tenant
+  the map does not name. Set a size cap too; disk is the limit, and it is a different limit in
+  each environment.
 - **Pin `k8s-monitoring` and read its changelog before bumping.** The pod-logs feature has
   already split into three (`podLogsViaLoki`, `podLogsViaOpenTelemetry`,
   `podLogsViaKubernetesAPI`) and `onlyGatherNewLogLines` has already flipped its default. Its

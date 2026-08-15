@@ -33,6 +33,8 @@ nobody remembers what any of them does — or which of them is different, and wh
 | REQ-11 | Six months later, a maintainer can find out what runs, why it was chosen, and what breaks if they change it. | This is the actual measure of success. Uptime is not. |
 | REQ-12 | Environments do not interfere with one another. Each is configured independently. | A change or an outage in one must not be visible in another — otherwise there is one environment wearing several names. |
 | REQ-13 | What a person may do in a service is decided by the environment's issuer, not by that service's own permission list. A person with no permission stated gets none. | REQ-01 stops each workload keeping its own *users*. Without this, they each keep their own *permissions* instead, which is the same problem one layer down. |
+| REQ-15 | No single source of telemetry can consume the storage the others depend on. | Disk is the scarce resource, an ingest endpoint has no natural ceiling, and one misbehaving writer would otherwise cost every signal at once — the failure REQ-06's boundary and [ADR 014](adr/014-exposed-does-not-mean-authorized.md) both name and neither bounds. |
+| REQ-14 | Traffic entering an environment from outside its cluster is encrypted. Every certificate that makes that true — and any the environment needs in order to authenticate a machine caller — is issued from a declared source and never made by hand. | A certificate is the one credential that expires on a schedule. A hand-made one is a resource nobody renews and nothing records, which is REQ-08's problem arriving with a deadline attached. |
 
 **REQ-04 was dropped**, along with the module that satisfied it. It required credentials to
 survive a cluster rebuild, and nothing currently in scope delivers that — see
@@ -58,8 +60,10 @@ ingest endpoint, which has no notion of a person and nothing in this repo gives 
 Authorization on such an endpoint belongs to the Gateway, and the Gateway is a per-environment
 prerequisite this repo never provisions
 ([ADR 014](adr/014-exposed-does-not-mean-authorized.md), and `OBS-21` checks that the endpoint
-is both unauthenticated and write-only). The gap is deliberate; REQ-06 is simply not claiming
-more than it delivers.
+is write-only whatever the listener demands, while `OBS-23` checks that the listener is what
+decides who may write). The gap is deliberate; REQ-06 is simply not claiming more than it
+delivers, and [REQ-14](#the-requirements) provisions the material for an environment that wants
+to close it.
 
 **REQ-08's boundary.** *Provisions* is the operative word. Cluster bootstrap, Argo CD itself,
 Traefik and the Gateway, and PostgreSQL are per-environment prerequisites this repo never
@@ -76,26 +80,45 @@ that. Modules are correctly indifferent
 ([ADR 007](adr/007-modules-receive-credentials.md)); the requirement is simply not claiming
 more than it delivers.
 
+**REQ-14's boundary.** It claims *issuance* and *encryption*, and nothing about enforcement. That
+an exposed endpoint demands a client certificate is a property of the environment's Gateway,
+which this repo never provisions
+([ADR 014](adr/014-exposed-does-not-mean-authorized.md), [platform scope](platform.md#scope)).
+What this requirement changes is that the material exists and is declared — where ADR 014 was
+written, closing that gap meant owning a Gateway, and it does not any more. It also says nothing
+about *who* trusts these certificates: they are issued by an authority this repo owns
+([cert-manager LOCAL-001](modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md)),
+so trust is distributed rather than assumed, and that cost is the decision's, not the
+requirement's.
+
 ## Traceability
 
 Each requirement, the decisions that resolve it, the spec that designs it, and the scenarios
 that check it. Scenario IDs are defined in the specs' acceptance criteria. Module-scoped
 decisions are cited as `<module> LOCAL-NNN`.
 
+**A scenario absent from this table verifies a decision rather than a requirement**, and the
+decision is among those its spec's header lists. `CON-10` checks that nothing is provisioned to
+alert, which is `observability-console-grafana LOCAL-003`'s consequence and no requirement's;
+`CERT-06` checks an input validation. Absence here is a statement rather than an omission — a
+scenario that verifies neither a requirement nor a decision its spec cites should not exist.
+
 | Requirement | Decided in | Specified in | Verified by |
 | --- | --- | --- | --- |
-| REQ-01 one identity | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md) | [openid-connect-zitadel](modules/openid-connect-zitadel/README.md) | OIDC-01, OIDC-02, OIDC-03, CON-08 |
+| REQ-01 one identity | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md), [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | OIDC-01, OIDC-02, OIDC-03, CON-08, CON-13 |
 | REQ-02 independent signals | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | OBS-01, OBS-17, OBS-19, OBS-22, CON-05 |
 | REQ-03 one query surface | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-02, CON-03, CON-04 |
-| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md) | [platform](platform.md) | PLAT-02, OIDC-05, AUD-02 |
-| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, CON-06, AUD-04 |
+| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md) | [platform](platform.md) | PLAT-02, OIDC-06, AUD-02 |
+| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, OBS-21, CON-06, OIDC-07, AUD-04 |
 | REQ-07 audit records | [ADR 008](adr/008-postgresql-is-external.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [audit-management-auditum](modules/audit-management-auditum/README.md) | AUD-01, AUD-03, AUD-05 |
 | REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [platform](platform.md) | PLAT-01 |
-| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08 |
-| REQ-10 fits a tiny cluster | [zitadel LOCAL-001](modules/openid-connect-zitadel/adr/LOCAL-001-oidc-provider-zitadel.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09 |
+| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08 |
+| REQ-10 fits a tiny cluster | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09 |
 | REQ-11 recoverable decisions | every ADR | this repository | — |
 | REQ-12 environments don't interfere | [ADR 011](adr/011-environments-are-clusters.md), [ADR 012](adr/012-state-is-per-environment.md) | [platform](platform.md) | PLAT-05 |
 | REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [observability-console-grafana LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | [platform](platform.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-07 |
+| REQ-14 certificates are issued, not made | [certificate-management-cert-manager LOCAL-001](modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md), [certificate-management-cert-manager LOCAL-002](modules/certificate-management-cert-manager/adr/LOCAL-002-one-certificate-per-authority.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md), [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | CERT-01, CERT-04, CERT-05, CERT-07, OBS-23 |
+| REQ-15 no writer starves the others | [ADR 017](adr/017-stores-are-multi-tenant.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | OBS-24, OBS-25, OBS-26 |
 
 REQ-11 has no scenario because it is checked by a person reading, not by a machine asserting.
 It is listed anyway, because it is the requirement that justifies the ADRs existing at all.
@@ -114,5 +137,11 @@ Each is owned by the ADR or spec that would resolve it.
   unaffected — it always said a module declares what it needs and is indifferent to who
   satisfies it — but nobody satisfies it. This is what dropping REQ-04 costs, and it is stated
   here rather than left to be discovered at the next rebuild.
-- **Which state backend?** Per-environment state is settled; the backend is not — see
-  [ADR 012](adr/012-state-is-per-environment.md).
+- **Nothing declares the realm.** REQ-01 and REQ-13 are satisfied by an issuer whose clients,
+  roles and grants exist only in its own console — typed in by hand, per environment, and again
+  after any rebuild that loses the database. The claim *shape* is fixed
+  ([ADR 013](adr/013-roles-are-carried-in-the-token.md)) and its *content* is recorded nowhere,
+  which is REQ-11 failing at the one place it matters most. Recording it in git is possible and
+  deferred, and would be a record rather than a reconciled resource; the obstacle is REQ-05,
+  because a realm export embeds client secrets — see
+  [`openid-connect-keycloak`](modules/openid-connect-keycloak/README.md#open-items).

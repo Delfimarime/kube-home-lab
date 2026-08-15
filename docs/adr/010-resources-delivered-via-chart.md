@@ -10,8 +10,9 @@ a `kubernetes_manifest` — a resource Terraform creates directly, outside the m
 Terraform-managed resource was the one code path guaranteed to work everywhere, chart-based or
 not.
 
-That premise no longer holds for the charts actually in use here. `grafana` (`route.main`) and
-`zitadel` (`gateway.httpRoute`) both render Gateway API resources from their own values today.
+That premise no longer holds for the charts actually in use here. `grafana` (`route.main`)
+renders Gateway API resources from its own values today, and where a chart does not, a thin
+local one adds the template rather than Terraform reaching past the Application.
 And the underlying problem was never
 route-specific: a `kubernetes_manifest` resource is, by construction, outside the Application
 it conceptually belongs to — untracked in Argo CD's resource tree, and not self-healed by it.
@@ -62,9 +63,11 @@ doesn't cover, without needing a new ADR to say so again.
 
 ## Consequences
 
-- `observability-console-grafana` and `openid-connect-zitadel` are both the native case for
-  their `HTTPRoute` today — no code to migrate, since neither had a working route mechanism
-  implemented yet.
+- `observability-console-grafana` is the native case for its `HTTPRoute` today — no code to
+  migrate, since it had no working route mechanism implemented yet.
+  `openid-connect-keycloak` is the custom case instead: the Keycloak Operator reconciles a
+  `Keycloak` resource and speaks no Gateway API, so a local chart renders both that resource
+  and the route beside it.
 - **A module can be both cases at once, for different resources.**
   `observability-storage-grafana-lgtm` is custom for its metrics store, where no upstream chart
   covers the deployment mode it needs, and wrapped for its collector, whose chart renders no

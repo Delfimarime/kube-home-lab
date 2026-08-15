@@ -7,7 +7,10 @@
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
-[ADR 013](../../adr/013-roles-are-carried-in-the-token.md)
+[ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
+[ADR 015](../../adr/015-units-are-wired-by-hand.md),
+[ADR 017](../../adr/017-stores-are-multi-tenant.md),
+[ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)
 
 ## Intent
 
@@ -37,16 +40,33 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | --- | --- | --- | --- |
 | 0 | `grafana` | `grafana` (grafana-community) | always |
 
-**Datasources are generated from the three address inputs**, one per address that is not
-`null`. Their *types* are not inputs: an address named `metrics_url` becomes a `prometheus`
-datasource, `logs_url` a `loki` one, `traces_url` a `tempo` one. Swapping the store behind a
-capability ([REQ-09](../../requirements.md)) means swapping it for something speaking the same
-query API, so a type input would be flexibility nobody would ever spend.
+**Datasources are generated from the three address inputs crossed with the tenant list** — one
+per non-`null` address, per tenant. Their *types* are not inputs: an address named `metrics_url`
+becomes a `prometheus` datasource, `logs_url` a `loki` one, `traces_url` a `tempo` one. Swapping
+the store behind a capability ([REQ-09](../../requirements.md)) means swapping it for something
+speaking the same query API, so a type input would be flexibility nobody would ever spend.
+
+**The tenant is a header on the datasource, not a second address.** The stores run multi-tenant
+([ADR 017](../../adr/017-stores-are-multi-tenant.md)),
+so every read carries `X-Scope-OrgID`. Two tenants over two switched-on signals is four
+datasources, named `<store> <tenant>`, and `default_tenant` decides which one Grafana marks as
+its default.
+
+**`tenants` is a read-side choice and cannot disagree with reality.** Nothing validates a tenant
+name on write either, so there is no set of "real" tenants for this list to be wrong about — it
+says which ones are worth looking at. That is why it is a plain environment value read by this
+module and by the storage module, rather than anything passing between them
+([ADR 015](../../adr/015-units-are-wired-by-hand.md)).
 
 ### Correlation
 
 The reason for choosing this stack. **Each link is conditional on both of its ends existing**,
 and both ends are simply two of the three addresses being non-null:
+
+**Every link is wired within a tenant.** A trace in one tenant cannot open logs in another, and
+the service graph exists only for the tenant Tempo's `metrics-generator` writes into. That is
+the cost of partitioning writes, paid on the read side, and it is why `tenants` should hold the
+smallest number that is actually useful.
 
 | Datasource | Gains, when… | Link | Gives you |
 | --- | --- | --- | --- |
@@ -101,15 +121,27 @@ port: access is an act, not the state you end up in by not being mentioned.
 
 The module **declares** the claim it needs; whether the issuer emits it is that issuer's
 business and an operational matter, per the third shared-contract rule in
-[the platform spec](../../platform.md#shared-contracts). A token without the claim produces a
+[the platform spec](../../platform.md#contracts). A token without the claim produces a
 refused login, not a broken module.
 
-**The local login form follows `oidc`, and can be overridden.** `allow_local_login` defaults to
-`null`, which means *derive it*: the form is on when `oidc` is `null` — otherwise there would be
-no way in at all — and off once an issuer is wired, so that REQ-01's "one account" is a fact
-rather than a preference. Setting it to `true` alongside `oidc` keeps the form as a break-glass
-route for when the issuer is down; setting it to `false` with no `oidc` locks everyone out and
-is refused at plan time.
+**The local login form follows `oidc`, and there is no input for it.** `oidc` set means the form
+is off, so REQ-01's "one account" is a fact rather than a preference; `oidc` null means the form
+is on, because otherwise there would be no way in at all. Two states, derived from one input,
+with nothing to configure and nothing to get wrong.
+
+What that leaves when the issuer is down: the form is gone, but Grafana's admin account still
+exists in PostgreSQL and still authenticates to the HTTP API with basic auth. That is the
+break-glass route — unadvertised rather than absent, and worth knowing before an outage rather
+than during one.
+
+**Grafana must trust the lab's certificate authority, and this is where it is mounted.** Every
+server-to-server call to the issuer — discovery, token exchange, userinfo — is made by Grafana's
+own HTTP client against a certificate signed by an authority no container trusts by default.
+The bundle is already in this namespace
+([ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md));
+this module mounts it. Without the mount, OIDC fails on the callback with
+`x509: certificate signed by unknown authority`, which reads as a broken OIDC configuration and
+is not one.
 
 ### Alerting
 
@@ -140,7 +172,10 @@ database = {          # required — Grafana's own state
 gateway = null   # exposes Grafana
 oidc    = null   # Grafana delegates authentication and authorization when set
 
-allow_local_login = null   # null follows oidc — see below
+tenants        = ["lab"]   # one datasource per tenant per switched-on signal
+default_tenant = "lab"     # which of them Grafana marks as its default datasource
+
+trust_bundle_name = "lab-ca-bundle"   # the ConfigMap to mount; required whenever oidc is set
 ```
 
 Plus a namespace, the chart version, and a values override.
@@ -161,15 +196,15 @@ module that cannot be regenerated from git. Making it required also means Grafan
 volume at all. The cost is stated plainly: **Grafana does not start without PostgreSQL**, and
 that is this module's one hard external dependency.
 
-**`allow_local_login` is the only input with a derived default**, because the safe value depends
-on another input:
+**There is no input for the login form.** It follows `oidc` and nothing else — see
+[Access](#access). An input existed in an earlier draft, defaulting to a value derived from
+`oidc` and overridable in both directions; it was removed because three of its four states were
+the derived one restated and the fourth locked everyone out and had to be refused at plan time.
+A knob whose only novel setting is invalid is not a knob.
 
-| `oidc` | `allow_local_login` | Grafana's login form |
-| --- | --- | --- |
-| `null` | `null` | **on** — it is the only way in |
-| set | `null` | **off** — one account per environment, as REQ-01 asks |
-| set | `true` | **on** — deliberate break-glass, kept for when the issuer is down |
-| `null` | `false` | rejected at plan time: nobody could sign in |
+**`default_tenant` must appear in `tenants`**, and is refused at plan time otherwise. Grafana
+needs exactly one default datasource per type, and deriving it from list ordering is the kind
+of implicit rule that is obvious to whoever wrote it and to nobody else.
 
 ## Outputs
 
@@ -196,11 +231,13 @@ Feature: One console over whatever observability is switched on
     Then it fails with a validation error naming the three inputs
 
   @cluster
-  Scenario: [CON-02] One address, one datasource
+  Scenario: [CON-02] One address and one tenant, one datasource
     Given only logs_url is set
+     And tenants names lab and scratch
     When Grafana's datasources are read
-    Then exactly one exists, of type loki
-     And it addresses the value of logs_url
+    Then exactly two exist, both of type loki
+     And both address the value of logs_url
+     And each sends X-Scope-OrgID naming its own tenant
 
   @cluster
   Scenario: [CON-03] Grafana survives metrics being absent
@@ -240,17 +277,29 @@ Feature: One console over whatever observability is switched on
       | no recognised role | a refused login, and no account  |
 
   @plan
-  Scenario Outline: [CON-08] Local login follows oidc, and cannot lock everyone out
-    Given oidc is <oidc> and allow_local_login is <override>
+  Scenario Outline: [CON-08] Local login follows oidc, and nothing else
+    Given oidc is <oidc>
     When terraform plan runs
-    Then <outcome>
+    Then the login form is <form>
+     And no input governs it
 
     Examples:
-      | oidc | override | outcome                             |
-      | null | null     | the login form is enabled           |
-      | set  | null     | the login form is disabled          |
-      | set  | true     | the login form is enabled           |
-      | null | false    | the plan fails, naming both inputs  |
+      | oidc | form     |
+      | null | enabled  |
+      | set  | disabled |
+
+  @plan
+  Scenario: [CON-12] The default tenant is one of the tenants
+    Given default_tenant names a tenant absent from tenants
+    When terraform plan runs
+    Then it fails, naming both inputs
+
+  @cluster
+  Scenario: [CON-13] Grafana trusts the lab authority
+    Given oidc is set
+    When the Grafana pod is inspected
+    Then the trust bundle ConfigMap is mounted into its trust store
+     And a request to the issuer's discovery URL from inside the pod succeeds
 
   @plan
   Scenario: [CON-09] A database is mandatory
@@ -281,16 +330,32 @@ Feature: One console over whatever observability is switched on
   rule cannot be diffed, cannot be code-reviewed, and arrives in no pull request. Grafana can
   export rules as provisioning YAML — if alerting ever matters, exporting it into git
   periodically is the cheapest way to stop the state being write-only.
-- **Losing the PostgreSQL now loses alerting too.** It already held the only non-regenerable
-  state; it now holds every rule and contact point as well. Nothing in this repo backs it up
-  ([platform scope](../../platform.md#scope)), and the consequence just got larger.
+- **Losing the PostgreSQL loses alerting as well as Grafana's state.** Users, preferences,
+  annotations, every alert rule and every contact point are in one database, none of them
+  regenerable from git, and nothing in this repo backs it up
+  ([platform scope](../../platform.md#scope)).
 - **Nothing evaluates while Grafana is down.** Rules run in Grafana, so the console being
   unavailable and the alerting being unavailable are the same outage. On one operator and two
   nodes that is acceptable; it is also exactly the failure a separate rule evaluator would have
   prevented, which is the trade the ADR made deliberately.
-- **`allow_local_login = true` is a password nobody will rotate.** The break-glass route is
-  worth having when the issuer runs in this same cluster, but the account it keeps alive is a
-  static credential outside the OIDC path and outside anyone's attention. If it is switched on,
-  it needs an owner.
+- **With `oidc` set, the only way in when the issuer is down is the admin account over the
+  HTTP API.** The form is disabled and the issuer runs in this same cluster, so an issuer outage
+  is a console lockout for anyone using a browser. The account behind that route is a static
+  credential outside the OIDC path and outside anyone's attention; it needs an owner whether or
+  not it is ever used.
+- **Datasources multiply with tenants, and nothing prunes them.** Two tenants over three signals
+  is six, each with its own correlation wiring. Removing a tenant from `tenants` removes its
+  datasources; dashboards pointing at them do not follow.
+- **A correlation link cannot cross a tenant.** A trace pushed under one tenant by a workload
+  whose logs are tailed into another will never link to them, and the failure is a link that
+  quietly returns nothing rather than an error. This is the sharpest consequence of partitioning
+  writes and it lands entirely on this module.
+- **Nothing checks that `tenants` matches what is actually being written.** A tenant nobody
+  writes to shows an empty datasource; a tenant being written to and absent from this list is
+  invisible in the console. Both are silent.
+- **The trust bundle is a hard dependency of OIDC and is mounted, not verified.** If
+  `certificate-management-cert-manager` has not been applied, the ConfigMap is absent and the
+  pod does not start — which is the loud failure. If it is present but stale, the pod starts and
+  OIDC fails, which is the quiet one.
 - **No dashboards ship.** Import by `gnetId` through the chart, or accept a blank Grafana on
   day one.
