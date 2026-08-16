@@ -116,7 +116,7 @@ variable "observability" {
     namespace    = optional(string, "telemetry")
     object_storage = optional(object({
       endpoint       = string
-      region         = optional(string, "af-south-1")
+      region         = optional(string, "us-east-1")
       secret_name    = optional(string)
       access_key_key = optional(string, "ACCESS_KEY")
       secret_key_key = optional(string, "SECRET_KEY")
@@ -129,7 +129,7 @@ variable "observability" {
         image_tag = optional(string, "3.1.4")
         object_storage = optional(object({
           endpoint       = string
-          region         = optional(string, "af-south-1")
+          region         = optional(string, "us-east-1")
           secret_name    = optional(string)
           access_key_key = optional(string, "ACCESS_KEY")
           secret_key_key = optional(string, "SECRET_KEY")
@@ -142,7 +142,7 @@ variable "observability" {
         chart_version = optional(string, "7.3.0")
         object_storage = optional(object({
           endpoint       = string
-          region         = optional(string, "af-south-1")
+          region         = optional(string, "us-east-1")
           secret_name    = optional(string)
           access_key_key = optional(string, "ACCESS_KEY")
           secret_key_key = optional(string, "SECRET_KEY")
@@ -155,7 +155,7 @@ variable "observability" {
         chart_version = optional(string, "1.24.4")
         object_storage = optional(object({
           endpoint       = string
-          region         = optional(string, "af-south-1")
+          region         = optional(string, "us-east-1")
           secret_name    = optional(string)
           access_key_key = optional(string, "ACCESS_KEY")
           secret_key_key = optional(string, "SECRET_KEY")
