@@ -57,7 +57,7 @@ with the layer that is actually correct.
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
 | [014](adr/014-exposed-does-not-mean-authorized.md) | Exposed does not mean authorized | accepted |
 | [015](adr/015-units-are-wired-by-hand.md) | Units are wired by hand; no unit reads another's state | superseded by 20 |
-| [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted |
+| [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted, the root variable superseded by 24 |
 | [017](adr/017-stores-are-multi-tenant.md) | The stores are multi-tenant; the caller names its tenant | accepted |
 | [018](adr/018-one-trust-bundle-for-the-cluster.md) | One trust bundle for the cluster, not a mount per workload | accepted |
 | [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
@@ -65,6 +65,7 @@ with the layer that is actually correct.
 | [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
 | [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
 | [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
+| [024](adr/024-the-metrics-fact-is-derived.md) | The metrics fact is derived at the root, not declared | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 

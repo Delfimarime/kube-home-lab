@@ -4,7 +4,7 @@ module "cert_manager" {
     namespace = var.argocd.namespace
   }
   gateway_namespace   = var.gateway.namespace
-  metrics             = var.metrics
+  metrics             = local.metrics
   namespace           = var.cert_manager.namespace
   domain              = var.cert_manager.domain
   certificates        = var.cert_manager.certificates

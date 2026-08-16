@@ -12,6 +12,17 @@ locals {
   }
   observability = var.observability
 
+  # The fact every module with a /metrics endpoint needs before it may declare scraping, derived
+  # rather than declared: the operator's CRDs and the collector that reads them ship with the
+  # metrics store and with nothing else, so shipping one is what makes scraping possible. A flag
+  # beside it could say otherwise, and the sync it breaks would be somewhere else entirely.
+  #
+  # An environment whose CRDs come from outside this repo cannot say so, and that is deliberate —
+  # there would be no way to check it, and the check is the point.
+  metrics = {
+    enabled = !var.initial_deployment && try(local.observability.components.metrics, null) != null
+  }
+
   # Each store's version pin is written beside the signal it pins, and the storage module takes it
   # one variable per chart. Dropped here rather than widened there: what a store is configured as
   # and which build of it runs are two different questions, and only the first is per-signal.

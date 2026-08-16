@@ -1,6 +1,15 @@
 # 016. `metrics.enabled` is the fourth cross-module input
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
+**Status:** accepted at the module boundary, its root-variable half superseded by
+[ADR 024](024-the-metrics-fact-is-derived.md) · **Scope:** platform · **Date:** 2026-08-15 ·
+revised 2026-08-16
+
+> **Partly superseded.** `metrics` is still the fourth cross-module input, taken by every module
+> whose workload can emit a `ServiceMonitor`, and everything below about its shape and which
+> modules take it stands. What no longer holds is the last consequence: it is not a root variable
+> an environment declares. The root module derives it from whether a metrics store is shipped
+> ([ADR 024](024-the-metrics-fact-is-derived.md)), so it can no longer disagree with the
+> environment.
 
 ## Context
 

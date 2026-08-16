@@ -505,12 +505,14 @@ and take its own credential with it. One string could describe three stores only
 shared one; it cannot now, and a map that usually holds the same value three times is honest
 where a single name would be a guess.
 
-**There is no `metrics.enabled` output.** Whether an environment scrapes is an environment's
-fact, declared once as a root variable and read by this module as `components.metrics` and
-by every other module as `metrics.enabled`
-([ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
-[ADR 020](../../adr/020-one-root-module.md)). Publishing it here would invite a consumer to read
-an environment's fact out of this module, which is the wrong direction.
+**There is no `metrics.enabled` output.** Whether an environment scrapes is decided by whether it
+ships a metrics store, which this module reads as `components.metrics` and every other module is
+told as `metrics.enabled` — derived once in the root module, not declared anywhere
+([ADR 024](../../adr/024-the-metrics-fact-is-derived.md),
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
+[ADR 020](../../adr/020-one-root-module.md)). The derivation belongs to the root because it is the
+root that knows which other modules exist; publishing it here would invite a consumer to read it
+out of this module, which is the wrong direction.
 
 **The three store addresses are the console's whole input, and they are nullable on purpose.**
 Handing the console three booleans instead would let "metrics are on" and "there is a Mimir to

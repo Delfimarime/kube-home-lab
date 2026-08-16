@@ -160,12 +160,17 @@ list of them — a change to any is a change here first and in the modules secon
 A value one module publishes and another consumes — a store address, an issuer URL — is
 `module.<a>.<output>` passed into `module.<b>`: one graph, resolved at plan time, reading no
 state file. A value that belongs to the cluster rather than to any module — a hostname, a tenant
-list, `metrics.enabled` — is a root variable, declared once in that environment's var file and
-passed to each module that reads it.
+list — is a root variable, declared once in that environment's var file and passed to each module
+that reads it.
 
 The consequence worth knowing: the *first* kind cannot disagree with what it describes, and the
 second still can. A hostname written down twice is two facts; deriving both from one root
 variable is what keeps that narrow.
+
+There is a third kind, and it is the shape to prefer where it is available: a fact the root module
+can *derive* from an input it already has. `metrics.enabled` is one — no environment declares it,
+because whether the cluster has the scrape CRDs and a collector is decided by whether it ships a
+metrics store ([ADR 024](adr/024-the-metrics-fact-is-derived.md)).
 
 ### Exposure and authorization
 
@@ -228,6 +233,12 @@ directly by the collector, never hand-written scrape config. It may only do so w
 environment has the CRDs and a collector, which is what `metrics.enabled` says
 ([ADR 016](adr/016-metrics-is-the-fourth-input.md)).
 
+**No environment declares that.** The root module derives it: the CRDs and the collector ship with
+a metrics store and with nothing else, so `observability.components.metrics` being set is what
+makes scraping possible and is therefore what decides it
+([ADR 024](adr/024-the-metrics-fact-is-derived.md)). `initial_deployment` holds every
+`ServiceMonitor` back for the one apply that installs the CRDs, and is unset again after it.
+
 ## Contracts
 
 Every consumer module takes the same three optional inputs. Each defaults to `null`, and `null`
@@ -247,6 +258,10 @@ about the environment rather than a reference to something addressable:
 | Variable | Meaning when `true` | Meaning when `false` |
 | --- | --- | --- |
 | `metrics` | one field, `enabled`: the CRDs exist and a collector is reading them, so declare scraping | declare nothing; a `ServiceMonitor` would fail the sync or go unread |
+
+A module takes it and is told; nobody writes it down. The root module derives it from the metrics
+store ([ADR 024](adr/024-the-metrics-fact-is-derived.md)), which is what installs the CRDs and
+runs the collector.
 
 Shapes are defined in [ADR 007](adr/007-modules-receive-credentials.md) and are not repeated
 here. How a module turns `gateway` into resources is per-module — see

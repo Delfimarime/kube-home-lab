@@ -16,12 +16,10 @@ variable "gateway" {
   description = "The cluster's Gateway. Its namespace is what certificate Secrets are granted to."
 }
 
-variable "metrics" {
-  type = object({
-    enabled = optional(bool, false)
-  })
-  description = "Whether this cluster has the Prometheus-operator CRDs and a collector."
-  default     = {}
+variable "initial_deployment" {
+  type        = bool
+  description = "First apply of a metrics store: hold back every ServiceMonitor until the operator CRDs exist."
+  default     = false
 }
 
 variable "cert_manager" {
