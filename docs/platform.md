@@ -239,6 +239,13 @@ makes scraping possible and is therefore what decides it
 ([ADR 024](adr/024-the-metrics-fact-is-derived.md)). `initial_deployment` holds every
 `ServiceMonitor` back for the one apply that installs the CRDs, and is unset again after it.
 
+**Which tenant the result is stored under is the workload's own to state**, in an
+`opentelemetry.io/tenant` label on its Service and its pods
+([ADR 025](adr/025-a-workload-carries-its-tenant.md)). The Service label wins for metrics; logs are
+discovered from pods and see no Service, so the pod label is the one that covers both signals. A
+workload carrying neither is stored as the cluster's own tenant, and one naming a tenant the stores
+do not have is stored as `unattributed` — the same three outcomes a pushed request already had.
+
 ## Contracts
 
 Every consumer module takes the same three optional inputs. Each defaults to `null`, and `null`
@@ -257,11 +264,17 @@ about the environment rather than a reference to something addressable:
 
 | Variable | Meaning when `true` | Meaning when `false` |
 | --- | --- | --- |
-| `metrics` | one field, `enabled`: the CRDs exist and a collector is reading them, so declare scraping | declare nothing; a `ServiceMonitor` would fail the sync or go unread |
+| `metrics` | `enabled`: the CRDs exist and a collector is reading them, so declare scraping | declare nothing; a `ServiceMonitor` would fail the sync or go unread |
 
 A module takes it and is told; nobody writes it down. The root module derives it from the metrics
 store ([ADR 024](adr/024-the-metrics-fact-is-derived.md)), which is what installs the CRDs and
 runs the collector.
+
+It carries a second field. **`metrics.tenant` is which tenant this workload's telemetry is stored
+under**, written by the module onto its Service and its pods as `opentelemetry.io/tenant`, where the
+collector discovers it and routes the write ([ADR 025](adr/025-a-workload-carries-its-tenant.md)).
+`null` leaves both unlabelled, which stores it as the cluster's own — the ordinary case, since every
+module here deploys platform infrastructure.
 
 Shapes are defined in [ADR 007](adr/007-modules-receive-credentials.md) and are not repeated
 here. How a module turns `gateway` into resources is per-module — see

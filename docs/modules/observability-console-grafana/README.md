@@ -9,6 +9,7 @@
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md),
 [ADR 020](../../adr/020-one-root-module.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
@@ -233,7 +234,10 @@ admin = {}            # the break-glass account; secret_name null renders the pl
 
 gateway = null   # exposes Grafana
 oidc    = null   # Grafana delegates authentication and authorization when set
-metrics = { enabled = false }   # whether Grafana emits a ServiceMonitor
+metrics = {
+  enabled = false   # whether Grafana emits a ServiceMonitor
+  tenant  = null    # which tenant its own telemetry is stored under; null: the cluster's own
+}
 
 tenants        = ["lab"]   # one datasource per tenant per switched-on signal
 default_tenant = "lab"     # which of them Grafana marks as its default datasource
@@ -251,6 +255,12 @@ declared configuration, which is the thing this platform does not do.
 `gateway`, `oidc` and `database` are the shared contracts, unchanged in shape
 ([ADR 007](../../adr/007-modules-receive-credentials.md)). `oidc.groups_claim`, when set,
 replaces the default claim path for role lookup.
+
+**`metrics.tenant` is written as an `opentelemetry.io/tenant` label on Grafana's Service and on its
+pod**, where the collector discovers it and routes both this workload's metrics and its logs
+([ADR 025](../../adr/025-a-workload-carries-its-tenant.md)). It is the console's *own* telemetry and
+has nothing to do with `tenants` below, which is what datasources are built for. `null` leaves it
+unlabelled and stored as the cluster's own.
 
 **The three addresses come from the storage module's outputs**, and each is either a URL or
 `null`. They are addresses rather than a copy of that module's three `enable_*` flags on

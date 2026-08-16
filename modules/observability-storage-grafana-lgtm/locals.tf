@@ -517,6 +517,39 @@ locals {
 # ---------------------------------------------------------------------------------------------
 
 locals {
+  # The label a workload carries to say which tenant its telemetry belongs to. It is the scrape
+  # path's answer to the header a push sends: nothing discovered can be asked anything at request
+  # time, so what a push states per request a scraped workload states once, in the cluster.
+  #
+  # **The Kubernetes label and the series label cannot share a name.** A metric label name holds
+  # neither a dot nor a slash, so Kubernetes discovery exposes the sanitised form and `tenant` is
+  # what the routers read. Anything writing this label to a workload writes the first spelling.
+  tenant_label      = "opentelemetry.io/tenant"
+  tenant_label_meta = replace(local.tenant_label, "/[^a-zA-Z0-9]+/", "_")
+
+  # **Pod first, Service second, and the order is the whole of the precedence.** `regex = "(.+)"`
+  # writes nothing when the source label is absent, so the Service's value replaces the pod's where
+  # it has one and leaves it standing where it does not. Written the other way round the fallback
+  # would win every time both were set.
+  #
+  # A PodMonitor has no Service to read, so it gets the first rule and not the second. Probes have
+  # neither and are not routed at all.
+  tenant_from_pod = <<-ALLOY
+    rule {
+      source_labels = ["__meta_kubernetes_pod_label_${local.tenant_label_meta}"]
+      regex         = "(.+)"
+      target_label  = "tenant"
+    }
+  ALLOY
+
+  tenant_from_service = <<-ALLOY
+    rule {
+      source_labels = ["__meta_kubernetes_service_label_${local.tenant_label_meta}"]
+      regex         = "(.+)"
+      target_label  = "tenant"
+    }
+  ALLOY
+
   # One exporter per store for the pushed side, each carrying the caller's tenant forward.
   #
   # A `custom` destination is rendered verbatim, so the retry, queue and compression settings the
@@ -590,16 +623,63 @@ locals {
     ALLOY
   }
 
+  # A scraped workload states its tenant in a label ([LOCAL-008]) and this is what that label
+  # becomes. **A remote-write header is fixed per endpoint**, so one header per tenant means one
+  # endpoint per tenant and something in front choosing between them — there is no setting that
+  # reads a tenant off a series and writes it as a header, which is why this is a set of
+  # destinations rather than a field on one.
+  #
+  # These differ in nothing except the name they write under.
+  tenant_stores = {
+    metrics = { type = "prometheus", url = "http://${local.metrics_store_host}/api/v1/push" }
+    logs    = { type = "loki", url = "http://${local.logs_store_host}/loki/api/v1/push" }
+  }
+
+  # `unattributed` is a destination for the same reason it is a tenant in the stores: a label naming
+  # a tenant this environment does not have is a typo, and a typo that silently joined the cluster's
+  # own telemetry would be indistinguishable from correct configuration. Appending it cannot collide
+  # with a caller's tenant, because `var.tenants` refuses that name.
+  scrape_tenants = concat(sort(keys(var.tenants)), ["unattributed"])
+
+  # One router per label-based pipeline, built from one list of routes in two dialects.
+  #
+  # **The order of the routes is the behaviour.** The first match wins, so a tenant this environment
+  # knows is claimed before the catch-all that follows it; and a workload carrying no label at all
+  # matches nothing and lands in `defaultDestinations`, which is this cluster's own tenant — the
+  # same answer it got before any of this existed.
+  tenant_routers = {
+    for signal, ecosystem in { metrics = "prometheus", logs = "loki" } : "${signal}-router" => {
+      type      = "router"
+      ecosystem = ecosystem
+      routes = concat(
+        [for t in sort(keys(var.tenants)) : {
+          match        = [{ label = "tenant", op = "equals", value = t }]
+          destinations = ["${signal}-tenant-${t}"]
+        }],
+        [{
+          match        = [{ label = "tenant", op = "matches", value = ".+" }]
+          destinations = ["${signal}-tenant-unattributed"]
+        }],
+      )
+      defaultDestinations = ["${signal}-tenant-${var.default_tenant}"]
+    }
+  }
+
   # The scrape path and the pushed path are two different destinations for the same store, because
-  # they answer the tenant question differently: a scrape has no request behind it to carry a
-  # header, so it is stamped with one name; a push has, so its own is carried forward.
+  # they answer the tenant question differently: a scrape carries a label a router reads, a push
+  # carries a header the exporter carries forward.
   destinations = merge(
+    { for t in local.scrape_tenants : "metrics-tenant-${t}" =>
+      merge(local.tenant_stores.metrics, { tenantId = t }) if local.collect_metrics
+    },
+    local.collect_metrics ? { metrics-router = local.tenant_routers["metrics-router"] } : {},
+
+    { for t in local.scrape_tenants : "logs-tenant-${t}" =>
+      merge(local.tenant_stores.logs, { tenantId = t }) if local.collect_logs
+    },
+    local.collect_logs ? { logs-router = local.tenant_routers["logs-router"] } : {},
+
     { for k, v in {
-      metrics = {
-        type     = "prometheus"
-        url      = "http://${local.metrics_store_host}/api/v1/push"
-        tenantId = var.default_tenant
-      }
       metrics-push = {
         type      = "custom"
         ecosystem = "otlp"
@@ -612,11 +692,6 @@ locals {
     } : k => v if local.collect_metrics },
 
     { for k, v in {
-      logs = {
-        type     = "loki"
-        url      = "http://${local.logs_store_host}/loki/api/v1/push"
-        tenantId = var.default_tenant
-      }
       logs-push = {
         type      = "custom"
         ecosystem = "otlp"
@@ -710,28 +785,53 @@ locals {
       destinations = local.destinations
       collectors   = local.collectors
 
+      # Cluster-wide metrics belong to no workload and therefore to no tenant: they are written as
+      # this cluster's own directly, rather than through a router that has nothing to match on.
       clusterMetrics = {
         enabled      = local.collect_metrics
         collector    = "alloy-metrics"
-        destinations = local.collect_metrics ? ["metrics"] : []
+        destinations = local.collect_metrics ? ["metrics-tenant-${var.default_tenant}"] : []
       }
 
+      # The only discovery that reads a workload's own declaration, and therefore the only one whose
+      # writes are routed.
       prometheusOperatorObjects = {
         enabled      = local.collect_metrics
         collector    = "alloy-metrics"
-        destinations = local.collect_metrics ? ["metrics"] : []
+        destinations = local.collect_metrics ? ["metrics-router"] : []
+
+        serviceMonitors = {
+          extraDiscoveryRules = "${local.tenant_from_pod}${local.tenant_from_service}"
+        }
+
+        podMonitors = {
+          extraDiscoveryRules = local.tenant_from_pod
+        }
       }
 
+      # Logs are discovered from pods and there is no Service anywhere in this pipeline, so a tenant
+      # written only on a Service routes that workload's metrics and not its logs. The pod label is
+      # the one that covers both.
+      #
+      # The chart's own pod-label-to-Loki-label mapping does what the metrics side needs two hand
+      # written rules for. Its default entry is restated so the whole mapping reads in one place.
       podLogsViaLoki = {
         enabled      = local.collect_logs
         collector    = "alloy-logs"
-        destinations = local.collect_logs ? ["logs"] : []
+        destinations = local.collect_logs ? ["logs-router"] : []
+
+        labels = {
+          app_kubernetes_io_name = "app.kubernetes.io/name"
+          tenant                 = local.tenant_label
+        }
       }
 
+      # Events are the API server's account of the cluster, not any workload's output. Same
+      # reasoning as clusterMetrics: written as this cluster's own, unrouted.
       clusterEvents = {
         enabled      = local.collect_logs
         collector    = "alloy-singleton"
-        destinations = local.collect_logs ? ["logs"] : []
+        destinations = local.collect_logs ? ["logs-tenant-${var.default_tenant}"] : []
       }
 
       applicationObservability = {

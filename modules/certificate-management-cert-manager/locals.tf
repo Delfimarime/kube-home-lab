@@ -52,6 +52,19 @@ locals {
     name => "${local.release}-${name}-client"
   }
 
+  # Where a tenant is stated, it is stated as a label the collector discovers rather than as
+  # anything this module sends: a scrape has no request behind it to carry a header, so what a
+  # pushing workload says per request a scraped one says once, here.
+  #
+  # **On the Service and on the pods, and the two are not redundant.** Metrics are discovered
+  # through the Service a ServiceMonitor selects; logs are discovered from pods, where no Service
+  # exists to be read. A label on only one of them routes only one of the two signals.
+  #
+  # Empty when no tenant is given, which leaves the collector to treat this as the cluster's own
+  # telemetry — the same place it went before any of this was configurable.
+  tenant_label  = "opentelemetry.io/tenant"
+  tenant_labels = var.metrics.tenant == null ? {} : { (local.tenant_label) = var.metrics.tenant }
+
   # cert-manager: the CRDs are not installed by default, and the flag was renamed from
   # `installCRDs` at v1.15 — the old name is silently ignored rather than rejected, so a version
   # bump that missed it would install a controller with no types to reconcile.
@@ -71,6 +84,19 @@ locals {
         enabled = var.metrics.enabled
       }
     }
+
+    # Three workloads in one chart, each with its own copy of the keys. The controller is the one
+    # that emits metrics; the other two are here because all three emit logs.
+    podLabels     = local.tenant_labels
+    serviceLabels = local.tenant_labels
+    webhook = {
+      podLabels     = local.tenant_labels
+      serviceLabels = local.tenant_labels
+    }
+    cainjector = {
+      podLabels     = local.tenant_labels
+      serviceLabels = local.tenant_labels
+    }
   })
 
   # trust-manager reads a Bundle's sources from its trust namespace, which defaults to
@@ -81,6 +107,11 @@ locals {
       trust = {
         namespace = var.namespace
       }
+
+      # This chart exposes pod labels and no Service labels, so trust-manager's metrics are
+      # discovered through a Service carrying no tenant and fall back to the pod behind it. That is
+      # what the fallback is for.
+      podLabels = local.tenant_labels
       # Not app.webhook.service — that path exists and takes no servicemonitor, and the chart's
       # values schema is what said so. Two charts from the same vendor put the same switch in two
       # different places, which is why versions are pinned exactly and why the round-trip check

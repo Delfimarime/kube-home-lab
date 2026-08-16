@@ -284,11 +284,16 @@ variable "trust_bundle_name" {
 # It asserts a fact about the cluster rather than switching a feature on: that the operator's CRDs
 # exist and something is reading them. Declared where they do not, the ServiceMonitor fails the
 # sync or is never read, and this console would be the one workload whose own health nobody sees.
+# `tenant` is which tenant this console's own telemetry is stored under, written onto its Service
+# and its pods as a label the collector discovers. Null leaves both unlabelled, which is collected
+# as the cluster's own — the ordinary answer for a console that is part of the platform rather than
+# of anything running on it.
 variable "metrics" {
   type = object({
     enabled = optional(bool, false)
+    tenant  = optional(string)
   })
-  description = "Whether the cluster has the scrape CRDs and a collector reading them, so this workload declares scraping."
+  description = "Whether the cluster has the scrape CRDs and a collector reading them, so this workload declares scraping, and the tenant its own telemetry belongs to."
   default     = {}
 }
 

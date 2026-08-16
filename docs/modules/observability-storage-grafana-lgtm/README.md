@@ -8,6 +8,7 @@
 [LOCAL-004](adr/LOCAL-004-storage-split-from-console.md),
 [LOCAL-006](adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md),
 [LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md),
+[LOCAL-008](adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md),
 [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
@@ -16,7 +17,8 @@
 [ADR 020](../../adr/020-one-root-module.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
-[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md),
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
 
 ## Intent
 
@@ -175,25 +177,40 @@ retention, and reads that can be scoped. The limits are the part that matters he
 what bounds an external pusher, which
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) accepted having no answer for.
 
-**The collector propagates rather than stamps, and only where a request exists.** The chart's
-destinations split in two, and each feature selects the one it belongs to:
+**The collector propagates a header where a request exists and routes on a label where one does
+not.** The chart's destinations split in three, and each feature selects the ones it belongs to:
 
 | Path | Destination | Tenant |
 | --- | --- | --- |
-| scraped metrics, tailed logs, operator objects | built-in `prometheus` / `loki` | static, from `default_tenant` |
+| operator objects — `ServiceMonitor`, `PodMonitor` — and tailed pod logs | `router`, fanning out to one `prometheus` / `loki` destination per tenant | from the workload's `opentelemetry.io/tenant` label |
+| cluster metrics, the exporters, cluster events | `prometheus` / `loki` for `default_tenant` | static: they describe the cluster, not a workload |
 | anything pushed to the receiver | `custom`, `ecosystem: otlp` | propagated from the request |
+
+**A scraped workload names its own tenant in a label**
+([LOCAL-008](adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md)): two relabel rules copy
+`opentelemetry.io/tenant` off the Service, or off the pod where the Service does not carry it, onto
+the series as `tenant`; one router per label-based pipeline matches it against the tenants in
+`var.tenants` and writes through that tenant's own client. A label naming a tenant this environment
+does not have lands in `unattributed`; no label at all lands in `default_tenant`. Logs are discovered
+from pods and see no Service at all, so a tenant written only on a Service routes metrics and not
+logs.
+
+The cost is one write client per tenant per signal, each with its own queue and WAL, in the one
+`alloy-metrics` and the one `alloy-logs`.
 
 The pushed side declares one `otelcol.exporter.otlphttp` per store, each carrying an
 `otelcol.auth.headers` handler that reads `X-Scope-OrgID` from the incoming request and re-emits
 it — so a workload's choice survives the hop. The receiver is told to keep request metadata
 through `applicationObservability.receivers.otlp.{grpc,http}.includeMetadata`.
 
-The scrape path is untouched by any of this: `prometheus.remote_write` and `loki.write` with one
-static tenant, because a scrape has no request behind it to carry a header
-([ADR 017](../../adr/017-stores-are-multi-tenant.md)).
+The scrape path reaches the same place from the other end: no request exists to carry a header, so
+the tenant comes off the workload as a label and the router chooses which `prometheus.remote_write`
+or `loki.write` client — and therefore which fixed `X-Scope-OrgID` — the write goes through
+([ADR 017](../../adr/017-stores-are-multi-tenant.md),
+[LOCAL-008](adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md)).
 
-**A write with no header lands in `unattributed`.** That tenant is never one of the configured
-ones and carries a short retention. It exists because the alternative is worse: Alloy answers
+**A write with no header — or a scrape whose label names a tenant that does not exist — lands in
+`unattributed`.** That tenant is never one of the configured ones and carries a short retention. It exists because the alternative is worse: Alloy answers
 `200` and the store rejects the write afterwards, so a forgotten header silently loses data.
 An `unattributed` tenant filling up says who forgot.
 
@@ -401,7 +418,8 @@ tenants = {                      # at least one; limits and retention per signal
   }
 }
 
-default_tenant = "lab"           # what Alloy's own scraping and log tailing are written as
+default_tenant = "lab"           # what the cluster's own collection is written as, and what an
+                                 # unlabelled workload's telemetry falls back to
 
 cluster_name = "lab"             # required; every series and every log line is labelled with it
 ```
@@ -450,10 +468,13 @@ nothing — three levels, of which the lower two are the ones every store alread
 [Retention](#retention) for where each lands. Nothing here bounds *size*; disk is what this
 module runs out of first and retention is only one of the two things that decide when.
 
-**`default_tenant` is not a fallback for callers.** It is what this module's *own* writes carry:
-scraped metrics and tailed logs arrive with no request behind them and no header to propagate.
-A push that omits the header gets `unattributed`, which is a different thing on purpose —
-one is telemetry nobody had to label, the other is telemetry somebody forgot to.
+**`default_tenant` is not a fallback for callers.** It is what the cluster's own collection
+carries — cluster metrics, the exporters, cluster events — and where a scraped workload's telemetry
+lands when the workload names no tenant at all
+([LOCAL-008](adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md)). A push that omits the header
+gets `unattributed`, and so does a workload whose label names a tenant not in `tenants`; both are a
+different thing on purpose — one is telemetry nobody had to label, the other is telemetry somebody
+labelled wrong.
 
 **`object_storage` is required and is not one of the shared contracts.** It carries an address, a
 region, and a Secret name plus the two keys inside it — the credential by reference, never by

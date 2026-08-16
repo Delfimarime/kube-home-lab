@@ -87,10 +87,14 @@ own `port`, `hostname` and Gateway reference — because one hostname cannot nam
 one listener cannot be the right answer for both an API and an admin console.
 [`007`](docs/adr/007-modules-receive-credentials.md)
 
-**3.2** `metrics` is a fourth input and **not** a contract. One field, `enabled`, default `false`,
-taken by every module whose workload can emit a `ServiceMonitor`; it asserts the cluster has the
-CRDs *and* a collector. A module with no metrics endpoint doesn't take it.
-[`016`](docs/adr/016-metrics-is-the-fourth-input.md)
+**3.2** `metrics` is a fourth input and **not** a contract. Two fields, taken by every module whose
+workload can emit a `ServiceMonitor`; a module with no metrics endpoint doesn't take it. `enabled`,
+default `false`, asserts the cluster has the CRDs *and* a collector, and the root derives it from
+whether a metrics store ships. `tenant`, default `null`, is which tenant that workload's telemetry
+is stored under, written onto its Service and its pods as `opentelemetry.io/tenant`; `null` stores it
+as the cluster's own. [`016`](docs/adr/016-metrics-is-the-fourth-input.md)
+[`024`](docs/adr/024-the-metrics-fact-is-derived.md)
+[`025`](docs/adr/025-a-workload-carries-its-tenant.md)
 
 **3.3** Related inputs are one object, not a prefix: `cert_manager.chart_version`, not
 `chart_versions.cert_manager`. The object is the subject, and is where the next field about that

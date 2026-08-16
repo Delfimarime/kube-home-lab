@@ -3,6 +3,11 @@ locals {
   # route pointing at a Service and an Application named for what it renders agree by construction.
   release = "grafana"
 
+  # The label a collector reads a workload's tenant from. Spelled out here rather than taken as an
+  # input: the name is a platform contract, and an input for it would be a second place to spell it.
+  tenant_label  = "opentelemetry.io/tenant"
+  tenant_labels = var.metrics.tenant == null ? {} : { (local.tenant_label) = var.metrics.tenant }
+
   # Three credentials, one rule. A name was given, or this module renders a placeholder for it.
   # Both branches produce a name; only one produces an object. The third exists only when an issuer
   # is wired at all, because a client secret with no client is a Secret nothing would ever read.
@@ -332,6 +337,13 @@ locals {
       route          = { main = local.route_main }
       persistence    = { enabled = false }
       serviceMonitor = { enabled = var.metrics.enabled }
+
+      # The tenant this workload's own telemetry belongs to, stated where the collector discovers
+      # it: on the Service its ServiceMonitor selects, and on the pod behind it because logs are
+      # discovered from pods and see no Service at all. Empty when no tenant was given, which
+      # collects this as the cluster's own.
+      podLabels = local.tenant_labels
+      service   = { labels = local.tenant_labels }
     },
 
     # A key given here replaces this module's whole value for that key. It is the setting nobody

@@ -4,12 +4,13 @@
 [ADR 024](024-the-metrics-fact-is-derived.md) · **Scope:** platform · **Date:** 2026-08-15 ·
 revised 2026-08-16
 
-> **Partly superseded.** `metrics` is still the fourth cross-module input, taken by every module
-> whose workload can emit a `ServiceMonitor`, and everything below about its shape and which
-> modules take it stands. What no longer holds is the last consequence: it is not a root variable
-> an environment declares. The root module derives it from whether a metrics store is shipped
+> **Partly superseded, twice.** `metrics` is still the fourth cross-module input, taken by every
+> module whose workload can emit a `ServiceMonitor`, and everything below about which modules take
+> it and why stands. Two things no longer hold. It is not a root variable an environment declares:
+> the root derives it from whether a metrics store is shipped
 > ([ADR 024](024-the-metrics-fact-is-derived.md)), so it can no longer disagree with the
-> environment.
+> environment. And it does not carry one field: `tenant` is the second, and is the label this ADR
+> left room for ([ADR 025](025-a-workload-carries-its-tenant.md)).
 
 ## Context
 

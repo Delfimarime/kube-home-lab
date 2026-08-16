@@ -49,8 +49,20 @@ variable "cert_manager" {
     trust_manager = optional(object({
       chart_version = optional(string, "v0.24.0")
     }), {})
+
+    # Which tenant this unit's own telemetry is stored under. Unset means this cluster's own
+    # tenant, which is what certificate management is part of — it is here for the environment
+    # that splits its platform across tenants, not because anything needs it stated.
+    tenant = optional(string)
   })
   description = "Certificate management: the domain it issues for, the certificates it issues, and the charts it installs."
+
+  validation {
+    condition = var.cert_manager.tenant == null || var.observability == null || contains(
+      keys(var.observability.tenants), coalesce(var.cert_manager.tenant, "x")
+    )
+    error_message = "cert_manager.tenant must name one of observability.tenants: a tenant the stores do not have is not rejected by anything downstream — its telemetry is simply collected as unattributed, which reads as data loss and is a typo."
+  }
 }
 
 variable "object_storage" {
@@ -192,6 +204,9 @@ variable "observability" {
     console = optional(object({
       hostname      = optional(string)
       chart_version = optional(string, "10.5.15")
+
+      # Which tenant the console's own telemetry is stored under. Unset means this cluster's own.
+      tenant = optional(string)
       gateway = optional(object({
         name         = optional(string)
         namespace    = optional(string)
@@ -225,5 +240,12 @@ variable "observability" {
   validation {
     condition     = var.observability == null || contains(keys(var.observability.tenants), var.observability.default_tenant)
     error_message = "observability.default_tenant must name one of observability.tenants: it is what this cluster's own scraping and log tailing are written as, and deriving it from map ordering is a rule obvious only to whoever wrote it."
+  }
+
+  validation {
+    condition = var.observability == null || try(var.observability.console.tenant, null) == null || contains(
+      keys(var.observability.tenants), try(var.observability.console.tenant, "")
+    )
+    error_message = "observability.console.tenant must name one of observability.tenants: a tenant the stores do not have collects as unattributed rather than failing, which reads as the console's own telemetry going missing."
   }
 }

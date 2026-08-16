@@ -1,14 +1,3 @@
-# Five addresses, and no output's name or value names a product. A workload wired to these is
-# configured for OTLP and for three stores it addresses by protocol; swapping any of the three
-# would not be a re-configuration of anything reading this.
-#
-# Nothing here is sensitive: four addresses and a Secret's name. The access key itself never passes
-# through this module.
-#
-# There is deliberately no output saying whether this environment collects metrics. That is an
-# environment's own fact, written once at the root and read here as an input — publishing it would
-# invite a consumer to read the environment out of this module, which is the wrong direction.
-
 output "otlp_endpoint" {
   value       = local.otlp_endpoint
   description = "Host and port of the OTLP receiver, in-cluster. One listener for all three signals; the caller selects which by gRPC method. What cannot be scraped is pushed here."

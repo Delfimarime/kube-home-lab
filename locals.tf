@@ -19,8 +19,25 @@ locals {
   #
   # An environment whose CRDs come from outside this repo cannot say so, and that is deliberate —
   # there would be no way to check it, and the check is the point.
+  metrics_enabled = !var.initial_deployment && try(local.observability.components.metrics, null) != null
+
+  # The tenant a unit's own telemetry is stored under: its own where it states one, this cluster's
+  # own otherwise. Null while no metrics store exists, because a tenant is a partition of a store
+  # and there is nothing yet to partition — the label would then be written for a collector that is
+  # not running.
+  #
+  # Every unit here is platform infrastructure and belongs to the cluster's tenant by default. The
+  # per-unit field exists for the environment that splits them, and each unit's is validated against
+  # the tenant map where it is written.
   metrics = {
-    enabled = !var.initial_deployment && try(local.observability.components.metrics, null) != null
+    cert_manager = {
+      enabled = local.metrics_enabled
+      tenant  = local.metrics_enabled ? coalesce(var.cert_manager.tenant, local.observability.default_tenant) : null
+    }
+    console = {
+      enabled = local.metrics_enabled
+      tenant  = local.metrics_enabled ? coalesce(try(local.observability.console.tenant, null), local.observability.default_tenant) : null
+    }
   }
 
   # Each store's version pin is written beside the signal it pins, and the storage module takes it

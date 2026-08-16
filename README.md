@@ -100,7 +100,8 @@ the name is genuinely swappable.
 Every consumer module takes the same three optional inputs, each defaulting to `null`:
 `gateway` (expose it), `database` (connect it), `oidc` (authenticate it). Credentials are
 passed as Secret references, never values — and a module needing a Secret names it and shows
-how to create it. A fourth input, `metrics.enabled`, is a plain `bool` and not a contract. The
+how to create it. A fourth input, `metrics`, is not a contract: it carries whether the cluster
+scrapes and which tenant this workload's telemetry belongs to, and the root derives both. The
 shapes are in [the platform spec](docs/platform.md#contracts).
 
 Modules are wired by reference: a value one publishes and another consumes is

@@ -155,12 +155,19 @@ variable "gateway_namespace" {
 }
 
 # An object rather than a bare bool so that whatever else scraping needs — an interval, a label —
-# has somewhere to go without renaming the input a second time.
+# has somewhere to go without renaming the input a second time. `tenant` is the first of those.
+#
+# `tenant` is which tenant this workload's telemetry is stored under, written onto its Service and
+# its pods as a label the collector discovers. **Null is not "no tenant"**: a workload carrying no
+# such label is collected as the cluster's own, which is what this is unless an environment says
+# otherwise. Naming a tenant the stores do not have does not fail here — nothing in this module can
+# see that list — and lands the data in whichever tenant that environment keeps unattributed writes.
 variable "metrics" {
   type = object({
     enabled = optional(bool, false)
+    tenant  = optional(string)
   })
-  description = "Whether this environment has the Prometheus-operator CRDs and a collector reading them."
+  description = "Whether this environment has the Prometheus-operator CRDs and a collector reading them, and the tenant this workload's telemetry belongs to."
   default     = {}
 }
 

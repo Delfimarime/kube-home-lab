@@ -57,7 +57,7 @@ with the layer that is actually correct.
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
 | [014](adr/014-exposed-does-not-mean-authorized.md) | Exposed does not mean authorized | accepted |
 | [015](adr/015-units-are-wired-by-hand.md) | Units are wired by hand; no unit reads another's state | superseded by 20 |
-| [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted, the root variable superseded by 24 |
+| [016](adr/016-metrics-is-the-fourth-input.md) | `metrics.enabled` is the fourth cross-module input | accepted, the root variable superseded by 24 and the one-field shape by 25 |
 | [017](adr/017-stores-are-multi-tenant.md) | The stores are multi-tenant; the caller names its tenant | accepted |
 | [018](adr/018-one-trust-bundle-for-the-cluster.md) | One trust bundle for the cluster, not a mount per workload | accepted |
 | [019](adr/019-the-tool-is-opentofu.md) | The tool is OpenTofu; "Terraform" means the language | accepted |
@@ -66,6 +66,7 @@ with the layer that is actually correct.
 | [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
 | [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
 | [024](adr/024-the-metrics-fact-is-derived.md) | The metrics fact is derived at the root, not declared | accepted |
+| [025](adr/025-a-workload-carries-its-tenant.md) | A workload carries its tenant in `opentelemetry.io/tenant` | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
@@ -81,6 +82,7 @@ with the layer that is actually correct.
 | [observability-storage LOCAL-004](modules/observability-storage-grafana-lgtm/adr/LOCAL-004-storage-split-from-console.md) | Storage splits from the console; the receiver gets a route | accepted |
 | [observability-storage LOCAL-006](modules/observability-storage-grafana-lgtm/adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md) | The three stores keep their data in an object store | accepted |
 | [observability-storage LOCAL-007](modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md) | A signal is its own configuration; its presence is the switch | accepted |
+| [observability-storage LOCAL-008](modules/observability-storage-grafana-lgtm/adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md) | A scraped workload names its own tenant, in a label | accepted |
 | [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 | [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
 | [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |

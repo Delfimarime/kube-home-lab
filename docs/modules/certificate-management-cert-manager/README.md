@@ -9,7 +9,8 @@
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
-[ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)
+[ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
 
 ## Intent
 
@@ -88,6 +89,14 @@ values are set, producing a `ServiceMonitor` the collector reads directly
 `certmanager_certificate_ready_status`, which is the whole of this module's user interface —
 there is no console, and `cmctl status certificate` is the other half.
 
+**Tenancy.** `metrics.tenant` is written as an `opentelemetry.io/tenant` label on all three of this
+chart's workloads — the controller, the webhook and the cainjector — on their Services where the
+chart exposes service labels and on their pods either way, which is what routes their *logs* as well
+as their metrics ([ADR 025](../../adr/025-a-workload-carries-its-tenant.md)). trust-manager's chart
+exposes pod labels only, so its metrics are routed from the pod behind its Service. `null` leaves
+every workload unlabelled and their telemetry stored as the cluster's own; a tenant the stores do
+not have is not rejected here, and lands in `unattributed`.
+
 ## Prerequisites
 
 **The environment's Gateway needs two listeners, and this module provisions neither.** It
@@ -149,7 +158,10 @@ trust_bundle = {
 
 gateway_namespace = null        # whose Gateway may reference these Secrets
 
-metrics = { enabled = false }   # a root variable, declared once — ADR 016
+metrics = {
+  enabled = false   # derived at the root from whether a metrics store ships — ADR 024
+  tenant  = null    # which tenant this unit's telemetry is stored under; null: the cluster's own
+}
 ```
 
 **`domain` and `certificates` are the module.** Everything else is placement or a lifetime. A
