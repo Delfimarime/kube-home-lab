@@ -1,0 +1,31 @@
+{{/*
+This deployment declares its own scraping the same way every other workload here does — through a
+resource the collector already watches — rather than through hand-written scrape configuration.
+Absent unless the environment has both the CRD and something reading it, because a ServiceMonitor
+on a cluster with neither is either a failed sync or an object nothing looks at.
+*/}}
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mimir-monolithic.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mimir-monolithic.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mimir-monolithic.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      {{- with .Values.serviceMonitor.interval }}
+      interval: {{ . }}
+      {{- end }}
+{{- end }}

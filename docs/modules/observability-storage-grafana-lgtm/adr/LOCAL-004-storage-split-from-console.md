@@ -62,13 +62,15 @@ this repository.
   nothing else here needs; everything here needs, Grafana does not. A seam that falls on a
   hard external dependency is one that will still be in the right place after the products
   change.
-- **Addresses cannot disagree with reality; booleans can.** `enable_metrics_support = true` and
-  "there is a Mimir at this URL" are two truths that a split module could hold separately and
-  get wrong separately. A value that is either an address or `null` collapses them into one, and
-  the four correlation links then derive from exactly the same fact that put the store there.
+- **Addresses cannot disagree with reality; booleans can.** "Metrics are switched on" and "there
+  is a Mimir at this URL" are two truths that a split module could hold separately and get wrong
+  separately. A value that is either an address or `null` collapses them into one, and the four
+  correlation links then derive from exactly the same fact that put the store there. The same
+  argument was later turned inward on this module's own inputs, which is how the three
+  `enable_*_support` flags it was written against stopped existing
+  ([LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)).
 - **Three ways would have been one seam too many.** The collector exists to feed the stores and
-  is gated by the same flags; the third module would have had no independent
-  reason to change.
+  follows the same components; the third module would have had no independent reason to change.
 - **`gateway` did not need widening, only re-reading.** The contract says *emit a route for this
   workload*. It never said the workload had to be a UI — that was a fact about the modules that
   existed, and ADR 007 recorded it as such rather than as a rule.

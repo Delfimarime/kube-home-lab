@@ -79,6 +79,7 @@ with the layer that is actually correct.
 | [observability-storage LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |
 | [observability-storage LOCAL-004](modules/observability-storage-grafana-lgtm/adr/LOCAL-004-storage-split-from-console.md) | Storage splits from the console; the receiver gets a route | accepted |
 | [observability-storage LOCAL-006](modules/observability-storage-grafana-lgtm/adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md) | The three stores keep their data in an object store | accepted |
+| [observability-storage LOCAL-007](modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md) | A signal is its own configuration; its presence is the switch | accepted |
 | [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 | [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
 | [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |

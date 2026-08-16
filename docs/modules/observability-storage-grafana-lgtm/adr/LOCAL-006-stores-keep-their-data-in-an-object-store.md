@@ -1,7 +1,9 @@
 # LOCAL-006. The three stores keep their data in an object store
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-16
+**Date:** 2026-08-16 ·
+revised 2026-08-16 (the bucket and the endpoint moved to the component —
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
 ## Context
 
@@ -39,9 +41,12 @@ No store owns a PersistentVolumeClaim any more.
 The endpoint arrives as an **ordinary module input**, `object_storage`, wired at the root from
 whichever module provides it — see
 [`object-storage-rustfs`](../../object-storage-rustfs/README.md) for the one that does today. It
-carries an address, a region, a bucket name per signal, and a Secret name plus its two keys, so
-the credential passes by reference and never by value
-([ADR 007](../../../adr/007-modules-receive-credentials.md)).
+carries an address, a region, and a Secret name plus its two keys, so the credential passes by
+reference and never by value
+([ADR 007](../../../adr/007-modules-receive-credentials.md)). **The bucket is not among them**:
+a bucket belongs to exactly one store, so it is named in that store's own block and nowhere else,
+and a component may carry an `object_storage` of its own that replaces this one outright — both
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)'s subject rather than this one's.
 
 **It is not one of the shared contracts and does not become one.** `gateway`, `database` and
 `oidc` are the three, and a fourth is added when a second module needs it, not in anticipation.
@@ -66,7 +71,9 @@ volume instead".
 - **Retention becomes enforceable against a number somebody chose.** Per-tenant retention was
   always expressed three ways; it was bounded by three volumes whose sizes were decided
   separately. It is now bounded by one disk with one size, which is not less risky but is at
-  least a single number to compare against.
+  least a single number to compare against — for as long as every store writes to the same
+  endpoint, which is the expected configuration and no longer the only expressible one
+  ([LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)).
 - **It removes the one PVC per store that pinned each store to a node.** It does not remove the
   pin — the object store's own volume is pinned exactly as they were — but it moves three pins
   into one, and the thing that survives a store's pod being rescheduled is now its data.
@@ -84,10 +91,13 @@ volume instead".
   bucket that does not exist is not a sync failure: every store comes up healthy
   and the error appears on the first write, in this module's logs, about a resource another
   module's spec documents.
-- **Every signal now fails together.** Three volumes failing independently became one process
-  holding all three. The independence [REQ-02](../../../requirements.md) asks for is about what
-  an environment *ships* — a signal switched off costs nothing — and this does not touch that;
-  what it costs is availability independence between signals that are all switched on.
+- **Every signal now fails together**, unless one is deliberately pointed elsewhere. Three
+  volumes failing independently became one process holding all three. The independence
+  [REQ-02](../../../requirements.md) asks for is about what an environment *ships* — a signal
+  switched off costs nothing — and this does not touch that; what it costs is availability
+  independence between signals that are all switched on. Buying that independence back is what a
+  per-component endpoint is for, and it costs a second object store to point at
+  ([LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)).
 - **`storage_node_selector` loses its meaning here** and moves to the module that owns the
   volume. Nothing in this module owns a PVC any more, so there is nothing left to place.
 - **The unmeasured question changed rather than went away.** Mimir's compactor now runs against

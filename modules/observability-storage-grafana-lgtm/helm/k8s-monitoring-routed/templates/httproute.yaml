@@ -1,0 +1,54 @@
+{{/*
+The one thing this chart adds. The chart it wraps creates the receiver and its Service and renders
+no Gateway API resource for either, so this is the whole of the difference between the two.
+
+Absent when `gateway` is null, which is the ordinary "not wired" meaning: the receiver is then
+reachable from inside the cluster and from nowhere else.
+
+**No store is ever addressed here.** The only backend is the receiver, whatever else is running in
+this namespace — the surface is write-only, telemetry goes in and nothing comes back out, and that
+rather than the size of the cluster is what makes an unauthenticated listener defensible and what
+still bounds an authenticated one.
+*/}}
+{{- if .Values.gateway }}
+{{- $rules := list }}
+{{- range $signal, $enabled := .Values.routes }}
+{{- if $enabled }}
+{{- $rules = append $rules $signal }}
+{{- end }}
+{{- end }}
+{{- if not $rules }}
+{{- fail "k8s-monitoring-routed: a gateway was given and no signal is switched on in .Values.routes — that renders a hostname resolving to a route with no rules, which accepts a connection and then matches nothing. Switch a signal on or leave gateway null." }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-otlp
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  parentRefs:
+    - name: {{ required "gateway.name is required when gateway is set" .Values.gateway.name }}
+      namespace: {{ required "gateway.namespace is required when gateway is set" .Values.gateway.namespace }}
+      {{- with .Values.gateway.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  hostnames:
+    - {{ required "gateway.hostname is required when gateway is set" .Values.gateway.hostname | quote }}
+  rules:
+    {{- range $signal := $rules }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1/{{ $signal }}
+      backendRefs:
+        - name: {{ $.Values.receiver.service }}
+          port: {{ $.Values.receiver.port }}
+    {{- end }}
+{{- end }}

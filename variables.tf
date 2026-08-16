@@ -99,3 +99,133 @@ variable "git_repository" {
   description = "The repository Argo CD reads this repo's own charts from, and the revision it reads them at."
   default     = {}
 }
+
+variable "observability" {
+  type = object({
+    cluster_name = optional(string, "local")
+    namespace    = optional(string, "telemetry")
+    object_storage = optional(object({
+      endpoint       = string
+      region         = optional(string, "af-south-1")
+      secret_name    = optional(string)
+      access_key_key = optional(string, "ACCESS_KEY")
+      secret_key_key = optional(string, "SECRET_KEY")
+      insecure       = optional(bool, true)
+    }))
+    components = optional(object({
+      metrics = optional(object({
+        bucket    = string
+        retention = optional(string)
+        image_tag = optional(string, "3.1.4")
+        object_storage = optional(object({
+          endpoint       = string
+          region         = optional(string, "af-south-1")
+          secret_name    = optional(string)
+          access_key_key = optional(string, "ACCESS_KEY")
+          secret_key_key = optional(string, "SECRET_KEY")
+          insecure       = optional(bool, true)
+        }))
+      }))
+      logs = optional(object({
+        bucket        = string
+        retention     = optional(string)
+        chart_version = optional(string, "7.3.0")
+        object_storage = optional(object({
+          endpoint       = string
+          region         = optional(string, "af-south-1")
+          secret_name    = optional(string)
+          access_key_key = optional(string, "ACCESS_KEY")
+          secret_key_key = optional(string, "SECRET_KEY")
+          insecure       = optional(bool, true)
+        }))
+      }))
+      traces = optional(object({
+        bucket        = string
+        retention     = optional(string)
+        chart_version = optional(string, "1.24.4")
+        object_storage = optional(object({
+          endpoint       = string
+          region         = optional(string, "af-south-1")
+          secret_name    = optional(string)
+          access_key_key = optional(string, "ACCESS_KEY")
+          secret_key_key = optional(string, "SECRET_KEY")
+          insecure       = optional(bool, true)
+        }))
+      }))
+    }), {})
+    retention = optional(object({
+      unattributed = optional(string, "24h")
+      default      = optional(string, "168h")
+    }), {})
+    tenants = optional(map(object({
+      metrics = optional(object({
+        limits = optional(object({
+          ingestion_rate       = optional(number)
+          ingestion_burst_size = optional(number)
+          max_series           = optional(number)
+          retention            = optional(string)
+        }), {})
+      }), {})
+      logs = optional(object({
+        limits = optional(object({
+          ingestion_rate_mb       = optional(number)
+          ingestion_burst_size_mb = optional(number)
+          max_streams             = optional(number)
+          retention               = optional(string)
+        }), {})
+      }), {})
+      traces = optional(object({
+        limits = optional(object({
+          ingestion_rate_bytes = optional(number)
+          max_traces           = optional(number)
+          retention            = optional(string)
+        }), {})
+      }), {})
+    })), { lab = {} })
+    default_tenant = optional(string, "default")
+    expose = optional(object({
+      hostname = optional(string)
+      gateway = optional(object({
+        name         = optional(string)
+        namespace    = optional(string)
+        section_name = optional(string)
+      }), {})
+    }), {})
+    console = optional(object({
+      hostname      = optional(string)
+      chart_version = optional(string, "10.5.15")
+      gateway = optional(object({
+        name         = optional(string)
+        namespace    = optional(string)
+        section_name = optional(string)
+      }), {})
+      database = object({
+        host_port     = string
+        secret_name   = optional(string)
+        database_name = optional(string, "grafana")
+        username_key  = optional(string, "username")
+        password_key  = optional(string, "password")
+        sslmode       = optional(string, "require")
+      })
+      admin = optional(object({
+        secret_name  = optional(string)
+        user_key     = optional(string, "admin-user")
+        password_key = optional(string, "admin-password")
+      }), {})
+      oidc = optional(object({
+        issuer_url   = string
+        client_id    = string
+        secret_name  = optional(string)
+        secret_key   = optional(string, "client-secret")
+        scopes       = optional(list(string), ["openid", "profile", "email"])
+        groups_claim = optional(string)
+      }))
+    }))
+  })
+  description = "Telemetry: which signals are collected and where they land, who may be written as, and the one console over them. null ships neither half."
+  default     = null
+  validation {
+    condition     = var.observability == null || contains(keys(var.observability.tenants), var.observability.default_tenant)
+    error_message = "observability.default_tenant must name one of observability.tenants: it is what this cluster's own scraping and log tailing are written as, and deriving it from map ordering is a rule obvious only to whoever wrote it."
+  }
+}

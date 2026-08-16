@@ -1,13 +1,14 @@
 # Module: observability-console-grafana
 
 **Status:** draft ·
-**Satisfies:** [REQ-01, REQ-03, REQ-06, REQ-13](../../requirements.md) ·
+**Satisfies:** [REQ-01, REQ-03, REQ-05, REQ-06, REQ-13](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-two-grafana-roles-strict.md),
 [LOCAL-003](adr/LOCAL-003-alerting-lives-in-grafana.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
 [ADR 010](../../adr/010-resources-delivered-via-chart.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
+[ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 020](../../adr/020-one-root-module.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
@@ -35,12 +36,29 @@ ingest a span.
 ## Provisions
 
 One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)), whose
-`List` generator produces one Application, or two when it renders its own credential:
+`List` generator produces one Application, plus one per credential it is asked to render:
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
 | 0 | `grafana-db-credentials` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `database.secret_name` is null |
+| 0 | `grafana-admin-credentials` | `secret-template` | `admin.secret_name` is null |
+| 0 | `grafana-oidc-credentials` | `secret-template` | `oidc` is set and `oidc.secret_name` is null |
 | 1 | `grafana` | `grafana` (grafana-community) | always |
+
+**Three credentials, one pattern, and no exceptions among them**
+([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Each is either a Secret named by the
+caller and only read, or a placeholder rendered here — empty, with its keys present, its `.data`
+ignored on every sync. Making one of the three mandatory and the others optional would be an
+inconsistency rather than a safeguard.
+
+**The third one exists because otherwise the chart invents it.** Grafana's chart renders its own
+admin Secret unless told an existing one, and the password it puts there comes from a `lookup`
+of the Secret it is about to create, falling back to `randAlphaNum 40`. Argo CD generates
+manifests with no cluster to look up against, so that fallback is the only branch that ever runs
+and every render produces a different password. Pointing `admin.existingSecret` at a placeholder
+switches the whole template off at its guard. The alternative — letting it generate one and
+hiding the churn — is the case this repository treats as proof the chart is wrong, and it would
+also mean the break-glass account below had a password nobody knows.
 
 **Datasources are generated from the three address inputs crossed with the tenant list** — one
 per non-`null` address, per tenant. Their *types* are not inputs: an address named `metrics_url`
@@ -134,7 +152,8 @@ with nothing to configure and nothing to get wrong.
 What that leaves when the issuer is down: the form is gone, but Grafana's admin account still
 exists in PostgreSQL and still authenticates to the HTTP API with basic auth. That is the
 break-glass route — unadvertised rather than absent, and worth knowing before an outage rather
-than during one.
+than during one. Its credential comes from `var.admin`, by reference like every other, and the
+account is only a route back in if somebody set that value to something they know.
 
 **Grafana must trust the lab's certificate authority, and this is where it is mounted.** Every
 server-to-server call to the issuer — discovery, token exchange, userinfo — is made by Grafana's
@@ -170,11 +189,22 @@ every sync ([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Naming an e
 instead means this module only reads it:
 
 ```sh
-kubectl patch secret grafana-db -n observability --type merge -p "$(jq -n \
+kubectl patch secret grafana-db-credentials -n observability --type merge -p "$(jq -n \
   --arg u "$(printf %s "$DB_USER" | base64)" \
   --arg p "$(printf %s "$DB_PASSWORD" | base64)" '{data:{username:$u,password:$p}}')"
 
 kubectl rollout restart deployment/grafana -n observability
+```
+
+**The admin credential, filled in the same way**, into `grafana-admin-credentials` with keys
+`admin-user` and `admin-password`. Grafana does not start without it, and it is the account the
+[Access](#access) section names as the break-glass route — so it is worth setting to something
+somebody has written down, rather than treating it as a formality:
+
+```sh
+kubectl patch secret grafana-admin-credentials -n observability --type merge -p "$(jq -n \
+  --arg u "$(printf %s admin | base64)" \
+  --arg p "$(printf %s "$ADMIN_PASSWORD" | base64)" '{data:{"admin-user":$u,"admin-password":$p}}')"
 ```
 
 **The trust bundle ConfigMap**, whenever `oidc` is set — distributed by
@@ -199,8 +229,11 @@ database = {          # required — Grafana's own state
   secret_name   = null    # null: rendered here, empty, keys in place
 }                         # set:  an existing Secret, only read
 
+admin = {}            # the break-glass account; secret_name null renders the placeholder
+
 gateway = null   # exposes Grafana
 oidc    = null   # Grafana delegates authentication and authorization when set
+metrics = { enabled = false }   # whether Grafana emits a ServiceMonitor
 
 tenants        = ["lab"]   # one datasource per tenant per switched-on signal
 default_tenant = "lab"     # which of them Grafana marks as its default datasource
@@ -209,6 +242,11 @@ trust_bundle_name = "cert-ca-bundle"   # the ConfigMap to mount; required whenev
 ```
 
 Plus a namespace, the chart version, and a values override.
+
+**`admin` is not one of the shared contracts and carries no value**, only a Secret name and the
+two keys inside it — the same two-mode shape as `database.secret_name`. There is no
+`admin_password` input and there will not be one: a password in a var file is a credential in
+declared configuration, which is the thing this platform does not do.
 
 `gateway`, `oidc` and `database` are the shared contracts, unchanged in shape
 ([ADR 007](../../adr/007-modules-receive-credentials.md)). `oidc.groups_claim`, when set,
@@ -242,9 +280,14 @@ of implicit rule that is obvious to whoever wrote it and to nobody else.
 | Output | Used by |
 | --- | --- |
 | `grafana_url` | OIDC client redirect URI registration |
+| `database_secret_name` | the operator, to know what to fill in |
+| `admin_secret_name` | the same |
+| `oidc_secret_name` | the same — `null` unless `oidc` is set |
 
-One, and the point is how few. A console is something people look at; nothing else in the
-platform consumes it.
+**One address, and three names.** A console is something people look at; nothing else in the
+platform consumes it, which is why there is a single URL. The three Secret names are a different
+kind of output: each is either what the caller named or what this module chose, and publishing
+the effective value is what stops a caller holding the same fallback expression twice.
 
 ## Acceptance criteria
 
@@ -347,6 +390,35 @@ Feature: One console over whatever observability is switched on
      And no Alertmanager workload is running in the namespace
 
   @cluster
+  Scenario: [CON-14] The chart generates no credential of its own
+    Given admin.secret_name is null
+    When each Application spec is read from the API server
+    Then a secret-template Application renders grafana-admin-credentials
+     And the grafana chart renders no admin Secret
+     And no admin password appears in any rendered Helm values
+
+  @cluster
+  Scenario Outline: [CON-15] Every credential follows the same two modes
+    Given <input> names <secret_name>
+    When Applications in the namespace are listed
+    Then a secret-template Application <renders> it
+
+    Examples:
+      | input       | secret_name       | renders            |
+      | database    | null              | exists rendering   |
+      | database    | an existing Secret| does not exist for |
+      | admin       | null              | exists rendering   |
+      | oidc        | null              | exists rendering   |
+      | oidc        | an existing Secret| does not exist for |
+
+  @plan
+  Scenario: [CON-16] No credential is an input by value
+    Given any configuration
+    When the module's variables are read
+    Then none of them accepts a password, a secret or a token
+     And every credential is named rather than carried
+
+  @cluster
   Scenario: [CON-11] An alert authored in the UI outlives the pod
     Given a person with the Admin role has created an alert rule and a contact point
     When the Grafana pod is deleted and rescheduled
@@ -388,5 +460,16 @@ Feature: One console over whatever observability is switched on
   `certificate-management-cert-manager` has not been applied, the ConfigMap is absent and the
   pod does not start — which is the loud failure. If it is present but stale, the pod starts and
   OIDC fails, which is the quiet one.
+- **The OIDC endpoints are derived from `issuer_url` by string concatenation.** Grafana's generic
+  OAuth wants `auth_url`, `token_url` and `api_url` and reads no discovery document, while the
+  contract carries only the issuer — so this module appends the paths itself. They are correct for
+  the issuer this platform runs and would be wrong for one that lays its endpoints out
+  differently, which makes this the one place the console knows something about *which* issuer it
+  is talking to. Swapping the issuer for another product is a values change here, not just at the
+  root, and nothing in the module says so at plan time.
+- **Three placeholders is three things to fill in before anything works**, in a module that has
+  no other manual step. Two of them lock Grafana out entirely if forgotten — no database, no
+  admin — and the third only breaks sign-in. Nothing distinguishes them at sync time; all three
+  come up healthy and empty.
 - **No dashboards ship.** Import by `gnetId` through the chart, or accept a blank Grafana on
   day one.

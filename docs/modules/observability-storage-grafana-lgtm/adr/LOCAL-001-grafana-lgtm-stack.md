@@ -1,7 +1,9 @@
 # LOCAL-001. Observability: the Grafana stack, three single-binary components
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-12 · revised 2026-08-16 (the stores keep their data in an object store)
+**Date:** 2026-08-12 · revised 2026-08-16 (the stores keep their data in an object store) ·
+revised 2026-08-16 (a component is named by its own block, not by a flag —
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
 ## Context
 
@@ -29,17 +31,22 @@ constrains — spent all day, every day, and now spent once per environment
 
 ## Decision
 
-Use the Grafana stack, one chart per component, each behind its own flag:
+Use the Grafana stack, one chart per component, each independently present or absent:
 
-| Component | Chart | Flag |
+| Component | Chart | Shipped when |
 | --- | --- | --- |
-| metrics | `mimir-monolithic` — authored here, see [LOCAL-002](LOCAL-002-mimir-monolithic-chart.md) | `enable_metrics_support` |
-| logs | `loki`, `deploymentMode: SingleBinary` | `enable_logs_support` |
-| traces | `tempo` — the monolithic chart, not `tempo-distributed` | `enable_traces_support` |
+| metrics | `mimir-monolithic` — authored here, see [LOCAL-002](LOCAL-002-mimir-monolithic-chart.md) | `components.metrics` is set |
+| logs | `loki`, `deploymentMode: SingleBinary` | `components.logs` is set |
+| traces | `tempo` — the monolithic chart, not `tempo-distributed` | `components.traces` is set |
 
-All three default to `false`. A validation requires at least one to be `true`. Grafana and the
+All three default to absent. A validation requires at least one to be present. Grafana and the
 collector are deployed unconditionally, because each spans all three signals and so cannot be
-gated by any one flag.
+gated by any one of them.
+
+This ADR originally gave each component a boolean, `enable_metrics_support` and its two siblings.
+What ships a component is now the presence of its own configuration block, for the reasons in
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md); the decision recorded here — three
+single-binary components, each genuinely optional — is what it always was.
 
 Every component runs as a single process. No operator and no distributed topology anywhere in
 the module — where the bytes land is [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)'s

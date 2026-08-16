@@ -7,6 +7,7 @@
 [LOCAL-003](adr/LOCAL-003-scrape-first-one-otlp-address.md),
 [LOCAL-004](adr/LOCAL-004-storage-split-from-console.md),
 [LOCAL-006](adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md),
+[LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md),
 [ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
 [ADR 007](../../adr/007-modules-receive-credentials.md),
@@ -39,16 +40,28 @@ design.
 ## Provisions
 
 One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationsets.md)), whose
-`List` generator produces up to six Applications, of which **one** is unconditional:
+`List` generator produces up to eight Applications, of which **one** is unconditional:
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
-| 0 | `object-storage-credentials` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `object_storage.secret_name` is null |
-| 0 | `prometheus-operator-crds` | `prometheus-operator-crds` (prometheus-community) | `enable_metrics_support` |
-| 1 | `mimir` | `mimir-monolithic` — authored by this repo | `enable_metrics_support` |
-| 1 | `loki` | `loki`, `deploymentMode: SingleBinary` | `enable_logs_support` |
-| 1 | `tempo` | `tempo` — the monolithic chart, not `tempo-distributed` | `enable_traces_support` |
+| 0 | `<name>` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | one per distinct storage credential this module renders — see below |
+| 0 | `prometheus-operator-crds` | `prometheus-operator-crds` (prometheus-community) | `components.metrics` is set |
+| 1 | `mimir` | `mimir-monolithic` — authored by this repo | `components.metrics` is set |
+| 1 | `loki` | `loki`, `deploymentMode: SingleBinary` | `components.logs` is set |
+| 1 | `tempo` | `tempo` — the monolithic chart, not `tempo-distributed` | `components.traces` is set |
 | 2 | `k8s-monitoring` | `k8s-monitoring-routed` — authored here, wrapping `k8s-monitoring` | always |
+
+**A component's presence is what ships it** ([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)).
+There is no `enable_metrics_support` and no sibling of it: the block that says where metrics land
+and how long they are kept is the same block whose absence means they are not collected. At
+least one must be present.
+
+**There can be more than one credential Application, and usually there is one.** Wave 0 renders
+a placeholder per *distinct* Secret name this module is asked to create — the top-level
+`object_storage` with `secret_name` null gives `object-storage-credentials`, and a component
+carrying its own block with `secret_name` null gives `<signal>-object-storage-credentials`.
+Names that coincide produce one Application, and naming existing Secrets throughout produces
+none.
 
 **The waves are load-bearing.** A `List` generator has no inherent order, so the Applications
 carry `argocd.argoproj.io/sync-wave` annotations. The CRDs must exist before `k8s-monitoring`
@@ -58,8 +71,8 @@ CRD Application also sets `ServerSideApply=true`: the Prometheus operator CRDs e
 with an error that does not obviously say so.
 
 **The collector is unconditional, and gating it would break the others.** Nothing reaches *any*
-store without it, so tying it to one signal's flag would silently disable the rest. Which
-*collectors* it creates does follow the flags — see below.
+store without it, so tying it to one signal would silently disable the rest. Which *collectors*
+it creates does follow the components — see below.
 
 **Mimir** runs as a single process, `-target=all`, with multitenancy on
 ([ADR 017](../../adr/017-stores-are-multi-tenant.md)). There is no
@@ -78,6 +91,17 @@ which is what their vendors support and what the earlier filesystem backends wer
 endpoint arrives as `var.object_storage` and is required; there is no filesystem fallback,
 because a fallback is what you get by forgetting an input and this one would be the unsupported
 configuration.
+
+**Each store names its own bucket, and no store can be told to share one**
+([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)). `bucket` lives in the
+component and has no counterpart in `object_storage`, at either level, so there is no global
+default to inherit and nothing to forget. Two components naming the same bucket is refused at
+plan time.
+
+**A store may also be pointed at a different endpoint entirely**, by carrying its own
+`object_storage`. That block replaces the top-level one outright rather than merging into it —
+see [Inputs](#inputs), where the cost of that choice is stated, because it is the one place in
+this module where a plain-looking configuration can be wrong.
 
 **`k8s-monitoring-routed` is this repo's first wrapped chart** — the case
 [ADR 010](../../adr/010-resources-delivered-via-chart.md) defined and until now nothing needed.
@@ -108,25 +132,31 @@ target can be declared in two places, scraped twice, and authoritative in neithe
 with no chart of their own still get a hand-written `ServiceMonitor` from the module that owns
 them, exactly as ADR 004 anticipated.
 
-**The collector scales with the flags.** `k8s-monitoring` is feature-gated, and which Alloy
-collectors exist is derived from which features are on. This is what keeps the module
-proportionate on a two-node cluster ([REQ-10](../../requirements.md)):
+**The collector scales with the components.** Which Alloy collectors exist is derived from which
+features are on. This is what keeps the module proportionate on a two-node cluster
+([REQ-10](../../requirements.md)):
 
-| Flag | Feature enabled | Collector | Pods on two nodes |
+| Shipped | Feature enabled | Collector | Pods on two nodes |
 | --- | --- | --- | --- |
-| `enable_metrics_support` | `clusterMetrics`, `prometheusOperatorObjects` | `alloy-metrics` | 1 |
-| `enable_logs_support` | `podLogsViaLoki`, `clusterEvents` | `alloy-logs` (DaemonSet), `alloy-singleton` | 3 |
+| `components.metrics` | `clusterMetrics`, `prometheusOperatorObjects` | `alloy-metrics` | 1 |
+| `components.logs` | `podLogsViaLoki`, `clusterEvents` | `alloy-logs` (DaemonSet), `alloy-singleton` | 3 |
 | *(none — always)* | `applicationObservability` | `alloy-receiver` | 1 |
 
 `alloy-receiver` is unconditional because OTLP carries all three signals over one listener.
-Gating it on `enable_traces_support` would leave `otlp_endpoint` with nothing to point at on a
+Gating it on `components.traces` would leave `otlp_endpoint` with nothing to point at on a
 metrics-only environment.
 
 `kube-state-metrics` and `node-exporter` arrive with `clusterMetrics`, so they follow the
-metrics flag rather than being a side effect of whichever store was chosen.
+metrics component rather than being a side effect of whichever store was chosen.
 
-**The receiver Service is named `otlp`**, via `alloy-receiver.fullnameOverride` — a values
-line, not an extra object. The in-cluster endpoint is therefore
+**At the pinned version the collectors are declared, not inferred.** `k8s-monitoring` 4.4.0 takes
+`collectors` as an explicit map and `destinations` as a map keyed by name; earlier versions
+derived the collector set from the features alone. The table above still describes what ends up
+running — this module now says so directly rather than letting the chart work it out, which is
+one more place a version bump can change the meaning of unchanged values.
+
+**The receiver Service is named `otlp`**, via `collectors.alloy-receiver.fullnameOverride` — a
+values line, not an extra object. The in-cluster endpoint is therefore
 `otlp.<namespace>.svc.cluster.local:4317` and names a protocol rather than a product. One
 listener serves everything: **4317** is OTLP/gRPC, **4318** is OTLP/HTTP, and on both the
 signal is selected by the caller — by gRPC method, or by path (`/v1/traces`, `/v1/metrics`,
@@ -167,11 +197,67 @@ ones and carries a short retention. It exists because the alternative is worse: 
 `200` and the store rejects the write afterwards, so a forgotten header silently loses data.
 An `unattributed` tenant filling up says who forgot.
 
+**Getting that fallback takes two blocks, because Alloy has no `default_value`.** The upstream
+`headerssetter` extension has one; Alloy's `otelcol.auth.headers` wrapper exposes `key`,
+`action`, `value`, `from_context` and `from_attribute` and nothing else, so the obvious
+one-block version cannot be written. Two blocks, **in this order**, reconstruct it exactly:
+
+```alloy
+otelcol.auth.headers "tenant" {
+  header {
+    key          = "X-Scope-OrgID"
+    action       = "upsert"
+    from_context = "X-Scope-OrgID"
+  }
+  header {
+    key    = "X-Scope-OrgID"
+    action = "insert"
+    value  = "unattributed"
+  }
+}
+```
+
+A missing metadata key yields the empty string rather than an error, `upsert` writes it anyway,
+and `insert` treats an empty header as absent — so the second block fills in only when the first
+found nothing. **Order is load-bearing and the reverse silently overwrites a real tenant with
+nothing.** It also only works over HTTP: on gRPC the two actions operate on a map, where `insert`
+tests for *presence* rather than emptiness, sees the empty value the first block wrote, and skips.
+The exporters are `otelcol.exporter.otlphttp`, so this module is on the path where it works —
+which is now a reason not to switch them, and not merely the choice
+[Exposure](#exposure) made for the route.
+
 | Signal | Limits under `var.tenants` | Applied by |
 | --- | --- | --- |
 | metrics | ingestion rate, series, retention | Mimir runtime overrides |
 | logs | ingestion rate, stream limits, retention | Loki runtime `overrides` |
 | traces | ingestion rate, retention | Tempo per-tenant overrides |
+
+### Retention
+
+**Three levels, and only the top one is this module's invention.** Every store already has a
+global limit and a per-tenant override above it; the third level exists so an environment writes
+its number once rather than three times
+([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)).
+
+| Level | Set in | Lands in |
+| --- | --- | --- |
+| cross-signal default | `retention.default` | nothing directly — it is what a component inherits |
+| per store | `components.<signal>.retention` | Mimir `compactor_blocks_retention_period`, Loki `limits_config.retention_period`, Tempo `compaction.block_retention` |
+| per tenant | `tenants.<t>.<signal>.limits.retention` | each store's per-tenant overrides |
+
+A tenant the map does not name gets its store's own limit, which is the component's value rather
+than an unbounded default — the gap that used to exist underneath `var.tenants` is now a number
+somebody chose.
+
+**`unattributed` is the exception, and it needs its own number.** It is the tenant a forgotten
+header lands in, so it exists to be noticed and emptied rather than kept; inheriting a component's
+retention would let telemetry nobody claimed occupy the same disk for the same week as telemetry
+somebody did. It takes `retention.unattributed`, short by default, and it is the one tenant this
+module writes an override for without being asked.
+
+**Loki deletes nothing without its compactor**, whichever level set the number.
+`limits_config.retention_period` is a declaration and `compactor.retention_enabled` is what
+enforces it, so the module sets both and two of these three levels would otherwise be decorative.
 
 ### Exposure
 
@@ -181,9 +267,9 @@ enabled signal:
 
 | Rule | Exists when | Backend |
 | --- | --- | --- |
-| `PathPrefix: /v1/metrics` | `enable_metrics_support` | `otlp:4318` |
-| `PathPrefix: /v1/logs` | `enable_logs_support` | `otlp:4318` |
-| `PathPrefix: /v1/traces` | `enable_traces_support` | `otlp:4318` |
+| `PathPrefix: /v1/metrics` | `components.metrics` is set | `otlp:4318` |
+| `PathPrefix: /v1/logs` | `components.logs` is set | `otlp:4318` |
+| `PathPrefix: /v1/traces` | `components.traces` is set | `otlp:4318` |
 
 **OTLP/HTTP, not gRPC.** Routing 4317 would need an `h2c` backend protocol on the Service and a
 `GRPCRoute` rather than an `HTTPRoute` — two implementation-specific behaviours to depend on,
@@ -232,27 +318,35 @@ independent, but the best feature spans two of them — and it is recorded rathe
 
 ## Prerequisites
 
-**An S3-compatible endpoint**, and its buckets. Which module provides it is the root's business
-— [`object-storage-rustfs`](../object-storage-rustfs/README.md) is the one that does today — and
-the buckets are created by hand there, per environment, because nothing creates them. A bucket
-that is missing is not a sync failure: every store starts healthy and the error appears on the
-first write.
+**An S3-compatible endpoint, and one bucket per component shipped.** Which module provides the
+endpoint is the root's business — [`object-storage-rustfs`](../object-storage-rustfs/README.md)
+is the one that does today — and the buckets are created by hand there, per environment, because
+nothing creates them. A bucket that is missing is not a sync failure: the store starts healthy
+and the error appears on the first write. A component pointed at its own endpoint needs a bucket
+*there*, and that endpoint may be nothing this repository deploys at all.
 
 **The access key, filled in, in this module's namespace.** A Secret is namespaced, so the object
 store's own copy is not readable from here — the credential has to exist a second time. With
-`object_storage.secret_name` left null this module renders its own placeholder, empty and with
-both keys present, and its contents are ignored on every sync
+`secret_name` left null this module renders its own placeholder, empty and with both keys
+present, and its contents are ignored on every sync
 ([ADR 022](../../adr/022-secrets-are-rendered-empty.md)); naming an existing Secret instead means
 this module only reads it. Either way what an environment owes is the value:
 
 ```sh
-kubectl patch secret rustfs-credentials -n observability \
+kubectl patch secret object-storage-credentials -n observability \
   --type merge -p "$(jq -n --arg a "$(printf %s "$ACCESS_KEY" | base64)" \
                           --arg s "$(printf %s "$SECRET_KEY" | base64)" \
-                          '{data:{access_key:$a,secret_key:$s}}')"
+                          '{data:{RUSTFS_ACCESS_KEY:$a,RUSTFS_SECRET_KEY:$s}}')"
 
 kubectl rollout restart statefulset/mimir statefulset/loki statefulset/tempo -n observability
 ```
+
+The key names are `object_storage.access_key_key` and `secret_key_key`, which default to what
+the object store module publishes; patch whatever those are set to.
+
+**Once per credential, not once per module.** A component carrying its own `object_storage` gets
+its own Secret, so an environment where one store writes elsewhere owes two values rather than
+one, and the second one is not the same value.
 
 **It must be the same value the object store was given**, and nothing checks that it is. Two
 copies of one credential, filled in by hand, drifting independently: that is what having no
@@ -262,9 +356,40 @@ wrong is every write returning `403` while all three stores look healthy.
 ## Inputs
 
 ```hcl
-enable_metrics_support = false   # at least one of the three must be true
-enable_logs_support    = false
-enable_traces_support  = false
+object_storage = {               # required — the default every store inherits whole
+  endpoint       = "s3-svc.object-storage.svc.cluster.local:9000"
+  region         = "af-south-1"
+  secret_name    = null                   # null: rendered here, in *this* namespace
+                                          # set:  an existing Secret, only read
+  access_key_key = "RUSTFS_ACCESS_KEY"
+  secret_key_key = "RUSTFS_SECRET_KEY"
+  insecure       = true                   # the endpoint carries no scheme; this picks one
+}                                         # there is no `buckets` key, at either level
+
+retention = {                    # the defaults every component inherits
+  default      = "168h"
+  unattributed = "24h"           # the tenant a forgotten header lands in
+}
+
+components = {                   # at least one; presence is what ships the store
+  metrics = {
+    bucket    = "mimir"                   # required; no default, and no global equivalent
+    retention = "720h"                    # optional → retention.default
+  }
+  logs = {
+    bucket = "loki"
+  }
+  traces = {
+    bucket = "tempo"
+    object_storage = {                    # optional; replaces the block above outright
+      endpoint       = "s3.remote.example:9000"
+      region         = "eu-west-1"
+      secret_name    = "tempo-remote-credentials"
+      access_key_key = "AWS_ACCESS_KEY_ID"
+      secret_key_key = "AWS_SECRET_ACCESS_KEY"
+    }
+  }
+}
 
 gateway = null   # exposes the OTLP receiver; no store is ever routed
 
@@ -278,22 +403,28 @@ tenants = {                      # at least one; limits and retention per signal
 
 default_tenant = "lab"           # what Alloy's own scraping and log tailing are written as
 
-object_storage = {               # required — every store writes here
-  endpoint       = "rustfs.object-storage.svc.cluster.local:9000"
-  region         = "us-east-1"
-  secret_name    = null                   # null: rendered here, in *this* namespace
-                                          # set:  an existing Secret, only read
-  access_key_key = "access_key"
-  secret_key_key = "secret_key"
-  buckets = {
-    metrics = "mimir"
-    logs    = "loki"
-    traces  = "tempo"
-  }
-}
+cluster_name = "lab"             # required; every series and every log line is labelled with it
 ```
 
 Plus a namespace, chart versions, and a per-component values override.
+
+**`cluster_name` is required and has no default.** `k8s-monitoring` refuses to render without it,
+and rightly: it labels every series and every log line the collector produces, so a wrong value is
+not a failure but a mislabelling that survives in the data long after it is corrected. Deriving
+one from the namespace or the environment would be inventing an identity for telemetry that
+outlives this cluster.
+
+**A component is its own configuration, and its presence is the switch**
+([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)). Where a signal lands, how long
+it is kept, and whether it is collected at all are one input rather than four, and the pair that
+could disagree — a flag set true while the bucket it needs is unnamed — is not expressible. At
+least one component must be present; that is the only validation the three booleans used to
+carry.
+
+**`bucket` is required and has no global equivalent.** It is a field of the component, not of
+`object_storage`, so there is nowhere to state one bucket for every store. No two components may
+name the same bucket, and a component pointed at its own endpoint may reuse a name in use at the
+default one — they are different buckets.
 
 **`gateway` is the only shared contract this module takes**, unchanged in shape
 ([ADR 007](../../adr/007-modules-receive-credentials.md)). `database` and `oidc` left with
@@ -307,11 +438,17 @@ unchanged — *emit a route for this workload* — and what happens to a request
 `gateway.section_name` is the whole of how this module asks for mTLS.
 
 **`tenants` names tenants and bounds them; it does not create or restrict them.** Any caller may
-write to any name it likes, including one absent from this map, and such a write lands under the
-store's defaults rather than being refused
+write to any name it likes, including one absent from this map, and such a write lands under its
+store's own limits rather than being refused
 ([ADR 017](../../adr/017-stores-are-multi-tenant.md)). What the map is for is limits
-and retention — a tenant listed here has a ceiling, and disk is the thing this module runs out
-of first. `unattributed` is reserved and must not appear in it.
+and retention — a tenant listed here has its own ceiling, and disk is the thing this module runs
+out of first. `unattributed` is reserved and must not appear in it.
+
+**`retention` is a pair of defaults and never a ceiling.** `retention.default` is what a
+component inherits when it says nothing, and a component's value is in turn what a tenant inherits when `var.tenants` says
+nothing — three levels, of which the lower two are the ones every store already has. See
+[Retention](#retention) for where each lands. Nothing here bounds *size*; disk is what this
+module runs out of first and retention is only one of the two things that decide when.
 
 **`default_tenant` is not a fallback for callers.** It is what this module's *own* writes carry:
 scraped metrics and tailed logs arrive with no request behind them and no header to propagate.
@@ -319,15 +456,33 @@ A push that omits the header gets `unattributed`, which is a different thing on 
 one is telemetry nobody had to label, the other is telemetry somebody forgot to.
 
 **`object_storage` is required and is not one of the shared contracts.** It carries an address, a
-region, a bucket per signal, and a Secret name plus the two keys inside it — the credential by
-reference, never by value ([ADR 007](../../adr/007-modules-receive-credentials.md)). It is an
-ordinary input wired at the root like any other
-([ADR 020](../../adr/020-one-root-module.md)); a fourth contract gets added when a second module
-needs one, not in anticipation of it.
+region, and a Secret name plus the two keys inside it — the credential by reference, never by
+value ([ADR 007](../../adr/007-modules-receive-credentials.md)). It is an ordinary input wired at
+the root like any other ([ADR 020](../../adr/020-one-root-module.md)); a fourth contract gets
+added when a second module needs one, not in anticipation of it.
 
-**Only the buckets a switched-on signal needs are read.** `buckets.traces` with
-`enable_traces_support` false is a name nothing uses, so an environment shipping one signal
-creates one bucket. Nothing validates that any of them exists — see
+**A component's own `object_storage` replaces this one; it does not merge into it.** The same
+object type in both positions, with the same field-level defaults, and when a component sets one
+the top-level block is not consulted at all. `endpoint` is required inside an override.
+
+**`insecure` exists because an endpoint is `host:port` and carries no scheme.** It defaults to
+`true`, which is right for the endpoint this platform actually ships — a Service inside the
+cluster, on plain HTTP, on a network that never leaves it. A store pointed somewhere else has to
+say `insecure = false`, so the surprising case is the one that states itself. The default is
+uniform across both positions rather than flipping for overrides, because a field that means two
+things depending on where it is written is worse than a default that has to be overridden.
+
+**This is the sharp edge, and it is here rather than in a footnote.** A component that overrides
+only its endpoint does *not* inherit the region or the credential above it — it gets the
+field-level defaults, so `region = "af-south-1"` at the top yields `us-east-1` below, silently.
+The symptom is `SignatureDoesNotMatch` on first write, which names neither a region nor an
+input. Replacement was chosen over merging anyway, because the alternative failure is worse and
+quieter: a partial override reads as "like the others, but over there", and inheriting *this*
+cluster's access key while writing to somebody else's endpoint plans clean and `403`s forever.
+A component that writes elsewhere states everything about writing elsewhere.
+
+**Only a shipped component's bucket is read**, because a bucket is only nameable inside one. An
+environment shipping one signal creates one bucket, and nothing validates that it exists — see
 [Prerequisites](#prerequisites).
 
 **There is no `storage_node_selector` any more.** It placed the three components that owned a
@@ -343,9 +498,15 @@ store module's input, where the volume actually is.
 | `metrics_url` | the console, as a datasource — `null` unless metrics are on |
 | `logs_url` | the console, as a datasource — `null` unless logs are on |
 | `traces_url` | the console, as a datasource — `null` unless traces are on |
+| `object_storage_secret_names` | the operator, to know what to fill in — one entry per shipped signal |
+
+**The Secret names are a map rather than a name**, because a component may write somewhere else
+and take its own credential with it. One string could describe three stores only while they
+shared one; it cannot now, and a map that usually holds the same value three times is honest
+where a single name would be a guess.
 
 **There is no `metrics.enabled` output.** Whether an environment scrapes is an environment's
-fact, declared once as a root variable and read by this module as `enable_metrics_support` and
+fact, declared once as a root variable and read by this module as `components.metrics` and
 by every other module as `metrics.enabled`
 ([ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 020](../../adr/020-one-root-module.md)). Publishing it here would invite a consumer to read
@@ -362,20 +523,82 @@ Scenario IDs are not reused, so the numbering has gaps: the scenarios that moved
 module took new `CON-` IDs and left their `OBS-` numbers behind, and the three that asserted
 something about both halves at once were retired rather than split. `OBS-11` is retired too — it
 asserted that `storage_node_selector` placed the three components owning a volume, and none of
-them owns one any more.
+them owns one any more. `OBS-01` is retired as of
+[LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md): it asserted that all three
+`enable_*_support` flags being false fails and names them, and no such input exists. Every other
+scenario below asserts exactly what it always did and only states its *given* differently, so
+those keep their numbers.
 
 ```gherkin
 Feature: Telemetry is collected and stored, independently per signal
 
   @plan
-  Scenario: [OBS-01] At least one component is required
-    Given all three enable flags are false
+  Scenario: [OBS-30] At least one component is required
+    Given components is empty
     When tofu plan runs
-    Then it fails with a validation error naming the three flags
+    Then it fails with a validation error naming components
+
+  @plan
+  Scenario: [OBS-31] A shipped signal names its own bucket, and only its own
+    Given components.metrics is set with no bucket
+    When tofu plan runs
+    Then it fails, naming the component and bucket
+     And no input at any level sets a bucket for every store at once
+
+  @plan
+  Scenario: [OBS-32] Two stores may not share a bucket
+    Given components.logs and components.traces name the same bucket
+     And both resolve to the same endpoint
+    When tofu plan runs
+    Then it fails, naming both components and the bucket
+
+  @plan
+  Scenario: [OBS-33] A component's storage block replaces the default outright
+    Given object_storage sets region to af-south-1
+     And components.traces.object_storage sets only endpoint
+    When Tempo's rendered configuration is read
+    Then its region is the field default and not af-south-1
+     And its credential is not the one the top-level block names
+
+  @plan
+  Scenario: [OBS-34] An override must say where it writes
+    Given components.traces.object_storage is set with no endpoint
+    When tofu plan runs
+    Then it fails, naming the component and endpoint
+
+  @plan
+  Scenario Outline: [OBS-35] Retention falls through three levels
+    Given retention is 168h
+     And components.logs.retention is <component>
+     And tenants.lab.logs.limits.retention is <tenant>
+    When Loki's rendered configuration is read
+    Then limits_config.retention_period is <effective>
+     And the lab override is <override>
+
+    Examples:
+      | component | tenant | effective | override |
+      | unset     | unset  | 168h      | absent   |
+      | 72h       | unset  | 72h       | absent   |
+      | 72h       | 24h    | 72h       | 24h      |
+
+  @cluster
+  Scenario: [OBS-36] Declared retention is enforced, not merely stated
+    Given components.logs is set with any retention
+    When Loki's rendered configuration is read
+    Then compactor.retention_enabled is true
+
+  @cluster
+  Scenario: [OBS-37] One credential per distinct Secret name, and no more
+    Given object_storage.secret_name is null
+     And components.traces.object_storage.secret_name is null
+    When Applications in the namespace are listed
+    Then two secret-template Applications exist
+     And they render object-storage-credentials and traces-object-storage-credentials
+     And every other component reads the first of them
 
   @cluster
   Scenario: [OBS-06] Scraping needs no address and no conversion
-    Given enable_metrics_support is true
+    Given components.metrics is set
      And a workload's chart sets serviceMonitor.enabled to true
     When that chart is applied
     Then Alloy discovers the ServiceMonitor directly, with no conversion step
@@ -384,20 +607,20 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @plan
   Scenario: [OBS-08] The published address names no product
-    Given any combination of enable flags
+    Given any combination of components
     When otlp_endpoint is read
     Then it addresses a Service named otlp
 
   @cluster
   Scenario: [OBS-09] The collector costs only what is switched on
-    Given only enable_metrics_support is true
+    Given only components.metrics is set
     When Alloy workloads in the namespace are listed
     Then alloy-metrics and alloy-receiver exist
      And no alloy-logs DaemonSet and no alloy-singleton exist
 
   @cluster
   Scenario: [OBS-27] No store owns a volume
-    Given all three enable flags are true
+    Given all three components are set
     When PersistentVolumeClaims in the namespace are listed
     Then none belongs to Mimir, Loki or Tempo
      And each store's data is in its own bucket
@@ -411,7 +634,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-29] Only a switched-on signal's bucket is read
-    Given only enable_logs_support is true
+    Given only components.logs is set
      And only the logs bucket exists
     When the module is applied and a log line is tailed
     Then it arrives in Loki
@@ -419,7 +642,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-15] One address ingests every signal that cannot be scraped
-    Given all three enable flags are true
+    Given all three components are set
      And a workload configured only with otlp_endpoint
     When it exports traces, metrics and logs over OTLP
     Then each arrives in Tempo, Mimir and Loki respectively
@@ -433,7 +656,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-17] Only the switched-on stores exist
-    Given only enable_logs_support is true
+    Given only components.logs is set
     When Applications in the namespace are listed
     Then a loki Application exists
      And no mimir Application and no tempo Application exist
@@ -447,16 +670,16 @@ Feature: Telemetry is collected and stored, independently per signal
   @cluster
   Scenario Outline: [OBS-19] Each switched-on signal gets an external path, and no other
     Given a gateway is supplied
-     And only <flag> is true
+     And <component> is the only one set
     When <path> is requested through the Gateway
     Then the result is <outcome>
 
     Examples:
-      | flag                   | path         | outcome                  |
-      | enable_metrics_support | /v1/metrics  | accepted by the receiver |
-      | enable_metrics_support | /v1/traces   | 404, with no route       |
-      | enable_traces_support  | /v1/traces   | accepted by the receiver |
-      | enable_traces_support  | /v1/logs     | 404, with no route       |
+      | component          | path        | outcome                  |
+      | components.metrics | /v1/metrics | accepted by the receiver |
+      | components.metrics | /v1/traces  | 404, with no route       |
+      | components.traces  | /v1/traces  | accepted by the receiver |
+      | components.traces  | /v1/logs    | 404, with no route       |
 
   @cluster
   Scenario: [OBS-20] Nothing is exposed without a gateway
@@ -467,7 +690,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-21] Ingest is write-only, whatever the listener demands
-    Given a gateway is supplied and enable_traces_support is true
+    Given a gateway is supplied and components.traces is set
     When any request is made to that host
     Then no stored telemetry is returned by any of them
      And no route in the namespace addresses Mimir, Loki or Tempo
@@ -494,7 +717,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-25] A write with no tenant is kept, not lost
-    Given enable_metrics_support is true
+    Given components.metrics is set
     When a metric is pushed to the receiver carrying no X-Scope-OrgID
     Then it is stored under the unattributed tenant
      And unattributed is not present in var.tenants
@@ -508,7 +731,7 @@ Feature: Telemetry is collected and stored, independently per signal
 
   @cluster
   Scenario: [OBS-22] The generator follows both of its ends
-    Given enable_traces_support is true and enable_metrics_support is false
+    Given components.traces is set and components.metrics is not
     When Tempo's configuration is read
     Then its metrics-generator is disabled
      And nothing is remote-writing to a Mimir that does not exist
@@ -520,13 +743,22 @@ Feature: Telemetry is collected and stored, independently per signal
   its `config` verbatim, so the retry, queue, TLS and compression settings the built-in `otlp`
   destination would have provided are written here, three times, and do not follow a chart
   upgrade.
-- **`otelcol.auth.headers` is unvalidated by Helm.** Rendering confirms the chart wiring — the
-  block is emitted intact and the feature's destination lists point at it — but not that Alloy
-  accepts `from_context` and `default_value` at the pinned version. That is the one check left
-  before implementing.
-- **Loki's and Tempo's per-tenant override surfaces are unverified.** Loki exposes runtime
-  configuration and Tempo exposes per-tenant overrides; whether both are reachable from chart
-  values, and in what shape, is what `mimir-monolithic` then has to be shaped to match.
+- **The tenant fallback rests on an ordering nothing enforces.** Alloy exposes no `default_value`,
+  so `unattributed` is reconstructed from an `upsert` followed by an `insert` — see
+  [Tenancy](#tenancy). Swapping the two blocks silently replaces every caller's tenant with
+  nothing, and no schema, lint or render catches it. The real fix is upstream: ask Grafana to
+  surface `default_value` and `value_file`, both of which the extension it wraps already has.
+- **Alloy's wrapper is narrower than the extension underneath it, and that is invisible from the
+  configuration.** Reading `otelcol.auth.headers` against the `headerssetter` documentation
+  suggests options the Alloy component does not accept. Check Alloy's own reference before using
+  anything the extension documents.
+- **`mimir-monolithic`'s override surface has two shapes to conform to, and they disagree.**
+  Loki's `runtimeConfig` is a free map rendered into a reloadable file, keyed
+  `overrides.<tenant>`; Tempo's is split between `tempo.overrides` for defaults and
+  `tempo.per_tenant_overrides` for the per-tenant file. Tempo's own values also warn that *all*
+  values must be given in each per-tenant block, so its per-tenant entries do not inherit the
+  defaults beside them. `var.tenants` has to render both dialects from one shape and produce a
+  third for Mimir; whichever way that lands, one of the three will read oddly.
 - **A caller can write to a tenant that has no limits.** `var.tenants` bounds the tenants it
   names; a caller inventing a name gets the store's defaults. The volume cap that
   [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) had no answer for now exists,
@@ -535,11 +767,12 @@ Feature: Telemetry is collected and stored, independently per signal
   disabled signal has no route and returns `404`. In-cluster the receiver accepts it and the
   data goes nowhere, because `alloy-receiver` is unconditional. The external behaviour is the
   better one; the asymmetry is a consequence of where the gate can be placed, not a choice.
-- **Flipping a flag off no longer destroys the data, and nothing says so either.** Setting
-  `enable_logs_support = false` removes the Application; the bucket and everything in it stay,
-  because nothing in this module owns them. Switching the flag back on finds the old data
-  waiting, which is the good version of this surprise and is worth knowing before someone
-  deletes a bucket by hand assuming otherwise.
+- **Dropping a component no longer destroys the data, and nothing says so either.** Removing
+  `components.logs` removes the Application; the bucket and everything in it stay, because
+  nothing in this module owns them. Putting the block back finds the old data waiting, which is
+  the good version of this surprise and is worth knowing before someone deletes a bucket by hand
+  assuming otherwise. The bucket name lives only in the block that was deleted, so the way back
+  is a name nobody wrote down anywhere else.
 - **Two local charts now, and Argo CD must be able to read this repository.** `mimir-monolithic`
   and `k8s-monitoring-routed` are both sourced from here rather than an upstream Helm registry.
   That joins k3s, Argo CD and the Gateway as a per-environment prerequisite.
@@ -558,15 +791,31 @@ Feature: Telemetry is collected and stored, independently per signal
 - **The ruler is in `-target=all` and unused** — give `ruler_storage` a benign setting rather
   than leaving the component to find out. It now has a bucket to be pointed at, which makes this
   cheaper to satisfy than it was and no less necessary.
-- **Loki deletes nothing without its compactor.** `limits_config.retention_period` is a
-  declaration; `compactor.retention_enabled` is what enforces it. Easy to set, and easy to
-  believe you already did.
-- **Retention is expressed three different ways, and now once per tenant** — Mimir's
+- **Retention is expressed three different ways and now settable at three levels** — Mimir's
   `compactor.blocks-retention-period`, Loki's `limits_config.retention_period`, Tempo's
-  `compaction.block_retention`, each overridable per tenant. `var.tenants` hides that behind one
-  shape; nothing hides that a global default still exists underneath and applies to any tenant
-  the map does not name. Set a size cap too; disk is the limit, and it is now **one** disk,
-  sized in another module by different reasoning, with nothing comparing the two numbers.
+  `compaction.block_retention`, each overridable per tenant, each defaulted per component, each
+  defaulted again across signals. `retention.default`, `components.<signal>.retention` and
+  `var.tenants` hide the three dialects behind one shape; nothing hides that three levels is one
+  more place for a number to come from than anybody will remember. **Retention still bounds
+  time, not size.** Set a size cap too; disk is the limit, and it is one disk per endpoint, sized
+  in another module by different reasoning, with nothing comparing the two numbers.
+- **A per-component endpoint is unexercised.** Every store writing to one object store is the
+  configuration that gets deployed, so the override is a path nothing runs regularly — including
+  its sharpest edge, a partial-looking override silently taking field defaults for region and
+  credential. `OBS-33` asserts that behaviour precisely because it is the one nobody would
+  predict from reading the values.
+- **Nothing checks that a per-component endpoint exists**, and it may be something this
+  repository does not deploy at all. A missing bucket was already silent until the first write; a
+  missing endpoint now is too, once per component, and the second one is not diagnosable from
+  inside this cluster.
+- **The Tempo chart this module pins is deprecated by its own maintainers.** `grafana/tempo`
+  1.24.4 carries `deprecated: true` in its `Chart.yaml`. It renders and runs, and the only
+  replacement Grafana offers is `tempo-distributed` — the microservices topology this module
+  exists to avoid. So the pin stands, and traces are the one signal whose chart has no supported
+  future at this size. That is a decision to revisit with real information, not a defect to fix.
+- **`helm lint` does not catch what `helm template` does.** On Helm 4.2.1 lint reported no
+  failures on a values file that `helm template` then rejected outright. Every `ci/` file gets
+  rendered, not merely linted, and any CI wired up later must do the same or it verifies nothing.
 - **Pin `k8s-monitoring` and read its changelog before bumping.** The pod-logs feature has
   already split into three (`podLogsViaLoki`, `podLogsViaOpenTelemetry`,
   `podLogsViaKubernetesAPI`) and `onlyGatherNewLogLines` has already flipped its default. Its

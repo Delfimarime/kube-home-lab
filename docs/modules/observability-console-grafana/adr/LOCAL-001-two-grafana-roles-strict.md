@@ -1,7 +1,9 @@
 # LOCAL-001. Applying the role convention to Grafana
 
 **Status:** accepted · **Scope:** module — `observability-console-grafana` ·
-**Date:** 2026-08-12
+**Date:** 2026-08-12 ·
+revised 2026-08-16 (the login form is derived, not an input; the admin credential is a Secret an
+operator fills)
 
 ## Context
 
@@ -30,10 +32,11 @@ Three module-level choices on top of the platform decision:
 - **`Editor` is not mapped.** Two roles, as ADR 013's baseline.
 - **`allow_assign_grafana_admin` stays off**, so server administration is not something a claim
   can grant.
-- **The local login form follows `oidc`.** `allow_local_login` defaults to `null`, meaning
-  derive: on when `oidc` is `null`, off once an issuer is wired. Setting it `true` alongside
-  `oidc` keeps a break-glass route; setting it `false` with no `oidc` is refused at plan time,
-  because it admits nobody.
+- **The local login form follows `oidc`, and no input governs it.** On when `oidc` is `null`,
+  off once an issuer is wired. An earlier draft made this an input, `allow_local_login`,
+  defaulting to `null` meaning derive; it was removed because three of its four states restated
+  the derived one and the fourth admitted nobody and had to be refused at plan time. A knob whose
+  only novel setting is invalid is not a knob.
 
 ## Rationale
 
@@ -53,14 +56,14 @@ Three module-level choices on top of the platform decision:
 ## Consequences
 
 - **Wiring `oidc` closes the local login form**, so when the issuer is down — and it likely runs
-  in this same cluster — nobody can reach Grafana. `allow_local_login = true` is the deliberate
-  exception, and it costs a static password living outside the OIDC path that nobody will
-  rotate. Both states are defensible; neither is free, which is why it is an input rather than a
-  decision made here on someone's behalf.
-- **`allow_local_login` is the only derived default in the module.** Every other input means the
-  same thing regardless of its neighbours. This one cannot: `false` is correct with an issuer and
-  a lockout without one, so the safe value is a function of `oidc`, and a plan-time validation
-  rejects the combination that admits nobody. OBS-13 asserts all four states.
+  in this same cluster — nobody can reach Grafana through a browser. What remains is the admin
+  account authenticating to the HTTP API with basic auth: unadvertised rather than absent, and
+  worth knowing before an outage rather than during one. Its credential is a Secret an operator
+  fills like any other, because the alternative is the chart inventing one on every render.
+- **Two roles is the whole of what a claim can grant here.** Nothing in this module maps a claim
+  to server administration, and the admin account is reached by a route no token touches. The two
+  are deliberately unrelated: one is what a person signs in as, the other is what you use when
+  signing in is impossible.
 - **The first sign-in after wiring `oidc` will fail** until the issuer emits
   `resource_access.grafana.roles`, and it will fail in a way that looks like this module's fault.
   That is ADR 013's consequence, inherited.

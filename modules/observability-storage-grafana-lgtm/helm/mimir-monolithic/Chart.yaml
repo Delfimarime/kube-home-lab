@@ -1,0 +1,20 @@
+apiVersion: v2
+name: mimir-monolithic
+description: >-
+  Mimir as a single process — one StatefulSet, one pod, every component in one binary — writing its
+  blocks to an S3-compatible bucket, with multitenancy on and a runtime overrides file carrying
+  per-tenant limits and retention.
+type: application
+version: 0.1.0
+appVersion: "3.1.4"
+
+# No dependencies, and nothing wrapped. The only official chart deploys the microservices topology
+# — distributor, ingester, querier, query-frontend, store-gateway, compactor, plus caches and a
+# gateway, ten to twelve pods before anything is scraped — and there is no upstream chart for the
+# single-process mode, which is a supported and documented way to run this and simply the one
+# nobody packaged.
+#
+# The chart is small because everything that makes the official one large is topology this
+# deployment does not have. Its override surface is deliberately shaped like the log and trace
+# stores' rather than expressing per-tenant limits a third way: this is the chart that can be
+# written to conform, so it is the one that does.

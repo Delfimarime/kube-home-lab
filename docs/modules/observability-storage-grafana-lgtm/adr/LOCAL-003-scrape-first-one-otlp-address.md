@@ -1,7 +1,9 @@
 # LOCAL-003. Scrape first; publish one neutral address for what cannot be scraped
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-12
+**Date:** 2026-08-12 ·
+revised 2026-08-16 (the features follow a component's presence, not a flag —
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
 ## Context
 
@@ -33,17 +35,17 @@ re-wired every time a signal is toggled.
 discovery, exactly as ADR 004 requires. Logs are tailed from the node filesystem. Only traces
 are pushed, because only traces cannot be anything else.
 
-**One collector.** `k8s-monitoring` is deployed unconditionally, and its *features* are gated
-by the three existing flags. No new input, and no dependency between the flags.
+**One collector.** `k8s-monitoring` is deployed unconditionally, and its *features* follow which
+components the module ships. No new input, and no dependency between the components.
 
-| Flag | Features | Collectors it creates |
+| Shipped | Features | Collectors it creates |
 | --- | --- | --- |
-| `enable_metrics_support` | `clusterMetrics`, `prometheusOperatorObjects` | `alloy-metrics` |
-| `enable_logs_support` | `podLogsViaLoki`, `clusterEvents` | `alloy-logs` (DaemonSet), `alloy-singleton` |
+| `components.metrics` | `clusterMetrics`, `prometheusOperatorObjects` | `alloy-metrics` |
+| `components.logs` | `podLogsViaLoki`, `clusterEvents` | `alloy-logs` (DaemonSet), `alloy-singleton` |
 | *always* | `applicationObservability` | `alloy-receiver` |
 
 `annotationAutodiscovery` stays off. The module also ships `prometheus-operator-crds` as its
-own Application, gated on metrics and sync-waved ahead of the collector.
+own Application, present when metrics are and sync-waved ahead of the collector.
 
 **One address, named for a protocol.** The receiver Service is renamed to `otlp` through
 `alloy-receiver.fullnameOverride`, and the module publishes a single
