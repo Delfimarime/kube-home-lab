@@ -204,9 +204,7 @@ variable "observability" {
     console = optional(object({
       hostname      = optional(string)
       chart_version = optional(string, "10.5.15")
-
-      # Which tenant the console's own telemetry is stored under. Unset means this cluster's own.
-      tenant = optional(string)
+      tenant        = optional(string)
       gateway = optional(object({
         name         = optional(string)
         namespace    = optional(string)

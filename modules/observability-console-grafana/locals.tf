@@ -73,6 +73,17 @@ locals {
 
   present = { for name, store in local.stores : name => store if store.url != null }
 
+  # **Grafana permits one default datasource per organization, not one per type.** Marking the
+  # default tenant's metrics, logs and traces all default is three defaults in one file, which
+  # Grafana refuses whole — `Only one datasource per organization can be marked as default` — and it
+  # then starts with no provisioned datasources at all rather than with the two it did not object to.
+  #
+  # Metrics where there are metrics, because that is what Explore opens on and what a dashboard
+  # panel with no datasource named falls back to; otherwise whichever store this environment does
+  # ship. The list is ordered, and at least one entry survives because at least one address is
+  # required.
+  default_store = [for name in ["metrics", "logs", "traces"] : name if contains(keys(local.present), name)][0]
+
   # One identifier per store per tenant, computed for all three whether or not their address was
   # given: a correlation link names the identifier of the datasource at its far end, and the link
   # is what checks that end exists, not this map.
@@ -100,9 +111,10 @@ locals {
         access = "proxy"
         url    = store.url
 
-        # One default per type, chosen by name. Deriving it from list ordering is the kind of
-        # implicit rule that is obvious to whoever wrote it and to nobody else.
-        isDefault = tenant == var.default_tenant
+        # Exactly one datasource in this file is the default: one tenant's, one store's. Deriving
+        # either from list ordering is the kind of implicit rule that is obvious to whoever wrote it
+        # and to nobody else.
+        isDefault = tenant == var.default_tenant && name == local.default_store
 
         # A provisioned datasource is rewritten from this file every time Grafana starts, so an
         # edit made in the UI is a change that silently disappears on the next restart. Saying so

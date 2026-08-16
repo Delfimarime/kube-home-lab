@@ -70,7 +70,7 @@ speaking the same query API, so a type input would be flexibility nobody would e
 **The tenant is a header on the datasource, not a second address.** The stores run multi-tenant
 ([ADR 017](../../adr/017-stores-are-multi-tenant.md)),
 so every read carries `X-Scope-OrgID`. Two tenants over two switched-on signals is four
-datasources, named `<store> <tenant>`, and `default_tenant` decides which one Grafana marks as
+datasources, named `<store> <tenant>`, and `default_tenant` decides whose is marked as
 its default.
 
 **`tenants` is a read-side choice and cannot disagree with reality.** Nothing validates a tenant
@@ -240,7 +240,7 @@ metrics = {
 }
 
 tenants        = ["lab"]   # one datasource per tenant per switched-on signal
-default_tenant = "lab"     # which of them Grafana marks as its default datasource
+default_tenant = "lab"     # whose datasource Grafana marks as the one default
 
 trust_bundle_name = "cert-ca-bundle"   # the ConfigMap to mount; required whenever oidc is set
 ```
@@ -281,9 +281,16 @@ that is this module's one hard external dependency.
 the derived one restated and the fourth locked everyone out and had to be refused at plan time.
 A knob whose only novel setting is invalid is not a knob.
 
-**`default_tenant` must appear in `tenants`**, and is refused at plan time otherwise. Grafana
-needs exactly one default datasource per type, and deriving it from list ordering is the kind
-of implicit rule that is obvious to whoever wrote it and to nobody else.
+**`default_tenant` must appear in `tenants`**, and is refused at plan time otherwise. Deriving it
+from list ordering is the kind of implicit rule that is obvious to whoever wrote it and to nobody
+else.
+
+**Exactly one datasource in the file is the default, and Grafana's limit is per organization rather
+than per type.** It is the default tenant's metrics datasource — what Explore opens on and what a
+panel naming no datasource falls back to — or, where this environment ships no metrics, its logs and
+then its traces. Marking one per type instead is `Only one datasource per organization can be marked
+as default`, which refuses the whole provisioning file: Grafana then starts with none of the
+datasources, not with the ones it did not object to.
 
 ## Outputs
 
@@ -322,6 +329,21 @@ Feature: One console over whatever observability is switched on
     Then exactly two exist, both of type loki
      And both address the value of logs_url
      And each sends X-Scope-OrgID naming its own tenant
+
+  @cluster
+  Scenario: [CON-17] Exactly one datasource is the default
+    Given all three addresses are set
+     And tenants names lab and scratch
+    When Grafana's datasources are read
+    Then exactly one has isDefault true
+     And it is the metrics datasource of default_tenant
+
+  @cluster
+  Scenario: [CON-18] The default follows whichever store is shipped
+    Given metrics_url is null and logs_url and traces_url are set
+    When Grafana's datasources are read
+    Then exactly one has isDefault true
+     And it is the logs datasource of default_tenant
 
   @cluster
   Scenario: [CON-03] Grafana survives metrics being absent

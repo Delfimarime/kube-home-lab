@@ -249,12 +249,12 @@ variable "tenants" {
 
 variable "default_tenant" {
   type        = string
-  description = "Which tenant's datasources Grafana marks as its defaults."
+  description = "Which tenant owns the one datasource Grafana marks as default."
   default     = "lab"
 
   validation {
     condition     = contains(var.tenants, var.default_tenant)
-    error_message = "default_tenant must be one of tenants: Grafana needs exactly one default datasource per type, and picking it from list order is a rule that is obvious to whoever wrote it and to nobody else."
+    error_message = "default_tenant must be one of tenants: Grafana permits exactly one default datasource per organization, and picking whose it is from list order is a rule that is obvious to whoever wrote it and to nobody else."
   }
 }
 
