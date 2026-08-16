@@ -90,10 +90,16 @@ locals {
   # is the bug this shape exists to make unwritable: it would point a store at somebody else's
   # endpoint while handing it this cluster's access key, which plans clean and is refused forever.
   #
-  # `rendered_name` is the name this module would use if it has to create the Secret itself. The
-  # top-level block gets the plain name and a component's own block gets one prefixed by its signal,
-  # so two stores sharing the top-level block share one Secret and a store that writes elsewhere
-  # gets one of its own.
+  # `rendered_name` is the name this module would use if it has to create the Secret itself. Two
+  # stores left on the top-level block share one name and therefore one Secret; a store carrying its
+  # own block gets one prefixed by its signal.
+  #
+  # **Every one of them is prefixed with this module's namespace, and that is not decoration.** The
+  # Secret name is also the name of the Argo CD Application rendering it, and Applications all live
+  # in one namespace while Secrets live in theirs — so a plain `object-storage-credentials` here is
+  # the same Application as the one `object-storage-rustfs` renders for its own copy of the same
+  # credential, and the second ApplicationSet to reach it is refused with `already owned by another
+  # ApplicationSet controller`. Two namespaced Secrets, two distinctly named Applications.
   storage = {
     for signal, c in local.shipped : signal => (
       c.object_storage != null ? {
@@ -103,7 +109,7 @@ locals {
         access_key_key = c.object_storage.access_key_key
         secret_key_key = c.object_storage.secret_key_key
         given_name     = c.object_storage.secret_name
-        rendered_name  = "${signal}-object-storage-credentials"
+        rendered_name  = "${var.namespace}-${signal}-object-storage-credentials"
         } : {
         endpoint       = var.object_storage.endpoint
         region         = var.object_storage.region
@@ -111,7 +117,7 @@ locals {
         access_key_key = var.object_storage.access_key_key
         secret_key_key = var.object_storage.secret_key_key
         given_name     = var.object_storage.secret_name
-        rendered_name  = "object-storage-credentials"
+        rendered_name  = "${var.namespace}-object-storage-credentials"
       }
     )
   }
@@ -206,14 +212,27 @@ locals {
     }
   }
 
+  # **The trace store's dialect is nested, and the flat spelling is not an alternative here.** Tempo
+  # reads an override block twice: once as `ingestion`/`compaction`/`metrics_generator` groups, and,
+  # if that fails, once as the flat legacy keys — but the legacy shape has no `defaults` key at all,
+  # so a flat key written inside `defaults` fails both attempts and the process exits with
+  # `failed to parse configFile /conf/tempo.yaml` before it serves anything. One dialect, the nested
+  # one, in both positions.
+  #
+  # A group with nothing in it is left out rather than written empty, for the same reason a null
+  # limit is: an empty `ingestion` block is a block, and this module states only what it was told.
   traces_tenant_limits = {
-    for name, t in var.tenants : name => {
-      for k, v in {
-        ingestion_rate_limit_bytes = t.traces.limits.ingestion_rate_bytes
-        max_traces_per_user        = t.traces.limits.max_traces
-        block_retention            = t.traces.limits.retention
-      } : k => v if v != null
-    }
+    for name, t in var.tenants : name => merge(
+      t.traces.limits.ingestion_rate_bytes == null && t.traces.limits.max_traces == null ? {} : {
+        ingestion = merge(
+          t.traces.limits.ingestion_rate_bytes == null ? {} : { rate_limit_bytes = t.traces.limits.ingestion_rate_bytes },
+          t.traces.limits.max_traces == null ? {} : { max_traces_per_user = t.traces.limits.max_traces },
+        )
+      },
+      t.traces.limits.retention == null ? {} : {
+        compaction = { block_retention = t.traces.limits.retention }
+      },
+    )
   }
 
   # The tenant a write with no header lands in. It is added here rather than being something a
@@ -233,7 +252,7 @@ locals {
   # module configured for everybody. Every tenant therefore restates the defaults and then adds its
   # own limits on top; the other two stores merge, and only this one has to be written out.
   traces_defaults = merge(
-    { block_retention = try(local.component_retention.traces, var.retention.default) },
+    { compaction = { block_retention = try(local.component_retention.traces, var.retention.default) } },
     local.service_graph_enabled ? {
       metrics_generator = {
         processors = ["service-graphs", "span-metrics"]
@@ -241,9 +260,11 @@ locals {
     } : {},
   )
 
+  # Merged one group deep, which is enough because each group here holds one field from each side:
+  # a tenant naming its own retention replaces a `compaction` block that carried only that.
   traces_tenants = merge(
     { for name, limits in local.traces_tenant_limits : name => merge(local.traces_defaults, limits) },
-    { unattributed = merge(local.traces_defaults, { block_retention = var.retention.unattributed }) },
+    { unattributed = merge(local.traces_defaults, { compaction = { block_retention = var.retention.unattributed } }) },
   )
 }
 

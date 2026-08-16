@@ -85,6 +85,12 @@ data:
         replication_factor: 1
 
     ruler:
+      # Where the rule files it fetches from ruler_storage are cached on the way in. The default is
+      # `./data-ruler/`, a *relative* path under a working directory that is on the read-only root
+      # filesystem, so the process fails its own start-up sanity check with
+      # `failed to access directory ./data-ruler/` and takes every other module down with it. It is
+      # cache rather than data, so the scratch volume is the right place for it.
+      rule_path: /data/ruler
       ring:
         kvstore:
           store: memberlist

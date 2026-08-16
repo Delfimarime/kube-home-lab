@@ -102,9 +102,11 @@ would be worse than a default that has to be overridden.
   override prevents only the emptiest version of this. It is the price of replacement and it is
   paid at the one place someone is already thinking about where a store writes.
 - **There can now be up to three placeholder Secrets rather than one.** The top-level block with
-  `secret_name` null renders `object-storage-credentials`; a component whose own block leaves it
-  null renders `<signal>-object-storage-credentials`; identical names deduplicate to one
-  Application. Every one of them is a value somebody fills in by hand
+  `secret_name` null renders `<namespace>-object-storage-credentials`; a component whose own block
+  leaves it null renders `<namespace>-<signal>-object-storage-credentials`; identical names
+  deduplicate to one Application. The namespace is part of every one of them because a rendered
+  Secret's name is also its Application's, and two modules holding a copy of the same credential
+  would otherwise generate one Application from two ApplicationSets. Every one of them is a value somebody fills in by hand
   ([ADR 022](../../../adr/022-secrets-are-rendered-empty.md)), so the count is a real cost.
 - **Two of [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)'s consequences
   become conditional.** *"Every signal now fails together"* and *"bounded by one disk with one

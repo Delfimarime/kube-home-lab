@@ -23,18 +23,18 @@ module "observability_console" {
   argocd = {
     namespace = var.argocd.namespace
   }
-  namespace = local.observability.namespace
-  metrics_url = one(module.observability_storage[*].metrics_url)
-  logs_url    = one(module.observability_storage[*].logs_url)
-  traces_url  = one(module.observability_storage[*].traces_url)
-  database = local.observability.console.database
-  admin    = local.observability.console.admin
-  oidc     = local.observability.console.oidc
-  gateway = local.observability_console_gateway
-  metrics = local.metrics.console
-  tenants        = keys(local.observability.tenants)
-  default_tenant = local.observability.default_tenant
+  namespace         = local.observability.namespace
+  metrics_url       = one(module.observability_storage[*].metrics_url)
+  logs_url          = one(module.observability_storage[*].logs_url)
+  traces_url        = one(module.observability_storage[*].traces_url)
+  database          = local.observability.console.database
+  admin             = local.observability.console.admin
+  oidc              = local.observability.console.oidc
+  gateway           = local.observability_console_gateway
+  metrics           = local.metrics.console
+  tenants           = keys(local.observability.tenants)
+  default_tenant    = local.observability.default_tenant
   trust_bundle_name = module.cert_manager.trust_bundle_name
-  grafana        = { chart_version = local.observability.console.chart_version }
-  git_repository = var.git_repository
+  grafana           = { chart_version = local.observability.console.chart_version }
+  git_repository    = var.git_repository
 }

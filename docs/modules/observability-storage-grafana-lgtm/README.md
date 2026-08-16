@@ -60,10 +60,17 @@ least one must be present.
 
 **There can be more than one credential Application, and usually there is one.** Wave 0 renders
 a placeholder per *distinct* Secret name this module is asked to create — the top-level
-`object_storage` with `secret_name` null gives `object-storage-credentials`, and a component
-carrying its own block with `secret_name` null gives `<signal>-object-storage-credentials`.
-Names that coincide produce one Application, and naming existing Secrets throughout produces
-none.
+`object_storage` with `secret_name` null gives `<namespace>-object-storage-credentials`, and a
+component carrying its own block with `secret_name` null gives
+`<namespace>-<signal>-object-storage-credentials`. Names that coincide produce one Application, and
+naming existing Secrets throughout produces none.
+
+**The namespace is in those names because the Application's name is the Secret's**
+([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Applications all live in the Argo CD
+namespace while Secrets live in their own, so an unqualified `object-storage-credentials` here is the
+same Application as the one [`object-storage-rustfs`](../object-storage-rustfs/README.md) renders for
+its own copy of this credential — and the second ApplicationSet to reach it is refused with
+`already owned by another ApplicationSet controller`.
 
 **The waves are load-bearing.** A `List` generator has no inherent order, so the Applications
 carry `argocd.argoproj.io/sync-wave` annotations. The CRDs must exist before `k8s-monitoring`
@@ -350,7 +357,7 @@ present, and its contents are ignored on every sync
 this module only reads it. Either way what an environment owes is the value:
 
 ```sh
-kubectl patch secret object-storage-credentials -n observability \
+kubectl patch secret telemetry-object-storage-credentials -n telemetry \
   --type merge -p "$(jq -n --arg a "$(printf %s "$ACCESS_KEY" | base64)" \
                           --arg s "$(printf %s "$SECRET_KEY" | base64)" \
                           '{data:{RUSTFS_ACCESS_KEY:$a,RUSTFS_SECRET_KEY:$s}}')"
@@ -616,7 +623,7 @@ Feature: Telemetry is collected and stored, independently per signal
      And components.traces.object_storage.secret_name is null
     When Applications in the namespace are listed
     Then two secret-template Applications exist
-     And they render object-storage-credentials and traces-object-storage-credentials
+     And they render <namespace>-object-storage-credentials and <namespace>-traces-object-storage-credentials
      And every other component reads the first of them
 
   @cluster
