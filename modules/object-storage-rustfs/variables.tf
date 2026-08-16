@@ -61,12 +61,82 @@ variable "rustfs" {
   default     = {}
 }
 
-variable "secret_template" {
+# This workload serves two things on two ports, and they are exposed independently.
+#
+#   api                 the S3 API. Every store writes here, over cluster DNS, and needs no route
+#                       at all. Routing it makes stored objects readable *and deletable* by
+#                       whatever reaches the listener.
+#   management_console  the admin UI over every stored object, authenticated by the same access
+#                       key every consumer already holds.
+#
+# Each takes its own hostname and its own Gateway, so the two can sit on different listeners —
+# which is the point: the API belongs behind mTLS whether or not the console is reachable at all.
+# `hostname` is null by default for both, and null is what "not routed" means.
+#
+# **`port` is one input driving two chart values that must agree**, which is why it is here rather
+# than left to a values override. The Service port, its targetPort and the containerPort all
+# follow `service.<x>.port`; what the process actually binds follows `config.rustfs.address` and
+# `console_address`. Setting one without the other produces a Service pointing at a port nothing
+# is listening on, and a pod that never passes its readiness probe.
+variable "services" {
   type = object({
-    repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-    path     = optional(string, "modules/secret-template/helm/secret-template")
+    api = optional(object({
+      port     = optional(number, 9000)
+      hostname = optional(string)
+      gateway = optional(object({
+        name         = string
+        namespace    = string
+        section_name = optional(string)
+      }))
+    }), {})
+
+    management_console = optional(object({
+      port     = optional(number, 9001)
+      hostname = optional(string)
+      gateway = optional(object({
+        name         = string
+        namespace    = string
+        section_name = optional(string)
+      }))
+    }), {})
+  })
+  description = "The two surfaces this workload serves: which port each listens on, and whether and how each is exposed."
+  default     = {}
+
+  validation {
+    condition     = var.services.api.port != var.services.management_console.port
+    error_message = "services.api.port and services.management_console.port must differ: they are two ports on one Service, and one number cannot name both."
+  }
+
+  validation {
+    condition = alltrue([
+      for p in [var.services.api.port, var.services.management_console.port] :
+      p > 0 && p < 65536
+    ])
+    error_message = "each service's port must be between 1 and 65535."
+  }
+
+  # `null` is a valid value of every type, so the object's shape alone would let a caller name a
+  # hostname while leaving the Gateway unnamed — which renders a route attached to nothing and
+  # fails at sync time as a Gateway API error nobody reads.
+  validation {
+    condition = alltrue([
+      for s in [var.services.api, var.services.management_console] :
+      s.hostname == null || (
+        try(length(s.gateway.name), 0) > 0 && try(length(s.gateway.namespace), 0) > 0
+      )
+    ])
+    error_message = "a service with a hostname needs gateway.name and gateway.namespace: an HTTPRoute cannot be written without a Gateway to attach to."
+  }
+}
+
+# Only consulted when `secret_name` is null, because that is the only case in which this module
+# renders a chart of this repository's rather than an upstream one.
+variable "git_repository" {
+  type = object({
+    url      = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
     revision = optional(string, "main")
   })
-  description = "Where Argo CD reads the Secret chart from."
+  description = "The repository Argo CD reads this repo's own charts from, and the revision it reads them at."
   default     = {}
 }

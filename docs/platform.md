@@ -237,6 +237,7 @@ someone has to remember to check.
 | Variable | Meaning when set | Meaning when `null` |
 | --- | --- | --- |
 | `gateway` | emit a route for this workload | not exposed outside the cluster |
+| `services` | *(instead of `gateway`, where a module serves several surfaces)* one entry per surface: its `port`, its `hostname`, its Gateway | a surface with no hostname is not exposed |
 | `database` | connect to this PostgreSQL, credentials from a Secret | no database, or module fails if required |
 | `oidc` | delegate authentication to this issuer | local authentication only |
 

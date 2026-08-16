@@ -1,6 +1,11 @@
 locals {
   release = "cert-pki"
 
+  # Where this module's chart sits inside this repository. A constant rather than an input: the
+  # only correct value is this one, and a caller able to change it could only ever point an
+  # Application at a path that does not exist.
+  chart_path = "modules/certificate-management-cert-manager/helm"
+
   # `default` is issued from var.domain and is not in var.certificates — the variable refuses that
   # key. Everything downstream reads this map, so the wildcard is an ordinary entry from here on.
   certificates = merge(
@@ -174,10 +179,10 @@ locals {
     {
       name        = local.release
       source_kind = "git"
-      repo_url    = var.cert_pki.repo_url
+      repo_url    = var.git_repository.url
       chart       = ""
-      path        = var.cert_pki.path
-      revision    = var.cert_pki.revision
+      path        = local.chart_path
+      revision    = var.git_repository.revision
       namespace   = var.namespace
       wave        = "2"
       values      = local.cert_pki_values

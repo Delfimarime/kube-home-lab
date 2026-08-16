@@ -72,10 +72,11 @@ switch between writing its logs to a second PVC and writing them to stdout. Stdo
 collector reads, so blanking it both removes a volume and makes the workload's logs visible to
 whatever tails containers — a file on a PVC inside a pod is a log nobody will ever see.
 
-**The console stays on and stays unrouted.** `config.rustfs.console_enable` is the chart's
-default and is left there: it is how a person lists a bucket or checks that a write landed, and
-`kubectl port-forward` is the whole access path. Turning it off would save nothing measurable and
-remove the only interactive way to answer "is anything actually in there".
+**The console stays on, and whether it is reachable is a separate question.**
+`config.rustfs.console_enable` is the chart's default and is left there: it is how a person lists
+a bucket or checks that a write landed. Turning it off would save nothing measurable and remove
+the only interactive way to answer "is anything actually in there". Unrouted, `kubectl
+port-forward` reaches it; see [Exposure](#exposure) for what routing it costs.
 
 **Nothing here creates a bucket.** The chart provisions none, and no consumer creates its own —
 see [Prerequisites](#prerequisites). This is the module's sharpest edge and it is not hidden in
@@ -93,27 +94,65 @@ store being written into the store.
 
 ### Exposure
 
-**Nothing is exposed, and there is no input that would expose it.** The S3 endpoint is consumed
-from inside the cluster, over cluster DNS, on port 9000. This module takes no `gateway` and
-publishes no external URL.
+**Two surfaces, exposed independently, and neither by default.** This workload serves the S3 API
+and a management console on two ports of one Service, and they are not the same kind of thing —
+so each takes its own `port`, its own `hostname` and its own Gateway:
 
-That is a narrower position than an earlier draft of this spec took, and the chart is why. Two
-of its values would emit something:
+| Surface | Default port | Routed when | Route |
+| --- | --- | --- | --- |
+| `api` | 9000 | it has a hostname | `HTTPRoute` `s3` → `s3-svc:<api port>` |
+| `management_console` | 9001 | it has a hostname | `HTTPRoute` `s3-console` → `s3-svc:<console port>` |
 
-- **`ingress.enabled` defaults to `true`**, with an nginx class. It is switched off explicitly,
-  because a default that exposes a store would be [REQ-06](../../requirements.md) failing by
-  omission rather than by decision.
-- **`gatewayApi` renders a route to the *console* on port 9001** — not the S3 API — plus a
-  second HTTP-to-HTTPS redirect route and a Traefik-specific sticky-session object. An admin UI
-  over every stored object is the one thing this module must never expose, so the switch is off
-  and none of it is used.
+**Separate listeners is the point.** The API is a read *and* write surface over every stored
+object; the console is an admin UI over the same objects behind the same access key. Putting them
+on one `section_name` would mean whichever posture is right for one is imposed on the other, and
+they are not the same question. A surface with no hostname produces no route at all — that, and
+nothing else, is what "not exposed" means here.
 
-Routing the S3 API itself would therefore need a wrapper chart rendering an `HTTPRoute` at port
-9000, and it is deliberately not built. That surface is read *and* write over every stored
-signal, so unlike the OTLP receiver there is no argument that it is write-only, and
-[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)'s "the listener decides" would be
-carrying far more weight than it does anywhere else here. If an environment ever needs it, the
-wrapper is the honest way to add it and this paragraph is the argument to re-read first.
+**Each `port` is one input driving two chart values.** `service.<x>.port` sets the Service port,
+its `targetPort` and the `containerPort`; `config.rustfs.address` and `console_address` are what
+the process actually binds. They are separate values in this chart, and setting one without the
+other yields a Service pointing at a port nothing is listening on. The probes need no such care —
+the chart renders both from `service.endpoint.port`, so they follow the API's port on their own.
+Its `values.yaml` *documents* `livenessProbe.httpGet.port` and `readinessProbe.httpGet.port` and
+reads neither; they look like knobs and are not.
+
+**The chart's own Gateway API support is switched off, and this is why.** Reading
+`templates/gateway-api/httproute.yml` rather than its values:
+
+- **its backend port is `service.console.port`, in both branches**, so it routes the admin UI and
+  there is no value that points it at 9000;
+- it emits a **second `HTTPRoute` carrying no `hostnames:`**, which on a shared Gateway matches
+  every host on the listener it attaches to — a cluster-wide plaintext redirect as a side effect
+  of exposing one workload;
+- and `gateway.yml` **creates a `Gateway`** whenever it is not given an existing one, which this
+  repository never provisions ([platform scope](../../platform.md#scope)).
+
+So the route is rendered through the chart's `extraManifests`, whose entries the chart passes
+through `tpl` and renders as its own. Native per
+[ADR 010](../../adr/010-resources-delivered-via-chart.md) — the Application still owns every
+object, OpenTofu still creates none, and no wrapper chart with a second pinned version exists.
+`ingress.enabled` is switched off in the same values, because the chart defaults it to *true* and
+a default that exposes a store would be [REQ-06](../../requirements.md) failing by omission.
+
+**Using an escape hatch here does not reopen the one [ADR 022](../../adr/022-secrets-are-rendered-empty.md)
+refused.** That decision rejected `extraManifests`/`extraObjects` for the *Secret*, because every
+module needs a credential and not every chart has such a hatch — uniformity across charts was the
+whole argument. A route for this one workload from this one chart makes no claim about any other.
+
+**What may reach it is the listener's, and nothing here narrows it**
+([ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)). This surface is read *and* write
+over every stored signal, so unlike the OTLP ingest endpoint there is no argument that it is
+write-only: pointing `section_name` at the mTLS listener is the only posture that makes sense,
+and the module cannot enforce that choice.
+
+**The console can now be routed, and that is a reversal worth naming.** Earlier drafts of this
+spec said it never would be, on the grounds that an admin UI over every stored object behind one
+shared access key should not be reachable. That argument still holds and is now the *default*
+rather than the rule: `management_console.hostname` is null unless somebody sets it, and setting
+it should come with a listener that demands a client certificate. What changed is that refusing
+outright made the module decide something an environment is better placed to decide — the same
+line [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) draws everywhere else.
 
 ### Credentials
 
@@ -199,15 +238,42 @@ storage = {
 }
 
 region = "us-east-1"                  # what consumers must be configured with
+
+services = {
+  api = {
+    port     = 9000
+    hostname = "s3.lab.internal"      # null is not routed
+    gateway = {                       # anything omitted comes from the cluster's gateway
+      name         = "traefik-gateway"
+      namespace    = "traefik"
+      section_name = "otlp-mtls"      # this listener is who may read and delete
+    }
+  }
+  management_console = {
+    port     = 9001
+    hostname = null                   # not routed, and the right setting unless somebody asks
+  }
+}
 ```
 
-Plus the chart version, and where Argo CD reads the placeholder chart from.
+Plus the chart version, and `git_repository` — this repository and the revision Argo CD reads its
+charts at, which every module rendering one of them takes. Only consulted when `secret_name` is
+null: that is the one case where this module renders a chart of this repository's rather than an
+upstream one.
 
-**This module takes none of the three shared contracts, and that is unusual enough to say.**
-`gateway` is absent because nothing here is ever routed — see [Exposure](#exposure). `database`
-and `oidc` would be meaningless: this is the thing other workloads store state *in*, and its one
-credential is an access key rather than a person. `metrics` is absent too, because the workload
-exposes no `/metrics` endpoint for a `ServiceMonitor` to name.
+**`services` stands in for the `gateway` contract**, because this module has two routable surfaces
+and that contract describes one ([ADR 007](../../adr/007-modules-receive-credentials.md)). The
+Gateway reference inside each service is that same object minus `hostname`, which moved up beside
+`port` because it belongs to the surface rather than to the Gateway.
+
+Three things are refused at plan time rather than at sync: **two surfaces sharing a port** — they
+are two ports on one Service and one number cannot name both; **a hostname with no
+`gateway.name`/`namespace`** — `null` is a valid value of every type, so the shape alone would let
+a caller render a route attached to nothing; and **a port outside 1–65535**.
+
+`database` and `oidc` would be meaningless: this is the thing other workloads store state *in*,
+and its one credential is an access key rather than a person. `metrics` is absent too, because the
+workload exposes no `/metrics` endpoint for a `ServiceMonitor` to name.
 
 **`region` is an input rather than a constant** because S3 clients send it and compare it, and
 because an environment migrating buckets in from somewhere else has a name to match. It is
@@ -229,13 +295,16 @@ scheduler picked on the day.
 | `endpoint` | any workload configured with an S3 backend — `s3-svc.<namespace>.svc.cluster.local:9000` |
 | `region` | the same, as the region its client sends |
 | `credentials_secret_name` | an operator, to know what to fill in — the name given, or the one rendered |
+| `api_url` | the S3 API from outside the cluster — `null` unless it was given a hostname |
+| `console_url` | the management console from outside — `null` unless it was given a hostname |
 
 **No output names RustFS, and no output's *value* does either** — `fullnameOverride` is what
-buys that, and it is the reason it is set. A consumer wired to these three is configured for S3
-and would not notice the implementation changing underneath it
-([REQ-09](../../requirements.md)).
+buys that, and it is the reason it is set. A consumer wired to these is configured for S3 and
+would not notice the implementation changing underneath it ([REQ-09](../../requirements.md)).
 
-**There is no external URL** because there is no route — see [Exposure](#exposure).
+**`url` is for a person, not for a store.** Everything that writes here does so over `endpoint`,
+in-cluster; the external address exists so a bucket can be created, or a write inspected, without
+a port-forward.
 
 **`endpoint` is a host and port, not a URL**, because that is the shape every S3 client
 configuration field takes. Whether it is reached over TLS is a separate field in each of those
@@ -248,9 +317,11 @@ publishing a claim rather than an address.
 
 ## Acceptance criteria
 
-`OBJ-04` and `OBJ-05` are retired and their numbers are not reused. Both were written against a
-`gateway` input that no longer exists — one asserted that nothing was exposed *by default*, the
-other that the console was never routed — and `OBJ-12` asserts something stronger than either.
+`OBJ-04`, `OBJ-05`, `OBJ-12` and `OBJ-14` are retired and their numbers are not reused. The first
+two were written against an earlier `gateway` input; `OBJ-12` replaced them by asserting nothing
+was reachable from outside in *any* configuration, which stopped being true when this module
+gained a route; and `OBJ-14` asserted that the only route addressed the API, which stopped being
+true when the console became routable. `OBJ-16` through `OBJ-19` are what those claims became.
 
 ```gherkin
 Feature: One S3-compatible endpoint, per environment
@@ -293,11 +364,51 @@ Feature: One S3-compatible endpoint, per environment
     Then it is a host and port, and carries no scheme
 
   @cluster
-  Scenario: [OBJ-12] Nothing is reachable from outside the cluster, in any configuration
-    Given the module is applied
+  Scenario: [OBJ-13] Nothing is exposed without a hostname
+    Given neither service has a hostname
     When HTTPRoutes and Ingresses in the namespace are listed
     Then none exist
-     And no input of this module would create one
+     And api_url and console_url are both null
+     And no Gateway was created by this module
+
+  @cluster
+  Scenario Outline: [OBJ-16] Each surface is exposed on its own, or not at all
+    Given only <service> has a hostname
+    When HTTPRoutes in the namespace are listed
+    Then exactly one exists, addressing <port>
+     And <other>_url is null
+
+    Examples:
+      | service            | port | other              |
+      | api                | 9000 | console            |
+      | management_console | 9001 | api                |
+
+  @cluster
+  Scenario: [OBJ-17] The two surfaces can sit on different listeners
+    Given both services have hostnames and different section_names
+    When the two HTTPRoutes are read
+    Then each attaches to the listener its own service named
+     And each addresses its own service's port
+
+  @cluster
+  Scenario: [OBJ-18] A port is one number everywhere
+    Given services.api.port is 9100
+    When the Service, the container and the process configuration are read
+    Then the Service port, its targetPort and the containerPort are all 9100
+     And the process is configured to listen on 9100
+     And both probes address 9100
+
+  @plan
+  Scenario Outline: [OBJ-19] What cannot work is refused before it is applied
+    Given <configuration>
+    When tofu plan runs
+    Then it fails, naming the input
+
+    Examples:
+      | configuration                                     |
+      | both services given the same port                 |
+      | a service with a hostname and no gateway.name     |
+      | a port outside 1-65535                            |
 
   @cluster
   Scenario: [OBJ-06] The store's own telemetry does not depend on itself

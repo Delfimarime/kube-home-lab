@@ -17,19 +17,66 @@ locals {
   secret_name   = coalesce(var.secret_name, "object-storage-credentials")
 
   # The Service the chart renders, which is what every consumer is configured with. Fully
-  # qualified because consumers live in other namespaces.
-  endpoint = "${local.release}-svc.${var.namespace}.svc.cluster.local:9000"
+  # qualified because consumers live in other namespaces, and on the API's port because that is
+  # the only one anything in this platform talks to.
+  service  = "${local.release}-svc"
+  endpoint = "${local.service}.${var.namespace}.svc.cluster.local:${var.services.api.port}"
+
+  api_url     = var.services.api.hostname == null ? null : "https://${var.services.api.hostname}"
+  console_url = var.services.management_console.hostname == null ? null : "https://${var.services.management_console.hostname}"
+
+  # The route, rendered through the chart's own `extraManifests` rather than by wrapping the
+  # chart. The chart *has* Gateway API support and it cannot be used: its HTTPRoute's backend port
+  # is hardcoded to the console's, it emits a second hostname-less redirect route that would catch
+  # every plaintext host on a shared Gateway, and it creates a Gateway of its own whenever it is
+  # not given one — which this repository never provisions.
+  #
+  # `extraManifests` entries are rendered through `tpl`, so this is a manifest the chart owns and
+  # renders; OpenTofu still creates no Kubernetes object.
+  #
+  # One route per exposed surface, each on its own hostname, its own Gateway and its own listener.
+  # A surface with no hostname produces no route at all — that, and nothing else, is what "not
+  # exposed" means here.
+  routable = {
+    (local.release)            = var.services.api
+    "${local.release}-console" = var.services.management_console
+  }
+
+  http_routes = [
+    for name, s in local.routable : {
+      apiVersion = "gateway.networking.k8s.io/v1"
+      kind       = "HTTPRoute"
+      metadata = {
+        name      = name
+        namespace = var.namespace
+      }
+      spec = {
+        parentRefs = [merge(
+          {
+            name      = s.gateway.name
+            namespace = s.gateway.namespace
+          },
+          s.gateway.section_name == null ? {} : { sectionName = s.gateway.section_name },
+        )]
+        hostnames = [s.hostname]
+        rules = [{
+          backendRefs = [{
+            name = local.service
+            port = s.port
+          }]
+        }]
+      }
+    } if s.hostname != null
+  ]
 
   # standalone: one pod, one volume. The chart's default is `distributed` — four replicas across
   # sixteen volumes — so both halves are stated rather than relying on one switch to imply the
   # other.
   #
   # ingress is switched off explicitly and this is the important line: the chart defaults it to
-  # *enabled*, with an nginx class, so leaving it alone would expose the store by default. What
-  # the chart's own gatewayApi support would render is a route to the console on port 9001, plus
-  # a redirect route and a Traefik-specific sticky-session object — an admin UI over every stored
-  # object, which is the one thing this module must never expose. So both are off, and nothing
-  # here is reachable from outside the cluster.
+  # *enabled*, with an nginx class, so leaving it alone would expose the store by default.
+  # gatewayApi is off for the reasons above the route itself; what exposes this module is
+  # `extraManifests`, and only when a gateway was given.
   #
   # obs_log_directory is blanked deliberately: a value there sends the workload's logs to a second
   # PVC instead of stdout, where nothing tails them. Blank removes the volume and makes the logs
@@ -51,12 +98,28 @@ locals {
         existingSecret = local.secret_name
       }
 
-      ingress    = { enabled = false }
-      gatewayApi = { enabled = false }
+      ingress        = { enabled = false }
+      gatewayApi     = { enabled = false }
+      extraManifests = local.http_routes
+
+      # Both halves of each port, together. `service.<x>.port` drives the Service port, its
+      # targetPort and the containerPort; `address`/`console_address` are what the process
+      # actually binds. They are separate values in this chart and must agree.
+      service = {
+        endpoint = { port = var.services.api.port }
+        console  = { port = var.services.management_console.port }
+      }
+
+      # Nothing sets the probes' port, and nothing should: the chart renders both from
+      # `service.endpoint.port`, so they follow the API's port on their own. Its values.yaml
+      # *documents* `livenessProbe.httpGet.port` and `readinessProbe.httpGet.port` and reads
+      # neither — two keys that look like knobs and are not.
 
       config = {
         rustfs = {
           region            = var.region
+          address           = ":${var.services.api.port}"
+          console_address   = ":${var.services.management_console.port}"
           obs_log_directory = ""
           obs_endpoint      = { enabled = false }
         }

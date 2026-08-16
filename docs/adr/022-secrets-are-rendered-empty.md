@@ -125,7 +125,7 @@ and a key and never a value.
   none.
 - **This repository becomes a source Argo CD must read** in any environment shipping any module
   with a credential — previously true only where the certificate module shipped. The chart is
-  read from git at the caller's `git_revision`, so a branch that has not been pushed is an
+  read from git at the environment's `git_repository`, so a branch that has not been pushed is an
   Application pointing at a path that does not exist.
 - **The open question is half answered.** What creates the Secrets: this does, whenever nobody
   else has. What supplies their contents: still nothing, still a person, still unrecorded.

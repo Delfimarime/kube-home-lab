@@ -186,12 +186,11 @@ variable "trust_manager" {
 
 # cert-pki is read from git rather than a chart repository, so Argo CD must have this repository
 # registered as a source.
-variable "cert_pki" {
+variable "git_repository" {
   type = object({
-    repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-    path     = optional(string, "modules/certificate-management-cert-manager/helm")
+    url      = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
     revision = optional(string, "main")
   })
-  description = "Where Argo CD reads the authorities chart from."
+  description = "The repository Argo CD reads the authorities chart from, and the revision it reads it at."
   default     = {}
 }

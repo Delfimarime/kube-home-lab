@@ -1,6 +1,6 @@
 variable "argocd" {
   type = object({
-    namespace  = optional(string, "argocd")
+    namespace = optional(string, "argocd")
   })
   description = "Where ApplicationSets are created, and how the provider reaches Argo CD."
   default     = {}
@@ -28,7 +28,6 @@ variable "cert_manager" {
   type = object({
     domain    = string
     namespace = optional(string, "cert-manager")
-
     certificates = optional(map(object({
       mode         = optional(string, "tls")
       dns_names    = optional(list(string), []) # defaults to ["<name>.<domain>"]
@@ -52,41 +51,51 @@ variable "cert_manager" {
     trust_manager = optional(object({
       chart_version = optional(string, "v0.24.0")
     }), {})
-
-    cert_pki = optional(object({
-      repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-      path     = optional(string, "modules/certificate-management-cert-manager/helm")
-      revision = optional(string, "main")
-    }), {})
   })
   description = "Certificate management: the domain it issues for, the certificates it issues, and the charts it installs."
 }
 
 variable "object_storage" {
   type = object({
-    namespace = optional(string, "object-storage")
+    namespace   = optional(string, "object-storage")
     secret_name = optional(string)
-    region = optional(string, "us-east-1")
-
+    region      = optional(string, "us-east-1")
     storage = optional(object({
       size          = optional(string, "20Gi")
       class         = optional(string, "local-path")
       node_selector = optional(map(string))
     }), {})
-
     chart_version = optional(string, "0.12.0")
-
-    secret_template = optional(object({
-      repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-      path     = optional(string, "modules/secret-template/helm/secret-template")
-      revision = optional(string, "main")
+    services = optional(object({
+      api = optional(object({
+        port     = optional(number, 9000)
+        hostname = optional(string)
+        gateway = optional(object({
+          name         = optional(string)
+          namespace    = optional(string)
+          section_name = optional(string)
+        }), {})
+      }), {})
+      management_console = optional(object({
+        port     = optional(number, 9001)
+        hostname = optional(string)
+        gateway = optional(object({
+          name         = optional(string)
+          namespace    = optional(string)
+          section_name = optional(string)
+        }), {})
+      }), {})
     }), {})
   })
-  description = "The S3 endpoint every store writes into: how big its volume is, and where its access key comes from."
+  description = "The S3 endpoint every store writes into: how big its volume is, where its access key comes from, and whether anything outside the cluster can reach it."
   default     = {}
 }
 
-variable "git_revision" {
-  type    = string
-  default = "adhoc/getting-started"
+variable "git_repository" {
+  type = object({
+    url      = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
+    revision = optional(string, "main")
+  })
+  description = "The repository Argo CD reads this repo's own charts from, and the revision it reads them at."
+  default     = {}
 }

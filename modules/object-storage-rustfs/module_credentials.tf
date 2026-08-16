@@ -8,8 +8,8 @@ module "credentials" {
   source = "../secret-template"
   count  = local.render_secret ? 1 : 0
 
-  name      = local.secret_name
-  keys      = local.secret_keys
-  namespace = var.namespace
-  chart     = var.secret_template
+  name           = local.secret_name
+  keys           = local.secret_keys
+  namespace      = var.namespace
+  git_repository = var.git_repository
 }

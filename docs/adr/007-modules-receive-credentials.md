@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05 ·
 revised 2026-08-09 (absorbed [ADR 006](006-shared-gateway-input.md)) ·
-revised 2026-08-16 (`secret_name` is optional — [ADR 022](022-secrets-are-rendered-empty.md))
+revised 2026-08-16 (`secret_name` is optional — [ADR 022](022-secrets-are-rendered-empty.md);
+`gateway` covers one routable surface, and a module with several takes `services`)
 
 ## Context
 
@@ -27,6 +28,16 @@ and outputs no client credentials.
 
 **Every consumer module takes the same three optional inputs, in one shape each**, and each
 defaults to `null` — meaning "not wired", never "disabled by a flag".
+
+**`gateway` describes one routable surface**, and it carries a hostname because a module with one
+workload has one. A module serving **more than one thing on more than one port** — an API and an
+admin console, say — cannot say what it needs in that shape: one hostname cannot name two
+surfaces, and one `section_name` cannot put them on different listeners, which is exactly the
+distinction worth making when one of them is an admin UI. Such a module takes a `services` object
+instead: one entry per surface, each with its own `port`, its own `hostname`, and its own Gateway
+reference — the same object as below, minus the hostname that moved up beside the port because it
+belongs to the surface rather than to the Gateway. Nothing else changes: absence still means not
+exposed, and the root still composes what a service leaves out from the cluster's own `gateway`.
 
 ```hcl
 variable "gateway" {

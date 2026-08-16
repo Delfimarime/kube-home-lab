@@ -7,10 +7,10 @@ output "element" {
   value = {
     name        = var.name
     source_kind = "git"
-    repo_url    = var.chart.repo_url
+    repo_url    = var.git_repository.url
     chart       = ""
-    path        = var.chart.path
-    revision    = var.chart.revision
+    path        = local.chart_path
+    revision    = var.git_repository.revision
     namespace   = var.namespace
     wave        = var.wave
     values = yamlencode({

@@ -47,17 +47,17 @@ variable "wave" {
   default     = "0"
 }
 
-# Where Argo CD reads this chart from. It is in this repository rather than a chart registry, so
-# every environment rendering a credential must have this repository registered as a source.
+# Where Argo CD reads this chart from. It lives in this repository rather than in a chart
+# registry, so every environment rendering a credential must have this repository registered as a
+# source.
 #
-# Named `chart` and not `source`: that word is a module block's own meta-argument, and a variable
-# claiming it cannot be passed at all.
-variable "chart" {
+# The path is not an input: this module knows where its own chart is, and an input for it would be
+# a knob whose only correct setting is the one already here.
+variable "git_repository" {
   type = object({
-    repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
-    path     = optional(string, "modules/secret-template/helm/secret-template")
+    url      = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
     revision = optional(string, "main")
   })
-  description = "Where Argo CD reads the chart from. `revision` is the caller's git revision."
+  description = "The repository Argo CD reads this chart from, and the revision it reads it at."
   default     = {}
 }

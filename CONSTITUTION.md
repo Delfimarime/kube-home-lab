@@ -70,11 +70,22 @@ still the case that means it.
 [`007`](docs/adr/007-modules-receive-credentials.md),
 [`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
+**2.7** A module rendering a chart **from this repository** takes `git_repository` — one object,
+`url` and `revision` — and holds that chart's *path* as a constant. Where a chart sits inside this
+repo is the module's own knowledge, and an input for it has exactly one correct value; which
+repository and which revision is the environment's fact, written once at the root and passed down
+(§4.5). A chart from an upstream registry needs none of this — its repo URL is a constant in the
+module, like its pinned version.
+
 ## 3. Module inputs
 
 **3.1** Every consumer module takes the same three optional inputs, one shape each, defaulting to
 `null` — meaning *not wired*, never *disabled by a flag*: `gateway`, `database`, `oidc`. Shapes in
-[contracts](docs/platform.md#contracts). [`007`](docs/adr/007-modules-receive-credentials.md)
+[contracts](docs/platform.md#contracts). **`gateway` describes one routable surface**; a module
+serving several on several ports takes `services` instead — one entry per surface, each with its
+own `port`, `hostname` and Gateway reference — because one hostname cannot name two surfaces and
+one listener cannot be the right answer for both an API and an admin console.
+[`007`](docs/adr/007-modules-receive-credentials.md)
 
 **3.2** `metrics` is a fourth input and **not** a contract. One field, `enabled`, default `false`,
 taken by every module whose workload can emit a `ServiceMonitor`; it asserts the cluster has the
