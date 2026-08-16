@@ -8,6 +8,4 @@ terraform {
   }
 }
 
-provider "argocd" {
-  plain_text = var.argocd.plain_text
-}
+provider "argocd" {}

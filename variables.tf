@@ -1,7 +1,6 @@
 variable "argocd" {
   type = object({
     namespace  = optional(string, "argocd")
-    plain_text = optional(bool, true)
   })
   description = "Where ApplicationSets are created, and how the provider reaches Argo CD."
   default     = {}
@@ -66,11 +65,7 @@ variable "cert_manager" {
 variable "object_storage" {
   type = object({
     namespace = optional(string, "object-storage")
-
-    # null renders the Secret here, empty, for an operator to fill. A name points at one that
-    # already exists and is never owned by this repository.
     secret_name = optional(string)
-
     region = optional(string, "us-east-1")
 
     storage = optional(object({
@@ -93,5 +88,5 @@ variable "object_storage" {
 
 variable "git_revision" {
   type    = string
-  default = "main"
+  default = "adhoc/getting-started"
 }
