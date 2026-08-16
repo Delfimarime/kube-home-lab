@@ -7,7 +7,7 @@
 # `gateway_namespace` rather than the whole `gateway` object, because this module emits no route:
 # taking the shape to read one field would force a caller to invent a hostname nothing reads.
 module "cert_manager" {
-  source = "./modules/certificate-management-cert-manager/tofu"
+  source = "./modules/certificate-management-cert-manager"
   argocd = {
     namespace = var.argocd.namespace
   }

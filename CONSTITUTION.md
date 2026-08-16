@@ -8,7 +8,7 @@ behind them. **Before changing a rule that cites one, read that decision** — i
 section is usually why the rule looks odd. Cite a rule as `§4.2`.
 
 ADR links are by number: [`004`](docs/adr/004-scrape-config-via-prometheus-crds.md) …
-[`022`](docs/adr/022-secrets-are-rendered-empty.md), indexed in
+[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md), indexed in
 [docs/README.md](docs/README.md#decisions).
 
 ---
@@ -35,12 +35,16 @@ operator, weeks of neglect — the cost is paid daily, per environment, on finit
 product — `issuer_url`, not `keycloak_realm_id` — so the implementation half stays swappable.
 [keycloak LOCAL-001](docs/modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md)
 
-**2.2** A module directory holds exactly two things: `tofu/` and `helm/<chart>/`. No `.tf` at the
-module root, no chart outside `helm/`, nothing else. **One chart belongs to no module** and lives
-at the repository root under `helm/`: `helm/placeholder-secret/`, which every module with a
-credential renders (§5.2). A second such chart needs the argument that one made.
-[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md),
+**Exactly one directory under `modules/` is not a capability**: `secret-template`, which other
+modules import and which **renders nothing** — it returns one `ApplicationSet` element for its
+caller to own (§5.2). It has no spec, because it designs nothing; a second exception needs the
+argument that one made.
 [`022`](docs/adr/022-secrets-are-rendered-empty.md)
+
+**2.2** A module directory holds its `.tf` files at the root and, where it authors a chart,
+`helm/<chart>/`. Nothing else, and no chart outside `helm/`.
+[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md),
+[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md)
 
 **2.3** Each module renders exactly one Argo CD `ApplicationSet` — a `List` generator, one static
 entry per chart, even at one entry. No shared `ApplicationSet` module; no bare `Application`,
@@ -131,7 +135,7 @@ requirement above it.
 
 **5.2** **A `secret_name` names a Secret; whether the module also declares it is the caller's
 choice.** Set, the module references it and creates nothing. Null, the module **renders a
-placeholder** from `helm/placeholder-secret/` into its own namespace — **keys present**, taken
+placeholder** by importing `modules/secret-template` into its own namespace — **keys present**, taken
 from the same `*_key` inputs the workload's configuration is built from, values empty — with
 `ignoreDifferences` on `.data` *and* `RespectIgnoreDifferences=true` (§2.6), and publishes the
 name it chose. Either way the module holds a name and a key and never a value. A module renders
@@ -213,7 +217,7 @@ layers.
 3. A spec designs it, with acceptance criteria as tagged, IDed Gherkin scenarios.
 4. Code implements the spec and carries its reasons.
 
-**10.2** Specs come first: a module's spec and its ADRs are written before its `tofu/` is.
+**10.2** Specs come first: a module's spec and its ADRs are written before its OpenTofu is.
 
 **10.3** **No code file cites a document** — not an ADR number, not a `REQ-NN`, not a scenario ID,
 not a section of this file. A comment states the reason itself, in enough words to stand alone.

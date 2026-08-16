@@ -43,11 +43,16 @@ mode:
 - `config.rustfs.obs_log_directory` blanked — logs to stdout rather than to a second PVC
 - `config.rustfs.obs_endpoint` disabled — RustFS emits its own telemetry over OTLP, and the
   collector that would receive it stores its data here
-- no route unless asked for, and the console never routed
+- `ingress.enabled` and `gatewayApi.enabled` both off, and no input that would turn either on
 
 Native case per [ADR 010](../../../adr/010-resources-delivered-via-chart.md): the upstream chart
-renders everything, including the Gateway API route. Nothing is authored here and nothing is
-wrapped.
+renders everything it needs. Nothing is authored here and nothing is wrapped.
+
+**Both exposure switches are off deliberately, and the chart is why they had to be looked at.**
+`ingress.enabled` defaults to *true*; and what `gatewayApi` renders is a route to the admin
+console on port 9001, an HTTP-to-HTTPS redirect route, and a Traefik-specific sticky-session
+object — never the S3 API. So the chart cannot expose the right port, and can expose the wrong
+one by default.
 
 ## Rationale
 
@@ -88,7 +93,9 @@ wrapped.
   machine at one replica, and nothing in this repository does.
 - **The S3 API is a read-write surface**, unlike the OTLP endpoint it sits behind. Routing it
   makes stored telemetry retrievable and deletable by whatever reaches the listener, so the
-  write-only argument that made the ingest endpoint defensible does not carry over.
+  write-only argument that made the ingest endpoint defensible does not carry over. Exposing it
+  would also mean wrapping the chart, since its own route support addresses the console — so the
+  cheap path and the safe path happen to agree, and that agreement is luck rather than design.
 - **Reversible, at the cost of a copy.** Swapping the implementation is a values change plus
   `aws s3 sync` between two endpoints, because every consumer is configured with an address and
   a key rather than with anything RustFS-specific. That is the property this whole module exists

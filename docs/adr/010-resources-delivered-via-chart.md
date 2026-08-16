@@ -41,9 +41,9 @@ chart, in order of preference:
    scratch, covering every resource the workload needs.
 
 **A chart this repo authors, wrapped or custom, lives at `helm/<chart-name>/` inside the module
-that owns it** — beside the `tofu/` that renders the `ApplicationSet` pointing at it. A module
-directory holds exactly those two, so what a module *is* and what it *deploys* are one level
-apart and never interleaved, and no chart is shared between modules by accident.
+that owns it** — beside the OpenTofu that renders the `ApplicationSet` pointing at it. What a
+module *is* and what it *deploys* stay one level apart and never interleaved, and no chart is
+shared between modules by accident.
 
 This is deliberately stated without naming a specific resource type: it applies to
 `HTTPRoute` today — the case that surfaced it — and to whatever a future module's chart

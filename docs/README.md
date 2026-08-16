@@ -64,6 +64,7 @@ with the layer that is actually correct.
 | [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
 | [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
 | [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
+| [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 

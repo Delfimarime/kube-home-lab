@@ -27,10 +27,11 @@ variables.tf                   everything true of the cluster being addressed
 <capability>.tf                one module block per capability this cluster ships
 outputs.tf
 modules/<capability>-<impl>/
-  tofu/                        the OpenTofu that renders this module's ApplicationSet
+  *.tf                         the OpenTofu that renders this module's ApplicationSet
   helm/<chart>/                a chart this repo authors, when no upstream one fits
-helm/placeholder-secret/       the one chart belonging to no module: every credential
-                               a module needs, rendered empty for an operator to fill
+modules/secret-template/       the one directory here that is not a capability: other
+                               modules import it, it renders nothing, and it returns the
+                               element that puts an empty Secret in their ApplicationSet
 docs/                          requirements, specs, decisions
 ```
 

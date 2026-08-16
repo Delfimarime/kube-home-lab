@@ -43,7 +43,7 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
-| 0 | `rustfs-credentials` | `placeholder-secret` — the repository's, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `secret_name` is null |
+| 0 | `rustfs-credentials` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `secret_name` is null |
 | 1 | `rustfs` | `rustfs` (charts.rustfs.com) | always |
 
 Native case per [ADR 010](../../adr/010-resources-delivered-via-chart.md) for the workload
@@ -55,10 +55,17 @@ to exist first — empty is enough for the pod to be scheduled, and filling it i
 step below. Where `secret_name` names an existing Secret there is no first Application at all:
 this module reads that object and never owns it.
 
-**Standalone, which is one pod and one volume.** `mode.standalone.enabled` — the chart's default
-is `mode.distributed`, four replicas across sixteen PVCs, which is a shape this cluster will
-never have ([LOCAL-001](adr/LOCAL-001-rustfs-standalone.md)). Erasure coding, pools and
-rebalancing all belong to that other shape and are left alone.
+**Standalone, which is one Deployment of one replica and one volume.** `mode.standalone.enabled`
+— the chart's default is `mode.distributed`, four replicas across sixteen PVCs, which is a shape
+this cluster will never have ([LOCAL-001](adr/LOCAL-001-rustfs-standalone.md)). Erasure coding,
+pools and rebalancing all belong to that other shape and are left alone. Both switches are set
+rather than relying on one to imply the other.
+
+**Everything is renamed to `s3`** through `fullnameOverride`, so the address consumers are
+configured with names the protocol rather than the product: the Service is `s3-svc`, the volume
+`s3-data`. Swapping the implementation is then a values change that no consumer notices, which is
+the property [REQ-09](../../requirements.md) asks for and the whole reason this module publishes
+an address at all.
 
 **One volume, not two.** `config.rustfs.obs_log_directory` is blanked, which is the chart's
 switch between writing its logs to a second PVC and writing them to stdout. Stdout is what a log
@@ -86,20 +93,27 @@ store being written into the store.
 
 ### Exposure
 
-**Nothing is exposed by default**, and there is little reason to change that: the S3 endpoint is
-consumed from inside the cluster, over cluster DNS, on port 9000.
+**Nothing is exposed, and there is no input that would expose it.** The S3 endpoint is consumed
+from inside the cluster, over cluster DNS, on port 9000. This module takes no `gateway` and
+publishes no external URL.
 
-When `gateway` is set, the chart's `gatewayApi` block renders the route — `existingGateway`
-naming the environment's Gateway rather than creating one. **What that exposes is the S3 API
-itself**, which is a read *and* write surface holding every stored signal, and unlike the OTLP
-receiver there is no argument that it is write-only. `gateway.section_name` pointing at the mTLS
-listener is the only posture that makes sense here, and even then
-[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md) applies unchanged: the listener
-decides who may connect, and the access key decides what they may do once they have.
+That is a narrower position than an earlier draft of this spec took, and the chart is why. Two
+of its values would emit something:
 
-The console (port 9001) is never routed by this module in any configuration. Exposing an admin
-UI whose only credential is the same access key the stores use is not a trade worth offering as
-an input.
+- **`ingress.enabled` defaults to `true`**, with an nginx class. It is switched off explicitly,
+  because a default that exposes a store would be [REQ-06](../../requirements.md) failing by
+  omission rather than by decision.
+- **`gatewayApi` renders a route to the *console* on port 9001** — not the S3 API — plus a
+  second HTTP-to-HTTPS redirect route and a Traefik-specific sticky-session object. An admin UI
+  over every stored object is the one thing this module must never expose, so the switch is off
+  and none of it is used.
+
+Routing the S3 API itself would therefore need a wrapper chart rendering an `HTTPRoute` at port
+9000, and it is deliberately not built. That surface is read *and* write over every stored
+signal, so unlike the OTLP receiver there is no argument that it is write-only, and
+[ADR 014](../../adr/014-exposed-does-not-mean-authorized.md)'s "the listener decides" would be
+carrying far more weight than it does anywhere else here. If an environment ever needs it, the
+wrapper is the honest way to add it and this paragraph is the argument to re-read first.
 
 ### Credentials
 
@@ -127,22 +141,28 @@ is a value and not an object. Naming an existing Secret instead is the other hal
 decision: this module then only reads it, and creating it is somebody else's job.
 
 ```sh
-kubectl patch secret rustfs-credentials -n object-storage \
+kubectl patch secret object-storage-credentials -n object-storage \
   --type merge -p "$(jq -n --arg a "$(printf %s "$ACCESS_KEY" | base64)" \
                           --arg s "$(printf %s "$SECRET_KEY" | base64)" \
-                          '{data:{access_key:$a,secret_key:$s}}')"
+                          '{data:{RUSTFS_ACCESS_KEY:$a,RUSTFS_SECRET_KEY:$s}}')"
 
-kubectl rollout restart statefulset/rustfs -n object-storage
+kubectl rollout restart deployment/s3 -n object-storage
 ```
 
-The restart is not optional: the keys are read into the process at start, so a pod that came up
-against the empty Secret keeps the empty values until it is replaced. The key names are what
-`secret.existingSecret` expects from the chart and are not this module's to choose.
+**The key names are environment variable names, and that is not cosmetic.** The chart mounts the
+whole Secret with `envFrom`, so every key becomes a variable in the container — which means a
+Secret holding the right values under any other names produces a process with no credential at
+all. The placeholder carries exactly these two for that reason.
+
+The restart is not optional either: the values are read at start, so a pod that came up against
+the empty Secret keeps the empty values until it is replaced.
 
 **The same value, again, wherever a consumer runs.** A Secret is namespaced, so each consuming
-module renders its own placeholder in its own namespace and an operator fills that one too. Two
-copies of one credential, and nothing detects them disagreeing — the symptom is a store that
-authenticates and then gets `403` on every write.
+module renders its own placeholder in its own namespace and an operator fills that one too —
+**under whatever key names that workload reads, which are not these two.** Same secret, different
+keys, because the keys belong to whoever consumes them. Two copies of one credential, and nothing
+detects them disagreeing: the symptom is a store that starts cleanly and gets `403` on every
+write.
 
 **Every bucket a consumer names, created by hand once RustFS is running.** Nothing creates them:
 not the chart, and not Mimir, Loki or Tempo, each of which requires its bucket to already exist
@@ -150,7 +170,7 @@ and reports its absence as an ingest error rather than a startup one. Using any 
 against the endpoint, port-forwarded or from inside the cluster:
 
 ```sh
-kubectl port-forward -n object-storage svc/rustfs 9000:9000
+kubectl port-forward -n object-storage svc/s3-svc 9000:9000
 aws --endpoint-url http://localhost:9000 s3 mb s3://mimir
 aws --endpoint-url http://localhost:9000 s3 mb s3://loki
 aws --endpoint-url http://localhost:9000 s3 mb s3://tempo
@@ -179,15 +199,15 @@ storage = {
 }
 
 region = "us-east-1"                  # what consumers must be configured with
-
-gateway = null                        # exposes the S3 API; the console is never routed
 ```
 
-Plus the chart version and a values override.
+Plus the chart version, and where Argo CD reads the placeholder chart from.
 
-**`gateway` is the only shared contract this module takes.** `database` and `oidc` are absent and
-would be meaningless: this is the thing other workloads store state *in*, and its one credential
-is an access key rather than a person.
+**This module takes none of the three shared contracts, and that is unusual enough to say.**
+`gateway` is absent because nothing here is ever routed — see [Exposure](#exposure). `database`
+and `oidc` would be meaningless: this is the thing other workloads store state *in*, and its one
+credential is an access key rather than a person. `metrics` is absent too, because the workload
+exposes no `/metrics` endpoint for a `ServiceMonitor` to name.
 
 **`region` is an input rather than a constant** because S3 clients send it and compare it, and
 because an environment migrating buckets in from somewhere else has a name to match. It is
@@ -206,14 +226,16 @@ scheduler picked on the day.
 
 | Output | Used by |
 | --- | --- |
-| `endpoint` | any workload configured with an S3 backend — `rustfs.<namespace>.svc.cluster.local:9000` |
+| `endpoint` | any workload configured with an S3 backend — `s3-svc.<namespace>.svc.cluster.local:9000` |
 | `region` | the same, as the region its client sends |
-| `credentials_secret_name` | the same, to mount or reference the access key by name — the name given, or the one rendered |
-| `url` | the S3 API from outside the cluster — `null` unless `gateway` is set |
+| `credentials_secret_name` | an operator, to know what to fill in — the name given, or the one rendered |
 
-**No output names RustFS**, and no output's *value* does either beyond the Service name the chart
-picks. A consumer wired to these four is configured for S3 and would not notice the
-implementation changing underneath it ([REQ-09](../../requirements.md)).
+**No output names RustFS, and no output's *value* does either** — `fullnameOverride` is what
+buys that, and it is the reason it is set. A consumer wired to these three is configured for S3
+and would not notice the implementation changing underneath it
+([REQ-09](../../requirements.md)).
+
+**There is no external URL** because there is no route — see [Exposure](#exposure).
 
 **`endpoint` is a host and port, not a URL**, because that is the shape every S3 client
 configuration field takes. Whether it is reached over TLS is a separate field in each of those
@@ -225,6 +247,10 @@ about what somebody created by hand, and publishing a list this module cannot ve
 publishing a claim rather than an address.
 
 ## Acceptance criteria
+
+`OBJ-04` and `OBJ-05` are retired and their numbers are not reused. Both were written against a
+`gateway` input that no longer exists — one asserted that nothing was exposed *by default*, the
+other that the console was never routed — and `OBJ-12` asserts something stronger than either.
 
 ```gherkin
 Feature: One S3-compatible endpoint, per environment
@@ -267,17 +293,11 @@ Feature: One S3-compatible endpoint, per environment
     Then it is a host and port, and carries no scheme
 
   @cluster
-  Scenario: [OBJ-04] Nothing is exposed by default
-    Given gateway is null
-    When HTTPRoutes in the namespace are listed
+  Scenario: [OBJ-12] Nothing is reachable from outside the cluster, in any configuration
+    Given the module is applied
+    When HTTPRoutes and Ingresses in the namespace are listed
     Then none exist
-     And url is null
-
-  @cluster
-  Scenario: [OBJ-05] The console is never routed
-    Given a gateway is supplied
-    When HTTPRoutes in the namespace are listed
-    Then none of them addresses port 9001
+     And no input of this module would create one
 
   @cluster
   Scenario: [OBJ-06] The store's own telemetry does not depend on itself

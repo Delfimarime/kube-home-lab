@@ -63,6 +63,34 @@ variable "cert_manager" {
   description = "Certificate management: the domain it issues for, the certificates it issues, and the charts it installs."
 }
 
+variable "object_storage" {
+  type = object({
+    namespace = optional(string, "object-storage")
+
+    # null renders the Secret here, empty, for an operator to fill. A name points at one that
+    # already exists and is never owned by this repository.
+    secret_name = optional(string)
+
+    region = optional(string, "us-east-1")
+
+    storage = optional(object({
+      size          = optional(string, "20Gi")
+      class         = optional(string, "local-path")
+      node_selector = optional(map(string))
+    }), {})
+
+    chart_version = optional(string, "0.12.0")
+
+    secret_template = optional(object({
+      repo_url = optional(string, "git@github.com:Delfimarime/kube-home-lab.git")
+      path     = optional(string, "modules/secret-template/helm/secret-template")
+      revision = optional(string, "main")
+    }), {})
+  })
+  description = "The S3 endpoint every store writes into: how big its volume is, and where its access key comes from."
+  default     = {}
+}
+
 variable "git_revision" {
   type    = string
   default = "main"

@@ -39,7 +39,7 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
-| 0 | `grafana-db-credentials` | `placeholder-secret` — the repository's, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `database.secret_name` is null |
+| 0 | `grafana-db-credentials` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `database.secret_name` is null |
 | 1 | `grafana` | `grafana` (grafana-community) | always |
 
 **Datasources are generated from the three address inputs crossed with the tenant list** — one

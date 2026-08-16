@@ -43,7 +43,7 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 
 | Wave | Application | Chart | Condition |
 | --- | --- | --- | --- |
-| 0 | `object-storage-credentials` | `placeholder-secret` — the repository's, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `object_storage.secret_name` is null |
+| 0 | `object-storage-credentials` | `secret-template` — imported, see [ADR 022](../../adr/022-secrets-are-rendered-empty.md) | `object_storage.secret_name` is null |
 | 0 | `prometheus-operator-crds` | `prometheus-operator-crds` (prometheus-community) | `enable_metrics_support` |
 | 1 | `mimir` | `mimir-monolithic` — authored by this repo | `enable_metrics_support` |
 | 1 | `loki` | `loki`, `deploymentMode: SingleBinary` | `enable_logs_support` |

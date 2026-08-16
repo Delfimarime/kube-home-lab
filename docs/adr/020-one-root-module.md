@@ -30,7 +30,7 @@ The third — one state per unit, so a plan touches one module — is real, and 
 ## Decision
 
 **No Terragrunt.** A root module at the repository root composes the cluster: one `module` block
-per capability, `source = "./modules/<capability>-<impl>/tofu"`.
+per capability, `source = "./modules/<capability>-<impl>"`.
 
 **The environment is the shell, not the tree.** `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` select
 the cluster, `-backend-config` selects its state, `-var-file` supplies its values. There is no

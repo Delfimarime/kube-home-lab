@@ -78,8 +78,10 @@ variables.tf                   everything true of the cluster being addressed
 <capability>.tf                one module block per capability this cluster ships
 outputs.tf
 modules/<capability>-<impl>/
-  tofu/                        the OpenTofu that renders this module's ApplicationSet
+  *.tf                         the OpenTofu that renders this module's ApplicationSet
   helm/<chart>/                a chart this repo authors, when no upstream one fits
+modules/secret-template/       imported by the modules that need a credential; renders
+                               nothing itself
 docs/                          requirements, specs, decisions
 ```
 
@@ -132,7 +134,7 @@ Both of these run offline — no PostgreSQL, no Argo CD — and are worth having
 ```sh
 tofu init -backend=false && tofu validate          # the composition
 
-cd modules/certificate-management-cert-manager/tofu
+cd modules/certificate-management-cert-manager
 tofu init -backend=false && tofu validate          # a module on its own
 ```
 

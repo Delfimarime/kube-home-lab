@@ -43,10 +43,13 @@ and a key and never a value.
   broken module.
 - The Secret is rendered by a chart like every other resource
   ([ADR 010](010-resources-delivered-via-chart.md)); OpenTofu still creates no bare Kubernetes
-  object. One chart serves every module — `helm/placeholder-secret/` at the repository root,
-  the first chart here that does not belong to a single module — and a module's `ApplicationSet`
-  gains one entry per Secret it renders, at wave 0. A module given every name creates no entry
-  at all.
+  object. One chart serves every module, and it is delivered as **`modules/secret-template`, a
+  module other modules import** — the one directory under `modules/` that is not a capability.
+  **It renders nothing itself**: it returns one List-generator element, which the caller
+  concatenates into its own `charts`, so a consumer still renders exactly one `ApplicationSet`
+  ([ADR 005](005-modules-are-applicationsets.md)) and still owns everything in it. Given every
+  name, a caller sets `count = 0` on the import and there is no element, no Application and
+  nothing owned.
 - The generated `Application` carries `ignoreDifferences` on `v1/Secret` for `.data`, together
   with `RespectIgnoreDifferences=true`. Both are required: alone, the first only hides the field
   from a diff, and the next sync of anything pushes the empty value back over the real one.
@@ -77,6 +80,10 @@ and a key and never a value.
 - **One shared chart, because the resource has no per-module content.** A Secret with a name, a
   namespace and a list of empty keys is the same object everywhere, and four copies of it would
   drift.
+- **Shared as a module rather than as a path every caller repeats.** The chart's git coordinates,
+  the sync wave and the shape of the element are one thing each consumer would otherwise declare
+  for itself — five variables and a `local` per module, all of which have to agree. Importing a
+  module that returns the element makes that contract a signature instead of a convention.
 - **Upstream escape hatches were the alternative and were rejected for uniformity.** RustFS's
   chart has `extraManifests` and Grafana's has `extraObjects`; the next chart has neither, or
   spells it a third way. One mechanism that works everywhere beats a per-chart lookup.
@@ -110,9 +117,15 @@ and a key and never a value.
   value still lives in etcd, unencrypted at rest under k3s defaults, and in the operator's head.
   Nothing backs it up and nothing rotates it. What changed is that the *object* is declared, not
   that the secret is managed.
-- **A chart now lives outside a module directory.** `helm/placeholder-secret/` is referenced by
-  path from several `ApplicationSet`s, which makes this repository a source Argo CD must be able
-  to read in any environment shipping any module with a credential — previously true only where
-  the certificate module shipped.
+- **A directory under `modules/` is not a capability**, which weakens §2.1's naming rule by
+  exactly one exception. `secret-template` has no spec, because it designs nothing and decides
+  nothing; what it is, is here.
+- **A module now imports a module.** Nesting is one level and stays there: a module that imported
+  something rendering resources would render two `ApplicationSet`s, which is why this one renders
+  none.
+- **This repository becomes a source Argo CD must read** in any environment shipping any module
+  with a credential — previously true only where the certificate module shipped. The chart is
+  read from git at the caller's `git_revision`, so a branch that has not been pushed is an
+  Application pointing at a path that does not exist.
 - **The open question is half answered.** What creates the Secrets: this does, whenever nobody
   else has. What supplies their contents: still nothing, still a person, still unrecorded.

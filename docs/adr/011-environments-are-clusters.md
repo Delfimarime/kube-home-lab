@@ -57,7 +57,7 @@ what is deployed because it *is* what is deployed ([ADR 020](020-one-root-module
   is not an account in another. [REQ-01](../requirements.md) is scoped accordingly.
   Federating them is machinery this lab does not need.
 - **Modules are not versioned per environment.** This is a monorepo, so the root module
-  references `source = "./modules/<m>/tofu"` — a local path, not a versioned git ref. Every
+  references `source = "./modules/<m>"` — a local path, not a versioned git ref. Every
   environment runs whatever the checkout holds, so there is no validating a change in one
   environment first. Accepted: few environments, one operator. The escape hatch is a git ref in
   `source`, which changes no module's contract.
