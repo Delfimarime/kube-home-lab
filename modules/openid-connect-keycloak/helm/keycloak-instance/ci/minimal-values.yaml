@@ -1,0 +1,27 @@
+# The smallest configuration the module can produce: an issuer with no route and no scraping.
+# Unreachable from outside the cluster, which the module above refuses — it is here because it is
+# the rendering that proves the route and the ServiceMonitor are genuinely conditional, and that
+# `serviceMonitor.enabled` is written as false rather than left to its own default of true.
+name: keycloak
+image: ""
+
+service:
+  name: keycloak-service
+  port: 8080
+
+hostname: https://id.lab.internal
+
+database:
+  url: jdbc:postgresql://postgresql.storage.svc.cluster.local:5432/keycloak?sslmode=require
+  secretName: keycloak-db
+  usernameKey: username
+  passwordKey: password
+
+bootstrapAdmin:
+  secretName: keycloak-bootstrap-admin
+
+route: null
+
+metrics:
+  enabled: false
+  labels: {}

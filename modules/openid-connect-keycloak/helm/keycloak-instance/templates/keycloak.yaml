@@ -1,0 +1,71 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: {{ include "keycloak-instance.name" . }}
+  labels:
+    {{- include "keycloak-instance.labels" . | nindent 4 }}
+spec:
+  # One. Nothing here is worth an HA story on a tiny cluster, and a second replica would need a
+  # distributed cache configured to agree with it.
+  instances: 1
+
+  {{- with .Values.image }}
+  image: {{ . | quote }}
+  {{- end }}
+
+  db:
+    vendor: postgres
+    # The URL carries the address *and* sslmode; the resource's host, port and database fields are
+    # ignored whenever it is set, so they are left unset rather than written twice.
+    url: {{ required "database.url is required" .Values.database.url | quote }}
+    usernameSecret:
+      name: {{ required "database.secretName is required" .Values.database.secretName | quote }}
+      key: {{ .Values.database.usernameKey | quote }}
+    passwordSecret:
+      name: {{ .Values.database.secretName | quote }}
+      key: {{ .Values.database.passwordKey | quote }}
+
+  # A full URL, so the issuer, the discovery document and every redirect are fixed rather than
+  # resolved from whatever headers the last hop set.
+  hostname:
+    hostname: {{ required "hostname is required" .Values.hostname | quote }}
+
+  # TLS terminates at the Gateway, so the server speaks HTTP inside the cluster and is given no
+  # certificate — which is why it needs no trust material and holds none.
+  http:
+    httpEnabled: true
+    serviceName: {{ .Values.service.name | quote }}
+    serviceHttpPort: {{ .Values.service.port }}
+
+  # Changes no URL above — those are fixed by the hostname — but it is what makes Keycloak read
+  # the X-Forwarded-For the Gateway already sets, so a login event records the client's address
+  # rather than the proxy's. Unset, the operator falls back to passthrough and every event names
+  # the same pod.
+  proxy:
+    headers: xforwarded
+
+  bootstrapAdmin:
+    user:
+      secret: {{ required "bootstrapAdmin.secretName is required" .Values.bootstrapAdmin.secretName | quote }}
+
+  # The operator's own Ingress, off. Gateway API is this platform's ingress and the operator does
+  # not speak it, so exactly one path in exists and this chart owns it.
+  ingress:
+    enabled: false
+
+  serviceMonitor:
+    # Never omitted: this field defaults to true, so an unset value on a cluster without the
+    # Prometheus operator's CRDs fails the sync.
+    enabled: {{ .Values.metrics.enabled }}
+    {{- with .Values.metrics.labels }}
+    labels:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+
+  {{- if .Values.metrics.enabled }}
+  # The management interface serves /metrics only once this is on, and it is off by default — a
+  # ServiceMonitor pointed at it without this scrapes a 404 and reports the workload as down.
+  additionalOptions:
+    - name: metrics-enabled
+      value: "true"
+  {{- end }}
