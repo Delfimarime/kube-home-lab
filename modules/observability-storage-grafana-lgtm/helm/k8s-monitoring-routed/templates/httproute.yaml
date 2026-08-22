@@ -34,7 +34,9 @@ metadata:
     {{- end }}
 spec:
   parentRefs:
-    - name: {{ required "gateway.name is required when gateway is set" .Values.gateway.name }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "gateway.name is required when gateway is set" .Values.gateway.name }}
       namespace: {{ required "gateway.namespace is required when gateway is set" .Values.gateway.namespace }}
       {{- with .Values.gateway.sectionName }}
       sectionName: {{ . }}
