@@ -71,6 +71,11 @@ affinity: {}
 podAnnotations: {}
 podLabels: {}
 
+# Extra labels on the Service. Separate from podLabels because scrape discovery reads a Service's
+# labels first and a pod's only where the Service carries none, so the two positions are not
+# interchangeable.
+serviceLabels: {}
+
 # The process runs as an unprivileged user and writes only to the scratch volume above.
 podSecurityContext:
   runAsNonRoot: true

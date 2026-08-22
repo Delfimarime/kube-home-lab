@@ -309,6 +309,9 @@ locals {
     serviceMonitor = {
       enabled = contains(keys(local.shipped), "metrics")
     }
+
+    podLabels     = local.self_tenant_labels
+    serviceLabels = local.self_tenant_labels
   }
 
   metrics_store_values = yamlencode({
@@ -330,7 +333,17 @@ locals {
   logs_store_base = {
     deploymentMode = "SingleBinary"
 
+    # This chart's ServiceMonitor rewrites `cluster` on every series it scrapes, to the release name
+    # unless told otherwise. Left alone, this store's own metrics would be the one place in the
+    # cluster where `cluster` does not name the cluster.
+    clusterLabelOverride = var.cluster_name
+
     loki = {
+      # Common to every pod and every Service this chart renders, which at one replica is the one
+      # StatefulSet and its three Services.
+      podLabels     = local.self_tenant_labels
+      serviceLabels = local.self_tenant_labels
+
       # Tenancy, despite the name — it turns on the tenant header and authenticates nobody.
       auth_enabled = true
 
@@ -434,13 +447,22 @@ locals {
     minio        = { enabled = false }
 
     # The chart ships a scrape configuration of its own, which would be a second discovery mechanism
-    # beside the one the collector already uses.
+    # beside the one the collector already uses. Its `serviceMonitor`, though, is the same mechanism
+    # every other workload here declares scraping through, and it is the only way this store's own
+    # metrics are collected at all — the other two stores' charts have it on already.
+    #
+    # The chart renders it only where the CRD exists, which is the same condition this module
+    # installs the bundle under.
     monitoring = {
       selfMonitoring = {
         enabled = false
         grafanaAgent = {
           installOperator = false
         }
+      }
+
+      serviceMonitor = {
+        enabled = local.collect_metrics
       }
     }
   }
@@ -521,6 +543,9 @@ locals {
     serviceMonitor = {
       enabled = contains(keys(local.shipped), "metrics")
     }
+
+    podLabels = local.self_tenant_labels
+    service   = { labels = local.self_tenant_labels }
   }
 
   traces_store_values = yamlencode({
@@ -547,6 +572,29 @@ locals {
   # what the routers read. Anything writing this label to a workload writes the first spelling.
   tenant_label      = "opentelemetry.io/tenant"
   tenant_label_meta = replace(local.tenant_label, "/[^a-zA-Z0-9]+/", "_")
+
+  # The tenant this module's *own* workloads are collected as — the three stores now, and the
+  # collector too if its self-reporting is ever switched on. It is stamped on them from here rather
+  # than taken as an input, for the same reason `unattributed` is not an input: it names telemetry
+  # this module writes about itself, so an environment naming it could only ever disagree with what
+  # is actually written. `var.tenants` refuses it for that reason.
+  #
+  # It is not where *everything* about these workloads lands. Their own `/metrics` and their
+  # container logs are theirs and come here; kube-state-metrics' and the node exporter's view of the
+  # same pods is a cluster-wide series carrying no workload label, and stays with the cluster's own
+  # tenant. A dashboard over "is the storage healthy" spans both, which is the price of routing by
+  # workload rather than by namespace.
+  self_tenant = "telemetry-storage"
+
+  # What this module writes and no caller may claim. Published as an output so the console can build
+  # a datasource for each: a tenant nothing can query is a tenant nobody can be told about, which
+  # would make `unattributed` filling up a fact with no reader.
+  reserved_tenants = sort([local.self_tenant, "unattributed"])
+
+  # Stamped on every workload this module deploys, in both positions each chart offers: the Service
+  # a ServiceMonitor selects, which discovery reads first, and the pods behind it, which is what the
+  # log pipeline reads and the only thing it can read.
+  self_tenant_labels = { (local.tenant_label) = local.self_tenant }
 
   # **Pod first, Service second, and the order is the whole of the precedence.** `regex = "(.+)"`
   # writes nothing when the source label is absent, so the Service's value replaces the pod's where
@@ -660,7 +708,7 @@ locals {
   # a tenant this environment does not have is a typo, and a typo that silently joined the cluster's
   # own telemetry would be indistinguishable from correct configuration. Appending it cannot collide
   # with a caller's tenant, because `var.tenants` refuses that name.
-  scrape_tenants = concat(sort(keys(var.tenants)), ["unattributed"])
+  scrape_tenants = concat(sort(keys(var.tenants)), local.reserved_tenants)
 
   # One router per label-based pipeline, built from one list of routes in two dialects.
   #
@@ -670,10 +718,10 @@ locals {
   # same answer it got before any of this existed.
   tenant_routers = {
     for signal, ecosystem in { metrics = "prometheus", logs = "loki" } : "${signal}-router" => {
-      type      = "router"
-      ecosystem = ecosystem
+      type                             = "router"
+      ecosystem                        = ecosystem
       routes = concat(
-        [for t in sort(keys(var.tenants)) : {
+        [for t in concat(sort(keys(var.tenants)), [local.self_tenant]) : {
           match        = [{ label = "tenant", op = "equals", value = t }]
           destinations = ["${signal}-tenant-${t}"]
         }],

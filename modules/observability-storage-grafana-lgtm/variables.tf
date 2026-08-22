@@ -349,6 +349,13 @@ variable "tenants" {
     error_message = "\"unattributed\" is reserved: it is where a write carrying no tenant header is kept, so that a forgotten header shows up as a filling tenant rather than as data the collector accepted and the store threw away. Name this tenant something else."
   }
 
+  # The stores' own telemetry is written under a name this module stamps on its own workloads, so a
+  # caller listing it would be describing writes it does not make and cannot change.
+  validation {
+    condition     = !contains(keys(var.tenants), "telemetry-storage")
+    error_message = "\"telemetry-storage\" is reserved: it is what this module's own workloads — the stores, and the collector where it reports on itself — are collected as, stamped on them from inside this module. Name this tenant something else."
+  }
+
   validation {
     condition = alltrue(flatten([
       for name, t in var.tenants : [

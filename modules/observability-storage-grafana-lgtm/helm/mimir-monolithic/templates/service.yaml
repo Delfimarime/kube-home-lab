@@ -9,6 +9,9 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "mimir-monolithic.labels" . | nindent 4 }}
+    {{- with .Values.serviceLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   type: ClusterIP
   selector:

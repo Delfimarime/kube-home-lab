@@ -73,6 +73,12 @@ so every read carries `X-Scope-OrgID`. Two tenants over two switched-on signals 
 datasources, named `<store> <tenant>`, and `default_tenant` decides whose is marked as
 its default.
 
+**The list includes the storage module's reserved tenants.** The root appends
+`reserved_tenants` — `telemetry-storage`, holding the stores' own telemetry, and `unattributed`,
+holding writes whose tenant was forgotten or misspelled — so both are readable here. A tenant with
+no datasource is data nobody can look at, and `unattributed` filling up is only a signal if somebody
+can see it.
+
 **`tenants` is a read-side choice and cannot disagree with reality.** Nothing validates a tenant
 name on write either, so there is no set of "real" tenants for this list to be wrong about — it
 says which ones are worth looking at. That is why it is a root variable read by this module and

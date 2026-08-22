@@ -1,7 +1,8 @@
 # LOCAL-008. A scraped workload names its own tenant, in a label
 
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
-**Date:** 2026-08-16 · refines [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) and
+**Date:** 2026-08-16 · revised 2026-08-22 (the reserved `telemetry-storage` tenant) ·
+refines [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) and
 [ADR 017](../../../adr/017-stores-are-multi-tenant.md)
 
 ## Context
@@ -76,6 +77,21 @@ that workload's metrics and not its logs.
 describe the cluster rather than any workload in it, so they are written as `default_tenant`
 directly rather than through a router with nothing to match on.
 
+**This module's own workloads are labelled `telemetry-storage`, and that name is not an input.**
+The three stores carry it on their Services and their pods, put there by this module rather than by
+an environment — the same standing as `unattributed`, and `var.tenants` refuses both for the same
+reason: it names telemetry this module writes about itself, so an environment naming it could only
+disagree with what is actually written. Both reserved names are published as an output, so the
+console builds a datasource for each; a tenant nothing can query is a tenant nobody can be told
+about, which would leave `unattributed` filling up as a fact with no reader.
+
+**It does not hold everything about those workloads, and cannot.** Their own `/metrics` and their
+container logs are theirs and come here. kube-state-metrics' and the node exporter's view of the
+same pods — restarts, memory pressure, replica counts — is cluster-wide series carrying no workload
+label, and stays with the cluster's own tenant. "Is the storage healthy" therefore spans two
+datasources, and Grafana cannot join across them in one panel. That is the price of routing by
+workload rather than by namespace, and it is paid knowingly.
+
 ## Rationale
 
 - **The label is the scrape path's version of the header, not a new idea.** A push states its tenant
@@ -117,3 +133,8 @@ directly rather than through a router with nothing to match on.
   one more Secret per tenant per signal, holding a name that is not a credential.
 - **Traces are unaffected.** They have no scrape path at all; a trace arrives pushed or not at all,
   and its tenant has always come from its own header.
+- **The log store's own metrics are collected for the first time.** Its chart's `serviceMonitor` was
+  never switched on — the other two stores' were — so a third of this module's own telemetry did not
+  exist to have a tenant. It is on now, and the chart's habit of rewriting `cluster` to its release
+  name is overridden with `clusterLabelOverride`, or this store's series would be the one place in
+  the cluster where `cluster` does not name the cluster.

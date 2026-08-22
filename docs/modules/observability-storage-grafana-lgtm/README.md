@@ -94,6 +94,12 @@ Loki's and Tempo's rather than being a third dialect.
 `chunksCache` and `resultsCache` are switched off; they are the chart's defaults and pure
 overhead at this size.
 
+**All three stores declare their own scraping**, through their chart's `serviceMonitor` switch like
+every other workload here, whenever this module ships a metrics store. Loki's chart also rewrites the
+`cluster` label to its release name unless told otherwise, so `clusterLabelOverride` is set to
+`cluster_name` — without it this store's series would be the one place `cluster` names something
+other than the cluster.
+
 **No store owns a volume.** All three write their blocks, chunks and traces to buckets in the
 environment's object store ([LOCAL-006](adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md)),
 which is what their vendors support and what the earlier filesystem backends were not. The
@@ -192,6 +198,13 @@ not.** The chart's destinations split in three, and each feature selects the one
 | operator objects — `ServiceMonitor`, `PodMonitor` — and tailed pod logs | `router`, fanning out to one `prometheus` / `loki` destination per tenant | from the workload's `opentelemetry.io/tenant` label |
 | cluster metrics, the exporters, cluster events | `prometheus` / `loki` for `default_tenant` | static: they describe the cluster, not a workload |
 | anything pushed to the receiver | `custom`, `ecosystem: otlp` | propagated from the request |
+
+**This module's own workloads are collected as `telemetry-storage`**, a tenant it stamps on the
+three stores itself and that `var.tenants` refuses a caller for — the same standing as
+`unattributed`. Both are published as `reserved_tenants` so the console builds a datasource for
+each. It holds each store's own `/metrics` and container logs; kube-state-metrics' and the node
+exporter's view of the same pods is cluster-wide and stays with `default_tenant`, so a storage
+health dashboard spans two datasources.
 
 **A scraped workload names its own tenant in a label**
 ([LOCAL-008](adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md)): two relabel rules copy
@@ -527,6 +540,7 @@ store module's input, where the volume actually is.
 | `logs_url` | the console, as a datasource — `null` unless logs are on |
 | `traces_url` | the console, as a datasource — `null` unless traces are on |
 | `object_storage_secret_names` | the operator, to know what to fill in — one entry per shipped signal |
+| `reserved_tenants` | the console, to build a datasource for each tenant this module writes itself |
 
 **The Secret names are a map rather than a name**, because a component may write somewhere else
 and take its own credential with it. One string could describe three stores only while they
