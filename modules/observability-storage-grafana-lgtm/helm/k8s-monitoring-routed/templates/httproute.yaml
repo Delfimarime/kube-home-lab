@@ -54,5 +54,6 @@ spec:
           kind: "Service"
           name: {{ $.Values.receiver.service }}
           port: {{ $.Values.receiver.port }}
+          weight: 1
     {{- end }}
 {{- end }}
