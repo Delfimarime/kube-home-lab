@@ -75,7 +75,10 @@ Specs come first, and every specified module is built.
 ```
 main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
-<capability>.tf                one module block per capability this cluster ships
+locals.tf                      what the root derives before passing it down
+module_<capability>.tf         the module blocks for one capability — usually one, two
+                               where a capability ships as a pair (module_observability.tf
+                               holds the storage and the console)
 outputs.tf
 modules/<capability>-<impl>/
   *.tf                         the OpenTofu that renders this module's ApplicationSet
@@ -130,7 +133,26 @@ must already exist; the schema is created on first `init`. **Which PostgreSQL is
 unspecified**: not necessarily the one this environment's workloads use, and not necessarily in
 the cluster.
 
-Both of these run offline — no PostgreSQL, no Argo CD — and are worth having before either:
+### Checking it
+
+Every check runs offline — no PostgreSQL, no Argo CD, no cluster:
+
+```sh
+make            # list the targets
+make ci         # everything the pipeline runs
+make lint       # the fast half: formatting, validation, tflint, helm lint
+```
+
+**The Makefile is the local twin of [`.github/workflows/ci.yml`](.github/workflows/ci.yml)**, and
+CI calls these same targets rather than restating the commands — so "it passed locally" means
+what it says. There is no `plan` and no `apply` in CI: the Argo CD this repo drives is on a home
+network no runner can reach, so a pull request is the only gate.
+
+`make trivy` scans what Helm *renders*, not the chart sources. These charts take their real
+values from OpenTofu, so their defaults render almost nothing and each chart's `ci/` values files
+are the only description of what actually gets deployed.
+
+Underneath, the same two commands by hand:
 
 ```sh
 tofu init -backend=false && tofu validate          # the composition

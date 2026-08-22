@@ -79,11 +79,19 @@ actually wants, through the same chart, with no wrapper and no second pinned ver
 
 ## Consequences
 
-- **Pre-1.0 software holds every stored signal.** The chart pins appVersion `1.0.0-beta.12`;
-  upstream reached `1.0.0-rc.2` on 2026-08-14, so the chart trails the product by two releases and
-  the version actually running is not the newest one. On-disk format stability between pre-1.0
-  releases is undocumented. Assume at least one upgrade requires emptying the buckets, and read
-  the release notes before moving the pin.
+- **Pre-1.0 software holds every stored signal.** The chart pins appVersion `1.0.0-rc.3`, which is
+  the newest upstream publishes. On-disk format stability between pre-1.0 releases is
+  undocumented. Assume at least one upgrade requires emptying the buckets, and read the release
+  notes before moving the pin.
+
+  *Revised 2026-08-23.* This originally read that the chart pinned `1.0.0-beta.12` while upstream
+  had reached `1.0.0-rc.2`, so the chart trailed the product by two releases — which was true when
+  written and was half the reason to stay put. Upstream has since published charts for every
+  release candidate and renumbered them: the chart carried its own `0.x` sequence through the
+  betas and now uses the same string as the appVersion. Chart and product no longer diverge, the
+  gap that argument rested on is closed, and the pin moved to `1.0.0-rc.3` with it. Rendering the
+  new chart against this module's values produced output identical to the old one but for the
+  version labels and the image tag, so nothing in the values schema moved underneath it.
 - **A pinned chart is a pinned appVersion**, and overriding the image tag to get a newer server
   is not on offer here. The chart's values are written against the version it ships; separating
   the two is how a values schema drifts out from under a module silently

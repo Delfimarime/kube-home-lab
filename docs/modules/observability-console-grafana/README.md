@@ -1,6 +1,6 @@
 # Module: observability-console-grafana
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-01, REQ-03, REQ-05, REQ-06, REQ-13](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-two-grafana-roles-strict.md),
 [LOCAL-003](adr/LOCAL-003-alerting-lives-in-grafana.md),
@@ -297,6 +297,11 @@ panel naming no datasource falls back to — or, where this environment ships no
 then its traces. Marking one per type instead is `Only one datasource per organization can be marked
 as default`, which refuses the whole provisioning file: Grafana then starts with none of the
 datasources, not with the ones it did not object to.
+
+Plus two inputs no environment normally writes: `argocd.namespace`, where the `ApplicationSet`
+object goes, and `git_repository` — this repository and the revision Argo CD reads its charts at,
+which every module rendering one of them takes. Only consulted where a `secret_name` is null,
+since the placeholder Secret is the one chart of this repository's that this module renders.
 
 ## Outputs
 

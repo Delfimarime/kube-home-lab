@@ -1,6 +1,6 @@
 # Module: object-storage-rustfs
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-05, REQ-09, REQ-10](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-rustfs-standalone.md),
 [ADR 005](../../adr/005-modules-are-applicationsets.md),
@@ -444,9 +444,11 @@ Feature: One S3-compatible endpoint, per environment
   hours later and in another module's logs. A rebuild that recreates every Application correctly
   still ends with a cluster that stores nothing. This is the single most likely way a fresh
   environment ends up quietly broken.
-- **The version is `1.0.0-beta.12`.** Every store's data sits behind pre-1.0 software, and the
-  format compatibility it offers between betas is undocumented. Read the release notes before
-  bumping the pin, and expect the upgrade path to be "empty the buckets" at least once.
+- **The version is `1.0.0-rc.3`.** Every store's data sits behind pre-1.0 software, and the format
+  compatibility it offers between pre-1.0 releases is undocumented. Read the release notes before
+  bumping the pin, and expect the upgrade path to be "empty the buckets" at least once. The chart
+  and the server now carry the same version string; through the betas they did not, so a pin that
+  reads like a server release is right rather than a mistake.
 - **One pod is a single point of failure for every signal at once.** Metrics, logs and traces
   previously failed independently, each with its own volume; they now share a process. This is a
   known cost of the decision that put them here and not a defect to fix by adding replicas —

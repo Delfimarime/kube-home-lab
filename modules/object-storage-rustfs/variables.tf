@@ -53,9 +53,14 @@ variable "storage" {
   }
 }
 
+# **This is a chart version that looks like a product version, and upstream renumbered to make it
+# so.** Through the betas the chart carried its own `0.x` sequence against a `1.0.0-beta.x`
+# appVersion; from the first release candidate the two are the same string. A pin that reads like
+# a server release is therefore correct here, and the older `0.12.0` form is not a typo in
+# anything that still carries it.
 variable "rustfs" {
   type = object({
-    chart_version = optional(string, "0.12.0")
+    chart_version = optional(string, "1.0.0-rc.3")
   })
   description = "The RustFS chart."
   default     = {}

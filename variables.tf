@@ -46,9 +46,14 @@ variable "cert_manager" {
       name        = optional(string, "cert-ca-bundle")
       authorities = optional(list(string), ["server"])
     }), {})
-    chart_version = optional(string, "v1.21.1")
+    # **Unset here on purpose, and every version pin below follows the same rule.** What each
+    # module installs is the module's own fact and is pinned there; a copy at this level would be
+    # a second place to change and the one that silently wins, because a value written here is
+    # passed down and overrides it. Set one only to make *this cluster* run something other than
+    # what the module pins.
+    chart_version = optional(string)
     trust_manager = optional(object({
-      chart_version = optional(string, "v0.24.0")
+      chart_version = optional(string)
     }), {})
 
     # Which tenant this unit's own telemetry is stored under. Unset means this cluster's own
@@ -76,7 +81,8 @@ variable "object_storage" {
       class         = optional(string, "local-path")
       node_selector = optional(map(string))
     }), {})
-    chart_version = optional(string, "0.12.0")
+    # Unset: the chart the module pins. See `cert_manager.chart_version`.
+    chart_version = optional(string)
     services = optional(object({
       api = optional(object({
         port     = optional(number, 9000)
@@ -127,8 +133,9 @@ variable "identity" {
     bootstrap_admin_secret_name = optional(string)
 
     # One release pins the operator's manifests and, by leaving `image` unset, the server build
-    # that goes with them.
-    version = optional(string, "26.7.2")
+    # that goes with them. Unset here: the release the module pins. See
+    # `cert_manager.chart_version`.
+    version = optional(string)
     image   = optional(string)
 
     # Which tenant this unit's own telemetry is stored under. Unlike the other units here it
@@ -173,7 +180,7 @@ variable "observability" {
       metrics = optional(object({
         bucket    = string
         retention = optional(string)
-        image_tag = optional(string, "3.1.4")
+        image_tag = optional(string) # unset: the image the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -186,7 +193,7 @@ variable "observability" {
       logs = optional(object({
         bucket        = string
         retention     = optional(string)
-        chart_version = optional(string, "7.3.0")
+        chart_version = optional(string) # unset: the chart the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -199,7 +206,7 @@ variable "observability" {
       traces = optional(object({
         bucket        = string
         retention     = optional(string)
-        chart_version = optional(string, "1.24.4")
+        chart_version = optional(string) # unset: the chart the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -250,7 +257,7 @@ variable "observability" {
     }), {})
     console = optional(object({
       hostname      = optional(string)
-      chart_version = optional(string, "10.5.15")
+      chart_version = optional(string) # unset: the chart the module pins
       tenant        = optional(string)
       gateway = optional(object({
         name         = optional(string)

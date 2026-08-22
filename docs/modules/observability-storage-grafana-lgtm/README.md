@@ -1,6 +1,6 @@
 # Module: observability-storage-grafana-lgtm
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-02, REQ-06, REQ-09, REQ-10](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-grafana-lgtm-stack.md),
 [LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md),
@@ -529,6 +529,12 @@ environment shipping one signal creates one bucket, and nothing validates that i
 **There is no `storage_node_selector` any more.** It placed the three components that owned a
 volume, and none of them owns one now. Placing the machine that holds the data is the object
 store module's input, where the volume actually is.
+
+Plus three inputs no environment normally writes: `prometheus_operator_crds.chart_version`, the
+CRD bundle the collector reads scrape configuration from; `argocd.namespace`, where the
+`ApplicationSet` object goes; and `git_repository` — this repository and the revision Argo CD
+reads its charts at, which every module rendering one of them takes. This module renders two, so
+it is always consulted.
 
 ## Outputs
 

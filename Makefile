@@ -13,7 +13,7 @@ TF_DIRS := . $(wildcard modules/*/)
 # a dependency is unpacked, and a vendored upstream chart is not ours to lint.
 CHARTS := $(shell find modules -name Chart.yaml -not -path '*/charts/*' -exec dirname {} \;)
 
-# One provider download shared by all six init runs instead of one each.
+# One provider download shared by every init run — the root and each module — instead of one each.
 export TF_PLUGIN_CACHE_DIR ?= $(CURDIR)/.tofu-plugin-cache
 
 OUT ?= .ci-out

@@ -2,7 +2,7 @@ image:
   repository: grafana/mimir
   # Pinned by the module rather than defaulted meaningfully here: an upgrade is a deliberate edit,
   # which is what stops a configuration key changing underneath this chart silently.
-  tag: "3.1.4"
+  tag: "3.2.0"
   pullPolicy: IfNotPresent
 
 # Every read and write carries a tenant header. Nothing validates it — a caller states its tenant

@@ -6,7 +6,7 @@ description: >-
   per-tenant limits and retention.
 type: application
 version: 0.1.0
-appVersion: "3.1.4"
+appVersion: "3.2.0"
 
 # No dependencies, and nothing wrapped. The only official chart deploys the microservices topology
 # — distributor, ingester, querier, query-frontend, store-gateway, compactor, plus caches and a

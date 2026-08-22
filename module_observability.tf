@@ -11,9 +11,13 @@ module "observability_storage" {
   tenants        = local.observability.tenants
   default_tenant = local.observability.default_tenant
   gateway        = local.observability_expose_gateway
-  mimir          = try(local.observability.components.metrics.image_tag, null) == null ? {} : { image_tag = local.observability.components.metrics.image_tag }
-  loki           = try(local.observability.components.logs.chart_version, null) == null ? {} : { chart_version = local.observability.components.logs.chart_version }
-  tempo          = try(local.observability.components.traces.chart_version, null) == null ? {} : { chart_version = local.observability.components.traces.chart_version }
+  # Each store's version, passed straight through — null included. An unset pin arrives as null
+  # and the module's own default takes over, which is where every version here is written; these
+  # three exist so one cluster can run something else without the module changing for all of them.
+  # `try` is for the component being absent entirely, not for the pin being unset.
+  mimir          = { image_tag = try(local.observability.components.metrics.image_tag, null) }
+  loki           = { chart_version = try(local.observability.components.logs.chart_version, null) }
+  tempo          = { chart_version = try(local.observability.components.traces.chart_version, null) }
   git_repository = var.git_repository
 }
 

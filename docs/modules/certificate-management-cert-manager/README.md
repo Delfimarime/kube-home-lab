@@ -1,6 +1,6 @@
 # Module: certificate-management-cert-manager
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-08, REQ-09, REQ-14](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-certificates-from-an-internal-ca.md),
 [LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md),
@@ -194,7 +194,7 @@ issuer, which is the same fact as having no consumer inside this repository.
 **Almost none of it is written down per environment.** `domain` is the one value with no
 default, and everything else is derived from it: both authorities' common names, the wildcard, and
 each entry's `dns_names` and client subject. `namespace`, `default_certificate`, `authority`,
-`trust_bundle` and the three chart pins stay at their defaults; `argocd.namespace`,
+`trust_bundle` and the chart pins stay at their defaults; `argocd.namespace`,
 `gateway_namespace` and `metrics` come from root variables, because they describe the cluster
 rather than this module. The root module is a pass-through — it composes nothing.
 

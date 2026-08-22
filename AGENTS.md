@@ -17,14 +17,19 @@ rules are not repeated here.
 | Why a platform-wide choice was made | [docs/adr/](docs/README.md#decisions) |
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
 | How to run anything | [README.md](README.md#running-it) |
+| How to check your work before you claim it passes | [Makefile](Makefile) — `make help` |
 
 ## Repository structure
 
 ```
 CONSTITUTION.md                the rules
+Makefile                       every check CI runs; `make ci` is the local twin
 main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
-<capability>.tf                one module block per capability this cluster ships
+locals.tf                      what the root derives before passing it down
+module_<capability>.tf         the module blocks for one capability — usually one, two
+                               where a capability ships as a pair (module_observability.tf
+                               holds the storage and the console)
 outputs.tf
 modules/<capability>-<impl>/
   *.tf                         the OpenTofu that renders this module's ApplicationSet
@@ -44,6 +49,10 @@ docs/                          requirements, specs, decisions
 3. **Specs before code** (§10.2). A new decision needs the scope test in §10.4, and the tell in
    §10.5 is worth checking before you write it in the wrong place.
 4. **Don't cite a document from code** (§10.3). Write the reason into the comment instead.
+5. **Run `make ci` before saying it works.** It is the same set of targets the pipeline calls, so
+   "it passed locally" means the same thing there. `make lint` is the fast half; `make trivy`
+   scans what Helm actually renders rather than the chart sources, because these charts take
+   their real values from OpenTofu and their defaults render almost nothing.
 
 ## Blocked and undecided
 
@@ -69,7 +78,7 @@ Live state, not rules. Each of these is a reason to stop and ask rather than pro
   PostgreSQL too, but a separate one, and it *is* regenerable
   ([ADR 012](docs/adr/012-state-is-per-environment.md)).
 - **The object store is pre-1.0, and nothing creates its buckets.** `object-storage-rustfs` pins
-  a chart whose appVersion is `1.0.0-beta.12`, and every stored signal now lives behind it. The
+  a chart whose appVersion is `1.0.0-rc.3`, and every stored signal now lives behind it. The
   buckets each store writes to are created by hand, per environment; a missing one is not a sync
   failure — every store comes up healthy and fails on its first write. Don't add a bucket input
   to a module that cannot create one.

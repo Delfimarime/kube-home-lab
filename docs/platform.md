@@ -1,6 +1,6 @@
 # Platform specification
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-05, REQ-06, REQ-08, REQ-09, REQ-10, REQ-12, REQ-13](requirements.md) ·
 **Decisions:** [ADR 004](adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](adr/005-modules-are-applicationsets.md),
@@ -22,9 +22,9 @@ repeats it.
 
 ## Intent
 
-Provision workload-facing platform services — observability, identity, certificates and audit —
-onto existing k3s clusters, in a way that is still understandable after six months of not being
-touched.
+Provision workload-facing platform services — observability, identity, certificates and the
+object storage behind them — onto existing k3s clusters, in a way that is still understandable
+after six months of not being touched.
 
 The measure of success is not uptime. It is that a person returning to this repo can tell what
 runs, why it was chosen, and what happens if they change it.
@@ -94,7 +94,7 @@ Six nouns carry all the weight. Everything else is a detail of one of them.
   Environment ──is──▶ one cluster ──runs──▶ its own Argo CD ──▶ the modules it ships
 ```
 
-**Capability** — a job that needs doing: identity, observability, certificates, audit.
+**Capability** — a job that needs doing: identity, observability, certificates, object storage.
 Capabilities are stable. What implements one is not.
 
 **Module** — one implementation of one capability, named `<capability>-<implementation>`

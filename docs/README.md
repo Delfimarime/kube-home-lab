@@ -105,8 +105,8 @@ ADR, and none should need to.
 
 **A module ADR that wants to cite another module's is in the wrong place.** The citation is the
 smell, not the offence: a decision whose reversal reaches a second module is platform-scoped by
-[the scope test](../AGENTS.md#workflow-requirements--adrs--specs--code), so the fix is to lift
-it rather than to link across. `ADR 017` and `ADR 018` were both lifted for exactly this reason
+[the scope test](../CONSTITUTION.md#10-documentation) (§10.4), so the fix is to lift it rather
+than to link across. `ADR 017` and `ADR 018` were both lifted for exactly this reason
 — tenancy was written as a storage decision and reaches the console; the trust bundle was
 written as a certificate decision and reaches every consumer wired to `oidc`. Once lifted, the
 modules that needed them cite a platform ADR, which was always allowed.
@@ -146,6 +146,23 @@ constrains:
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` · **Date:** …
 ```
 
+### Status
+
+**A decision and a design do not have the same statuses, because they are not the same kind of
+claim.** An ADR records a choice, so its status says whether the choice still stands. A spec
+describes a design, so its status says how far that design has got.
+
+| Where | Value | Means |
+| --- | --- | --- |
+| ADR | `accepted` | the decision stands |
+| ADR | `superseded by <ref>` | another decision replaced it. The file stays; the reasoning is still the record of why the old answer looked right |
+| Spec | `draft` | written, and nothing implements it yet |
+| Spec | `implemented` | code exists and does what this describes |
+
+**`accepted` never appears on a spec.** A spec is not agreed to, it is built — and a spec left at
+`draft` while its module runs in a cluster is the drift this field exists to catch. Moving one to
+`implemented` is part of finishing the module, not a later tidy-up.
+
 ### Module specs
 
 **Every module spec has at least these sections, in this order.** A missing one is a gap, not
@@ -164,9 +181,9 @@ last that did was dropped with its module, and what it had to say was the reason
 | Acceptance criteria | Gherkin, one `Feature`, IDed and tagged scenarios |
 | Open items | What is unresolved, and what it would cost to resolve |
 
-`Prerequisites` is the one optional section with a fixed name and position, because two modules
-already needed it and a third naming it something else would be the start of the drift this
-table exists to prevent. It is where the Secret examples live: a new `secret_name` without one
+`Prerequisites` is the one optional section with a fixed name and position. It was made optional
+when two modules needed it; every module has one now, and the fixed name is what stopped the
+sixth from inventing its own. It is where the Secret examples live: a new `secret_name` without one
 is an incomplete change.
 
 ### Scenario IDs and tags

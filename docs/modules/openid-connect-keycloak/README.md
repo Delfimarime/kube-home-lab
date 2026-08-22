@@ -1,6 +1,6 @@
 # Module: openid-connect-keycloak
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-01, REQ-09, REQ-10](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-oidc-provider-keycloak.md),
 [LOCAL-002](adr/LOCAL-002-the-operator-comes-from-upstream-manifests.md),
@@ -179,6 +179,11 @@ through `issuer_url` and never name it separately.
 **`gateway.section_name` names the ordinary TLS listener.** The mTLS listener exists for the
 OTLP ingest endpoint and a browser cannot present a client certificate
 ([certificate-management-cert-manager](../certificate-management-cert-manager/README.md)).
+
+Plus two inputs no environment normally writes: `argocd.namespace`, where the `ApplicationSet`
+object goes, and `git_repository` — this repository and the revision Argo CD reads its charts at,
+which every module rendering one of them takes. This module always renders one, so it is always
+consulted.
 
 ## Outputs
 
