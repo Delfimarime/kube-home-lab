@@ -283,9 +283,18 @@ Feature: An issuer, and only an issuer
   `resource_access` by client ID. A mismatch is a refused login that reads as a broken module.
   A validation comparing them cannot live here — this module never sees a consumer's slug — so
   it belongs in each consumer, or in prose.
-- **Install runs database migrations on start.** Expect one round of sync-ordering trouble on
-  first apply, and on any version bump that changes the schema; `ServerSideApply=true` on the
-  instance Application may be needed too.
+- **First start rebuilds the server image, then migrates the database**, and both sit on the
+  critical path of the first sync — observed at 26.7.2, roughly forty seconds together.
+  `metrics-enabled` is a *build-time* option, so switching metrics on makes the container re-run
+  Quarkus augmentation before it serves anything; that cost returns on any later change to a
+  build-time option, not on every restart. Liquibase then initialises the schema. Throughout,
+  health reports `Keycloak Initialized: DOWN`, which is the probe working rather than a failure —
+  and it is why a wave after this one would need the Argo CD health check the
+  [Prerequisites](#prerequisites) describe.
+- **Two telemetry warnings on start are expected and mean nothing here.**
+  `telemetry-resource-attributes` and `telemetry-service-name` are set by the operator and ignored
+  because no OpenTelemetry component is switched on. They are not a symptom of the metrics
+  configuration above, which runs through Micrometer on the management interface.
 - **The bootstrap admin is a password nobody will rotate.** It is the break-glass route for when
   the realm is misconfigured, and it is a static credential outside the OIDC path. If it is kept
   — and it should be — it needs an owner.
