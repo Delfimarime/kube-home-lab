@@ -29,7 +29,6 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |
-| `audit-management-auditum` | an audit record API |
 
 ## Rationale
 
@@ -71,8 +70,7 @@ One OpenTofu root module composes the cluster; each module it calls provisions A
 resources — one `ApplicationSet` per module. Argo CD does the installing and the reconciling:
 OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 
-Specs come first. Five of the six specified modules are built; `audit-management-auditum` is
-blocked on an open question and deliberately has no OpenTofu.
+Specs come first, and every specified module is built.
 
 ```
 main.tf                        required_version, required_providers, provider, backend

@@ -32,8 +32,8 @@ runs, why it was chosen, and what happens if they change it.
 ## Scope
 
 **In scope.** Argo CD `ApplicationSet`/`Application` resources and their configuration, for:
-observability (metrics, logs, traces), OIDC identity, certificate management, audit trail
-management, and the object storage those workloads keep their data in — per environment.
+observability (metrics, logs, traces), OIDC identity, certificate management, and the object
+storage those workloads keep their data in — per environment.
 
 **Object storage is in scope where PostgreSQL is not**, and the line is not size. A database is
 something an environment already has, administered and older than this repository
@@ -141,7 +141,6 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | [`object-storage-rustfs`](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint the stores write into |
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
-| [`audit-management-auditum`](modules/audit-management-auditum/README.md) | an audit record API — **blocked** |
 
 **What each one provides and consumes is in its own spec**, and only there. This table names
 the parts; the [mechanisms](#mechanisms) below describe how they meet.
@@ -348,7 +347,6 @@ first — it is checkable from a plan, and it is the criterion behind REQ-12.
 Tracked in [requirements.md](requirements.md#open-questions), owned by the specs and ADRs that
 would resolve them:
 
-- **What is Auditum for?** — [audit-management-auditum](modules/audit-management-auditum/README.md)
 - **What creates the Secrets every module references?** — nothing. See
   [requirements.md](requirements.md#open-questions)
 - **What declares the realm?** — nothing. Clients, roles and grants exist only in the issuer's

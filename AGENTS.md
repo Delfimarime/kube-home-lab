@@ -49,10 +49,12 @@ docs/                          requirements, specs, decisions
 
 Live state, not rules. Each of these is a reason to stop and ask rather than proceed.
 
-- **`audit-management-auditum` is blocked** on an open question: application audit trails vs.
-  Kubernetes API audit logs
-  ([its blocking question](docs/modules/audit-management-auditum/README.md#blocking-question)).
-  Don't build it out further — if the answer is the second, the module should not exist.
+- **Audit record management is out of scope, and the requirement behind it is retired.** REQ-07
+  and the `audit-management-auditum` spec were both dropped on 2026-08-23: nothing here writes an
+  audit record, and the requirement never resolved into a single subject — application audit
+  trails and Kubernetes API audit logs are different systems. Don't reinstate either. An
+  application that later needs an audit trail gets a new requirement written against it, not this
+  one revived ([requirements.md](docs/requirements.md)).
 - **The identity model is not declared anywhere, and this is the largest gap in the platform.**
   Keycloak's realm — clients, redirect URIs, the `<SLUG>_<ROLE>` roles, every grant — is created
   by hand in a console. **This was surveyed on 2026-08-22 and the gap was left open on purpose**:

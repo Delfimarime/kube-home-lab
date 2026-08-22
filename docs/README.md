@@ -38,7 +38,6 @@ with the layer that is actually correct.
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
 | [object-storage-rustfs](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
 | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | the OIDC issuer |
-| [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
 
 ## Decisions
 
@@ -150,8 +149,9 @@ constrains:
 ### Module specs
 
 **Every module spec has at least these sections, in this order.** A missing one is a gap, not
-a style choice. Extra sections are fine where a module earns one — Auditum has a *Blocking
-question* and a *Security note*, and both are the most important things on the page.
+a style choice. Extra sections are fine where a module earns one, and the bar is that the
+section carries something none of the standard ones can hold. No spec currently has one: the
+last that did was dropped with its module, and what it had to say was the reason it went.
 
 | Section | Contains |
 | --- | --- |
