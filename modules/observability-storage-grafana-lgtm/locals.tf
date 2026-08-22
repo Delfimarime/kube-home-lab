@@ -692,7 +692,7 @@ locals {
     ALLOY
   }
 
-  # A scraped workload states its tenant in a label ([LOCAL-008]) and this is what that label
+  # A scraped workload states its tenant in a label, and this is what that label
   # becomes. **A remote-write header is fixed per endpoint**, so one header per tenant means one
   # endpoint per tenant and something in front choosing between them — there is no setting that
   # reads a tenant off a series and writes it as a header, which is why this is a set of

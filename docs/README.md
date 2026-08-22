@@ -154,6 +154,7 @@ describes a design, so its status says how far that design has got.
 
 | Where | Value | Means |
 | --- | --- | --- |
+| ADR | `proposed` | written down but **not made**. No ADR currently holds it; ADR 012 did, until its backend was chosen |
 | ADR | `accepted` | the decision stands |
 | ADR | `superseded by <ref>` | another decision replaced it. The file stays; the reasoning is still the record of why the old answer looked right |
 | Spec | `draft` | written, and nothing implements it yet |
@@ -198,15 +199,6 @@ different scenario. The tag says where the check can run:
 
 - `@plan` — assertable against `tofu plan -json`, no cluster needed
 - `@cluster` — needs the thing actually running
-
-### Status
-
-`draft` is being written and changes without ceremony. `proposed` means the decision is
-written down but **not made** — no ADR currently holds it; ADR 012 did, until its backend was
-chosen. `accepted` is agreed; changing it means changing its consequences too. `implemented` is
-matched by code. `superseded` links its replacement in the header.
-
-Every spec here is `draft` until its module is built and its `@cluster` criteria have run.
 
 ### Revising an ADR
 

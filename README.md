@@ -141,6 +141,7 @@ Every check runs offline — no PostgreSQL, no Argo CD, no cluster:
 make            # list the targets
 make ci         # everything the pipeline runs
 make lint       # the fast half: formatting, validation, tflint, helm lint
+make docs       # the documentation, against itself and against the code
 ```
 
 **The Makefile is the local twin of [`.github/workflows/ci.yml`](.github/workflows/ci.yml)**, and
@@ -151,6 +152,12 @@ network no runner can reach, so a pull request is the only gate.
 `make trivy` scans what Helm *renders*, not the chart sources. These charts take their real
 values from OpenTofu, so their defaults render almost nothing and each chart's `ci/` values files
 are the only description of what actually gets deployed.
+
+`make docs` checks the mechanical half of a documentation review — that links and anchors
+resolve, that every index agrees with what is on disk, that a spec does not say `draft` while its
+module runs, and that no code file cites a document. It is a check rather than a convention
+because the documentation here is the deliverable, and the drift it catches is invisible to a
+reviewer reading one file at a time.
 
 Underneath, the same two commands by hand:
 

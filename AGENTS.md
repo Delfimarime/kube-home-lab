@@ -18,12 +18,23 @@ rules are not repeated here.
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
 | How to run anything | [README.md](README.md#running-it) |
 | How to check your work before you claim it passes | [Makefile](Makefile) — `make help` |
+| The procedure for a recurring job — creating a module, writing an ADR, resyncing the docs | `.agents/skills/<name>/SKILL.md` |
+
+**Skills live in `.agents/skills/`**, one directory per procedure, and hold *order and
+checklists* — never rules, which are the CONSTITUTION's and would drift the moment they were
+copied. There are three:
+[`creating-module`](.agents/skills/creating-module/SKILL.md),
+[`writing-adr`](.agents/skills/writing-adr/SKILL.md) and
+[`resync-doc-to-code`](.agents/skills/resync-doc-to-code/SKILL.md). They are outside `.claude/`
+so that they are tracked and shared by every agent rather than one vendor's; `make skills` links
+them where Claude Code looks.
 
 ## Repository structure
 
 ```
 CONSTITUTION.md                the rules
 Makefile                       every check CI runs; `make ci` is the local twin
+.agents/skills/<name>/         the procedure for a recurring job, and any script it runs
 main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
 locals.tf                      what the root derives before passing it down
@@ -47,12 +58,15 @@ docs/                          requirements, specs, decisions
 2. **Read the module's `README.md` and every ADR it links** — its own `LOCAL-` ones and the
    platform ADRs it obeys (§10.6).
 3. **Specs before code** (§10.2). A new decision needs the scope test in §10.4, and the tell in
-   §10.5 is worth checking before you write it in the wrong place.
+   §10.5 is worth checking before you write it in the wrong place. Both jobs have a skill:
+   [`creating-module`](.agents/skills/creating-module/SKILL.md) and
+   [`writing-adr`](.agents/skills/writing-adr/SKILL.md).
 4. **Don't cite a document from code** (§10.3). Write the reason into the comment instead.
 5. **Run `make ci` before saying it works.** It is the same set of targets the pipeline calls, so
-   "it passed locally" means the same thing there. `make lint` is the fast half; `make trivy`
-   scans what Helm actually renders rather than the chart sources, because these charts take
-   their real values from OpenTofu and their defaults render almost nothing.
+   "it passed locally" means the same thing there. `make lint` is the fast half; `make docs`
+   checks the documentation against itself and against the code; `make trivy` scans what Helm
+   actually renders rather than the chart sources, because these charts take their real values
+   from OpenTofu and their defaults render almost nothing.
 
 ## Blocked and undecided
 
