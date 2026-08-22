@@ -1,0 +1,35 @@
+# The shape an environment actually ships: the wildcard as an mTLS pair, one extra server-only
+# certificate, and a Gateway to grant.
+namespace: cert-manager
+
+authorities:
+  server:
+    commonName: lab.internal server CA
+    duration: 87600h
+  client:
+    commonName: lab.internal client CA
+    duration: 87600h
+
+certificates:
+  default:
+    server:
+      dnsNames:
+        - "*.lab.internal"
+      duration: 8760h
+    client:
+      commonName: default.lab.internal
+      duration: 8760h
+      renewBefore: 720h
+  storage:
+    server:
+      dnsNames:
+        - mimir.lab.internal
+      duration: 8760h
+
+trustBundle:
+  name: cert-ca-bundle
+  authorities:
+    - server
+
+gateway:
+  namespace: kube-system

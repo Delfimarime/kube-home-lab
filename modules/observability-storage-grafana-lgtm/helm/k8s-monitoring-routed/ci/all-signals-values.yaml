@@ -1,0 +1,229 @@
+# A Gateway, all three signals stored, and therefore three rules on one route. Asserts the route
+# addresses the receiver and nothing else — no rule here names a store, whatever else the wrapped
+# chart is running in this namespace.
+#
+# It also carries the tenant routing the module generates, because that shape is the one most
+# likely to break on a chart upgrade: a router destination, one real destination per tenant, and the
+# discovery rules that put the tenant label on a series in the first place.
+gateway:
+  name: traefik
+  namespace: kube-system
+  hostname: otlp.lab.internal
+  sectionName: otlp-mtls
+
+receiver:
+  service: otlp
+  port: 4318
+
+routes:
+  metrics: true
+  logs: true
+  traces: true
+
+k8s-monitoring:
+  cluster:
+    name: lab
+
+  destinations:
+    metrics-tenant-lab:
+      type: prometheus
+      url: http://mimir.observability.svc.cluster.local:8080/api/v1/push
+      tenantId: lab
+    metrics-tenant-team-a:
+      type: prometheus
+      url: http://mimir.observability.svc.cluster.local:8080/api/v1/push
+      tenantId: team-a
+    metrics-tenant-unattributed:
+      type: prometheus
+      url: http://mimir.observability.svc.cluster.local:8080/api/v1/push
+      tenantId: unattributed
+
+    metrics-router:
+      type: router
+      ecosystem: prometheus
+      routes:
+        - match:
+            - label: tenant
+              op: equals
+              value: lab
+          destinations:
+            - metrics-tenant-lab
+        - match:
+            - label: tenant
+              op: equals
+              value: team-a
+          destinations:
+            - metrics-tenant-team-a
+        - match:
+            - label: tenant
+              op: matches
+              value: .+
+          destinations:
+            - metrics-tenant-unattributed
+      defaultDestinations:
+        - metrics-tenant-lab
+
+    logs-tenant-lab:
+      type: loki
+      url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+      tenantId: lab
+    logs-tenant-team-a:
+      type: loki
+      url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+      tenantId: team-a
+    logs-tenant-unattributed:
+      type: loki
+      url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+      tenantId: unattributed
+
+    logs-router:
+      type: router
+      ecosystem: loki
+      routes:
+        - match:
+            - label: tenant
+              op: equals
+              value: lab
+          destinations:
+            - logs-tenant-lab
+        - match:
+            - label: tenant
+              op: equals
+              value: team-a
+          destinations:
+            - logs-tenant-team-a
+        - match:
+            - label: tenant
+              op: matches
+              value: .+
+          destinations:
+            - logs-tenant-unattributed
+      defaultDestinations:
+        - logs-tenant-lab
+
+    traces-push:
+      type: custom
+      ecosystem: otlp
+      traces:
+        enabled: true
+        target: otelcol.exporter.otlphttp.traces_store.input
+      config: |
+        otelcol.auth.headers "traces_store_tenant" {
+          header {
+            key          = "X-Scope-OrgID"
+            action       = "upsert"
+            from_context = "X-Scope-OrgID"
+          }
+
+          header {
+            key    = "X-Scope-OrgID"
+            action = "insert"
+            value  = "unattributed"
+          }
+        }
+
+        otelcol.exporter.otlphttp "traces_store" {
+          client {
+            endpoint = "http://tempo.observability.svc.cluster.local:4318"
+            auth     = otelcol.auth.headers.traces_store_tenant.handler
+          }
+        }
+
+  collectors:
+    alloy-receiver:
+      fullnameOverride: otlp
+      presets:
+        - deployment
+        - otel-receiver
+    alloy-metrics:
+      presets:
+        - deployment
+    alloy-logs:
+      presets:
+        - daemonset
+        - filesystem-log-reader
+    alloy-singleton:
+      presets:
+        - singleton
+
+  clusterMetrics:
+    enabled: true
+    collector: alloy-metrics
+    destinations:
+      - metrics-tenant-lab
+
+  prometheusOperatorObjects:
+    enabled: true
+    collector: alloy-metrics
+    destinations:
+      - metrics-router
+    serviceMonitors:
+      extraDiscoveryRules: |
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_opentelemetry_io_tenant"]
+          regex         = "(.+)"
+          target_label  = "tenant"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_service_label_opentelemetry_io_tenant"]
+          regex         = "(.+)"
+          target_label  = "tenant"
+        }
+    podMonitors:
+      extraDiscoveryRules: |
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_opentelemetry_io_tenant"]
+          regex         = "(.+)"
+          target_label  = "tenant"
+        }
+
+  podLogsViaLoki:
+    enabled: true
+    collector: alloy-logs
+    destinations:
+      - logs-router
+    labels:
+      app_kubernetes_io_name: app.kubernetes.io/name
+      tenant: opentelemetry.io/tenant
+
+  clusterEvents:
+    enabled: true
+    collector: alloy-singleton
+    destinations:
+      - logs-tenant-lab
+
+  # Cluster metrics are scraped from these two, so switching that feature on without them is
+  # refused at render time. They follow the same flag the feature does.
+  telemetryServices:
+    kube-state-metrics:
+      deploy: true
+    node-exporter:
+      deploy: true
+
+  applicationObservability:
+    enabled: true
+    collector: alloy-receiver
+    destinations:
+      - traces-push
+    receivers:
+      otlp:
+        grpc:
+          enabled: true
+          port: 4317
+          includeMetadata: true
+        http:
+          enabled: true
+          port: 4318
+          includeMetadata: true
+    metrics:
+      enabled: false
+    logs:
+      enabled: false
+    traces:
+      enabled: true
+
+  annotationAutodiscovery:
+    enabled: false
+
+  selfReporting:
+    enabled: false

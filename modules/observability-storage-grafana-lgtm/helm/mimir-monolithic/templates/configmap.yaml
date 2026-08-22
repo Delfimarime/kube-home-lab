@@ -1,0 +1,152 @@
+{{- include "mimir-monolithic.validate" . }}
+{{/*
+The process configuration, in its own ConfigMap. The pod carries a checksum of it, so changing any
+of this rolls the StatefulSet — which is what a change to storage, tenancy or a listen port needs.
+The per-tenant limits are deliberately *not* here; see the second ConfigMap below.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mimir-monolithic.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mimir-monolithic.labels" . | nindent 4 }}
+data:
+  mimir.yaml: |
+    # Every read and write carries a tenant header, and nothing verifies it.
+    multitenancy_enabled: {{ .Values.multitenancyEnabled }}
+
+    # Nothing here reports the shape of this deployment to anybody.
+    usage_stats:
+      enabled: false
+
+    server:
+      http_listen_port: {{ .Values.server.httpPort }}
+      grpc_listen_port: {{ .Values.server.grpcPort }}
+
+    # One backend for every component that stores anything, declared once. The access key is two
+    # environment variables expanded at start-up, so no value reaches this file, the ConfigMap, or
+    # the Application spec that renders them.
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: {{ .Values.storage.endpoint | quote }}
+          region: {{ .Values.storage.region | quote }}
+          bucket_name: {{ .Values.storage.bucket | quote }}
+          access_key_id: {{ .Values.storage.accessKeyRef | quote }}
+          secret_access_key: {{ .Values.storage.secretKeyRef | quote }}
+          insecure: {{ .Values.storage.insecure }}
+
+    # Three components share one bucket and each is refused unless it is given somewhere distinct
+    # inside it to write. One bucket with three prefixes rather than three buckets: the two that
+    # are not blocks hold nothing here, and a bucket per unused component is a bucket somebody has
+    # to create by hand for the sake of a component that never writes.
+    blocks_storage:
+      storage_prefix: blocks
+      tsdb:
+        dir: /data/tsdb
+      bucket_store:
+        sync_dir: /data/tsdb-sync
+
+    # The ruler runs because it is part of the single-process target, and nothing in this
+    # deployment writes a rule. It is pointed somewhere benign rather than left to discover at
+    # start-up that it was configured with nothing.
+    ruler_storage:
+      storage_prefix: ruler
+
+    alertmanager_storage:
+      storage_prefix: alertmanager
+
+    compactor:
+      data_dir: /data/compactor
+      sharding_ring:
+        kvstore:
+          store: memberlist
+
+    # One process, so every ring has exactly one member and a replication factor above one could
+    # never be satisfied. memberlist with nothing to join forms that cluster of one without a
+    # second system to run.
+    distributor:
+      ring:
+        kvstore:
+          store: memberlist
+
+    ingester:
+      ring:
+        kvstore:
+          store: memberlist
+        replication_factor: 1
+
+    store_gateway:
+      sharding_ring:
+        kvstore:
+          store: memberlist
+        replication_factor: 1
+
+    ruler:
+      # Where the rule files it fetches from ruler_storage are cached on the way in. The default is
+      # `./data-ruler/`, a *relative* path under a working directory that is on the read-only root
+      # filesystem, so the process fails its own start-up sanity check with
+      # `failed to access directory ./data-ruler/` and takes every other module down with it. It is
+      # cache rather than data, so the scratch volume is the right place for it.
+      rule_path: /data/ruler
+      ring:
+        kvstore:
+          store: memberlist
+
+    memberlist:
+      join_members: []
+
+    # Written to on every query, and the root filesystem is read-only.
+    activity_tracker:
+      filepath: /data/metrics-activity.log
+
+    # What applies to a tenant the overrides file does not name. A caller may write under any name,
+    # including one nobody configured, and such a write lands here rather than being refused.
+    limits:
+      compactor_blocks_retention_period: {{ .Values.limits.retention | quote }}
+
+    runtime_config:
+      file: /etc/mimir/runtime/runtime.yaml
+---
+{{/*
+The per-tenant limits, in a ConfigMap of their own and with no checksum on the pod. The process
+re-reads this file while it runs, so raising a tenant's ceiling is a `kubectl apply` and not a
+restart of the store every other tenant is writing to.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mimir-monolithic.fullname" . }}-runtime
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mimir-monolithic.labels" . | nindent 4 }}
+data:
+  runtime.yaml: |
+    {{- if .Values.tenants }}
+    overrides:
+      {{- range $tenant, $limits := .Values.tenants }}
+      {{- /*
+        One shape in, this store's spelling out. The names on the left are the same three words the
+        log and trace stores are given; the names on the right are this one's, and they are the
+        reason the translation happens here rather than in every caller.
+
+        A limit that was not given is left out rather than written as null, because a rate read as
+        null is read as zero, and zero rejects everything.
+      */}}
+      {{- $out := dict }}
+      {{- with $limits.ingestion_rate }}{{- $_ := set $out "ingestion_rate" . }}{{- end }}
+      {{- with $limits.ingestion_burst_size }}{{- $_ := set $out "ingestion_burst_size" . }}{{- end }}
+      {{- with $limits.max_series }}{{- $_ := set $out "max_global_series_per_user" . }}{{- end }}
+      {{- with $limits.retention }}{{- $_ := set $out "compactor_blocks_retention_period" . }}{{- end }}
+      {{ $tenant }}:
+      {{- if $out }}
+{{ toYaml $out | indent 8 }}
+      {{- else }}
+        {}
+      {{- end }}
+      {{- end }}
+    {{- else }}
+    overrides: {}
+    {{- end }}

@@ -1,0 +1,35 @@
+{{/*
+One Bundle for the whole cluster, distributed to every namespace by trust-manager rather than
+mounted per workload. It reads its sources from trust-manager's --trust-namespace, which the
+module pins to .Values.namespace.
+*/}}
+{{- if .Values.trustBundle.authorities }}
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: {{ .Values.trustBundle.name }}
+  labels:
+    {{- include "cert-pki.labels" . | nindent 4 }}
+spec:
+  sources:
+    # Not optional, and the whole safety of the thing: a bundle containing only the lab root,
+    # mounted over a container's ca-certificates.crt, replaces the public roots rather than
+    # adding to them — so the workload would trust this lab and nothing else on the internet.
+    - useDefaultCAs: true
+    {{- range $name := .Values.trustBundle.authorities }}
+    {{- if not (hasKey $.Values.authorities $name) }}
+    {{- fail (printf "trustBundle.authorities names %q, which is not an authority" $name) }}
+    {{- end }}
+    - secret:
+        name: {{ include "cert-pki.caName" (dict "root" $ "name" $name) }}
+        key: tls.crt
+    {{- end }}
+  target:
+    configMap:
+      key: ca-certificates.crt
+    # Every namespace. A consumer that needs the root finds the ConfigMap already there; the
+    # alternative was a documented step per namespace, which is the one that gets forgotten in
+    # the namespace that needed it.
+    namespaceSelector:
+      matchLabels: {}
+{{- end }}

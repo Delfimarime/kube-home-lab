@@ -1,0 +1,4 @@
+# The wrapped chart is resolved from its repository when manifests are generated, not vendored
+# here. `helm dependency build` puts the resolved archive in this directory; the lock file beside
+# Chart.yaml is what pins it, and is committed.
+charts/

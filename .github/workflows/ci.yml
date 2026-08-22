@@ -1,0 +1,71 @@
+# Every check here is a Makefile target, so a run reproduces locally with `make ci` and there is
+# one place to change a command. What CI adds is the tooling, and the SARIF upload.
+#
+# There is no apply and no plan. State is local and the Argo CD this repo drives is on a home
+# network no runner can reach — so what merges to main is what Argo CD reads, and a pull request
+# is the only gate this repository has.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The two lint halves are independent and run side by side.
+  tofu:
+    name: tofu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_wrapper: false # or `tofu` is a shell function and the Makefile's `command -v` misses it
+      - uses: terraform-linters/setup-tflint@v6
+      - run: make tofu-lint
+
+  helm:
+    name: helm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - run: make helm-lint
+
+  # Trivy scans what Helm renders, not the chart sources: these charts take their real values from
+  # Terraform, so their defaults render almost nothing and the ci/ values files are the only
+  # description of what actually gets deployed.
+  trivy:
+    name: trivy
+    needs: [helm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # to upload SARIF to code scanning
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - uses: aquasecurity/setup-trivy@v0.3.1
+
+      - name: Misconfiguration scan of the rendered charts
+        run: make trivy-config TRIVY_ARGS="--format sarif --output trivy-config.sarif"
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+      - name: Secret scan of the tree
+        run: make trivy-fs TRIVY_ARGS="--format sarif --output trivy-fs.sarif"
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs

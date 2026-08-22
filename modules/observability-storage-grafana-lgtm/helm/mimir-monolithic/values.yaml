@@ -1,0 +1,96 @@
+image:
+  repository: grafana/mimir
+  # Pinned by the module rather than defaulted meaningfully here: an upgrade is a deliberate edit,
+  # which is what stops a configuration key changing underneath this chart silently.
+  tag: "3.1.4"
+  pullPolicy: IfNotPresent
+
+# Every read and write carries a tenant header. Nothing validates it — a caller states its tenant
+# and is believed — so what this buys is per-tenant limits and retention, and not isolation.
+# Switching it off later would be a data migration rather than a configuration change.
+multitenancyEnabled: true
+
+server:
+  httpPort: 8080
+  grpcPort: 9095
+
+# Where the blocks go. There is no filesystem alternative in this chart, deliberately: the local
+# backend is the one whose vendor declines to support the compactor and store-gateway sharing a
+# volume, which is exactly what running every component in one process would mean.
+storage:
+  # Host and port, no scheme. Whether the hop speaks TLS is `insecure` below.
+  endpoint: ""
+  region: ""
+  bucket: ""
+  insecure: true
+
+  # The access key, by reference and never by value. These are the literal strings written into the
+  # configuration file; the process expands them at start-up from the environment, which is what
+  # `credentialEnv` fills. A value here would be a credential in a rendered Application spec.
+  accessKeyRef: "${OBJECT_STORAGE_ACCESS_KEY}"
+  secretKeyRef: "${OBJECT_STORAGE_SECRET_KEY}"
+
+# Environment entries added to the container verbatim — a secretKeyRef per half of the access key.
+# The chart never learns the Secret's key names and never holds a value.
+credentialEnv: []
+
+# What applies to a tenant this deployment was told nothing about. A caller may write under any
+# name it likes, including one nothing below mentions, and such a write lands here rather than
+# being refused.
+limits:
+  retention: 168h
+
+# Per-tenant ceilings, keyed by the value callers send in the tenant header. Every field is
+# optional; an omitted one leaves the default above in place, because these are merged over it
+# rather than replacing it.
+#
+# tenants:
+#   lab:
+#     ingestion_rate: 25000
+#     ingestion_burst_size: 50000
+#     max_series: 500000
+#     retention: 168h
+tenants: {}
+
+# Scratch space for the write-ahead log, the compaction working set and the block cache. It is
+# an emptyDir on purpose: everything durable is in the bucket, and a claim here would pin this pod
+# to whichever node first scheduled it for the sake of data that is rebuilt on start-up anyway.
+dataVolume:
+  sizeLimit: ""
+
+serviceMonitor:
+  enabled: false
+  interval: ""
+  additionalLabels: {}
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
+
+# Extra labels on the Service. Separate from podLabels because scrape discovery reads a Service's
+# labels first and a pod's only where the Service carries none, so the two positions are not
+# interchangeable.
+serviceLabels: {}
+
+# The process runs as an unprivileged user and writes only to the scratch volume above.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

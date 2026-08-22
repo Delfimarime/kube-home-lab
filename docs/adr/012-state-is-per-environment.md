@@ -1,0 +1,104 @@
+# 012. State is per environment, and lives in PostgreSQL
+
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 ·
+revised 2026-08-15 (the backend is chosen; this ADR was `proposed` until it was) ·
+revised 2026-08-15 (no Terragrunt — [ADR 020](020-one-root-module.md); the backend is
+configured at `init` and there is one state per environment rather than per unit)
+
+## Context
+
+State was a local file under `.tfstate/`. That is adequate for one machine and one cluster, and
+neither is true any more: [ADR 011](011-environments-are-clusters.md) makes an environment a
+cluster of its own.
+
+Three backends were real, and each fails somewhere different.
+
+**A local file** needs nothing and works today, and it is the only option that lets a plan run
+with nothing else reachable. It also lives on one machine, so a second operator or a rebuilt
+laptop starts from nothing.
+
+**OpenTofu's `kubernetes` backend** — a Secret in the cluster the state describes — needs no
+credential beyond the kubeconfig already in use. It carries the weakest mechanics of the three:
+locking through a Lease, and an object size ceiling of roughly a megabyte.
+
+**OpenTofu's `pg` backend** stores state in a table in a PostgreSQL somewhere. Locking is a
+PostgreSQL advisory lock and state is a text column, so neither limitation above applies. It is
+the only option that needs a credential, and the only one that does not have to live in the
+cluster it describes.
+
+## Decision
+
+**One state per environment.**
+
+**The backend is `pg`.** A backend block takes no variables and no interpolation, so which
+environment's state it addresses is decided at `init`:
+
+```sh
+tofu init -backend-config=<file>
+```
+
+**Which PostgreSQL is nobody's business but the operator's.** It is *not* assumed to be the
+environment's application database, and it is not assumed to run in the cluster at all — a
+managed instance, a container somewhere, or a box under the desk are all the same to this
+decision. The same indifference [ADR 008](008-postgresql-is-external.md) already establishes for
+a module's database, applied to state.
+
+**`schema_name` is per environment**, so one server holding several environments' state still
+keeps them apart. There is one state per environment and not one per module
+([ADR 020](020-one-root-module.md)), so nothing further subdivides it. Were a second environment
+to arrive as a workspace rather than a second schema, the backend's table is keyed by workspace
+name and would keep them apart anyway.
+
+**The connection string is never declared.** The backend config file names the schema; the
+credential and the address arrive together as `PG_CONN_STR` in the operator's environment,
+beside `KUBECONFIG` and `ARGOCD_AUTH_TOKEN`, and are set per environment.
+
+## Rationale
+
+- **Per environment is not optional.** One state spanning clusters would let a plan in one
+  environment propose destroying another's resources — [REQ-12](../requirements.md) fails at
+  the tooling layer before any workload is involved.
+- **It is the only backend that does not have to live in the cluster it describes.** The local
+  file lives on one machine and the `kubernetes` backend lives inside the environment. Where
+  this one lives is an operational choice rather than something the backend decides.
+- **It is a kind of thing already being run.** PostgreSQL is a per-environment prerequisite
+  ([ADR 008](008-postgresql-is-external.md)) because the identity provider and the console need
+  one, so this adds no *new* class of dependency to operate, back up or reason about — even
+  where the instance is a different one.
+- **Its mechanics are the ones that will not have to be revisited.** Advisory locking is the
+  same mechanism OpenTofu uses against every other SQL backend, and a text column has no
+  ceiling worth calculating. Both of the `kubernetes` backend's open questions were about
+  limits that PostgreSQL simply does not have.
+- **The credential is handled the way OpenTofu's own credentials already are.** The Argo CD
+  provider has the same problem — a token that must not reach a var file or state — and the same
+  answer: it reads `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` from the environment. `PG_CONN_STR`
+  is that rule applied to the backend rather than a new mechanism, and it is what keeps
+  [REQ-05](../requirements.md) true of a backend block that would otherwise carry a password in
+  git.
+- **State still holds no credentials**, which is what made an in-cluster backend defensible in
+  the first place and what makes this one defensible too
+  ([ADR 007](007-modules-receive-credentials.md)). This reasoning does not transfer to a repo
+  that keeps secrets in state, and should not be quoted as if it did.
+
+## Consequences
+
+- **Planning an environment requires two things reachable, not one**: that environment's Argo CD
+  for the provider, and the state database for the backend.
+- **The database must already exist**; the schema and the table do not. OpenTofu creates both on
+  first `init`, so adding an environment is a `createdb` and adding a module is nothing at all.
+- **Losing the state database loses state.** Recoverable, because state describes
+  `ApplicationSet`s and nothing unique — re-applying regenerates it — but the recovery order is
+  the database first, OpenTofu second. Nothing in this repo backs it up, and nothing in this
+  repo knows where it is.
+- **`PG_CONN_STR` is a credential with no home.** It is not a Kubernetes Secret, so it does not
+  appear in any module's prerequisites; it lives wherever the operator keeps such things, and it
+  is recreated after every rebuild like everything else
+  ([the open questions](../requirements.md#open-questions)).
+- **This repo can never grow into bootstrapping a cluster**, unchanged from before: the cluster
+  must exist for the provider to reach its Argo CD.
+- **[REQ-12](../requirements.md)'s existing boundary now covers state as well as workloads** —
+  but only as far as the operator carries it. Separate schemas keep a plan in one environment
+  from seeing another's *once the right `-backend-config` was passed at `init`*; nothing checks
+  that it matches the `ARGOCD_SERVER` in the same shell
+  ([ADR 020](020-one-root-module.md)). A shared server is a coupling this repo cannot see,
+  exactly as it already cannot see a shared application database.

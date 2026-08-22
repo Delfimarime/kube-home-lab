@@ -1,0 +1,62 @@
+# The same collector with no Gateway: asserts zero HTTPRoute, which is the whole of what "not
+# exposed" means here. One signal on, to show the route is absent because of the Gateway and not
+# because there was nothing to route.
+gateway: null
+
+routes:
+  metrics: false
+  logs: false
+  traces: true
+
+k8s-monitoring:
+  cluster:
+    name: lab
+
+  destinations:
+    traces-push:
+      type: custom
+      ecosystem: otlp
+      traces:
+        enabled: true
+        target: otelcol.exporter.otlphttp.traces_store.input
+      config: |
+        otelcol.exporter.otlphttp "traces_store" {
+          client {
+            endpoint = "http://tempo.observability.svc.cluster.local:4318"
+          }
+        }
+
+  collectors:
+    alloy-receiver:
+      fullnameOverride: otlp
+      presets:
+        - deployment
+        - otel-receiver
+
+  applicationObservability:
+    enabled: true
+    collector: alloy-receiver
+    destinations:
+      - traces-push
+    receivers:
+      otlp:
+        grpc:
+          enabled: true
+          port: 4317
+          includeMetadata: true
+        http:
+          enabled: true
+          port: 4318
+          includeMetadata: true
+    metrics:
+      enabled: false
+    logs:
+      enabled: false
+    traces:
+      enabled: true
+
+  annotationAutodiscovery:
+    enabled: false
+
+  selfReporting:
+    enabled: false

@@ -1,0 +1,41 @@
+{{/*
+One Service, named for the release, and the address the module publishes is built from that name.
+It is never routed: what reaches this is the collector and the console, both inside the cluster.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mimir-monolithic.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mimir-monolithic.labels" . | nindent 4 }}
+    {{- with .Values.serviceLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "mimir-monolithic.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http-metrics
+      port: {{ .Values.server.httpPort }}
+      targetPort: http-metrics
+      protocol: TCP
+    - name: grpc
+      port: {{ .Values.server.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+---
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "mimir-monolithic.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mimir-monolithic.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

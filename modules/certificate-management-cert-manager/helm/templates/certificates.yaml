@@ -1,0 +1,68 @@
+{{/*
+One entry, one or two certificates. `server` is always issued, from the server authority. `client`
+is issued only when the entry carries one — that presence is what the module's mode = "mtls"
+resolves to, and it is why this template has no notion of a mode.
+
+A server certificate names hosts; a client certificate names itself, because there is no hostname
+to name. They come from *different* authorities on purpose: a listener trusts a CA and not a
+purpose, so that is what stops a server certificate authenticating as a client. Giving one
+certificate both usages would be the simpler rendering and would defeat exactly that.
+*/}}
+{{- range $name, $cert := .Values.certificates }}
+{{- $ctx := dict "root" $ "name" $name }}
+{{- $server := required (printf "certificates.%s.server is required" $name) $cert.server }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "cert-pki.certName" $ctx }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "cert-pki.labels" $ | nindent 4 }}
+spec:
+  secretName: {{ include "cert-pki.certName" $ctx }}
+  dnsNames:
+    {{- toYaml (required (printf "certificates.%s.server.dnsNames is required" $name) $server.dnsNames) | nindent 4 }}
+  usages:
+    - server auth
+  duration: {{ $server.duration | default "8760h" }}
+  {{- with $server.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: {{ include "cert-pki.caName" (dict "root" $ "name" "server") }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- with $cert.client }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "cert-pki.clientCertName" $ctx }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "cert-pki.labels" $ | nindent 4 }}
+spec:
+  secretName: {{ include "cert-pki.clientCertName" $ctx }}
+  commonName: {{ required (printf "certificates.%s.client.commonName is required" $name) .commonName | quote }}
+  usages:
+    - client auth
+  duration: {{ .duration | default "8760h" }}
+  {{- with .renewBefore }}
+  # Short on purpose: cert-manager renews at two thirds of lifetime by default, which would leave
+  # the expiry metric describing a certificate nobody has deployed — and this is the one that
+  # lives on a laptop rather than in the cluster.
+  renewBefore: {{ . }}
+  {{- end }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: {{ include "cert-pki.caName" (dict "root" $ "name" "client") }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}
+{{- end }}

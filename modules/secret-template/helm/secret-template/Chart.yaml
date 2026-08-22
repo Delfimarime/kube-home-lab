@@ -1,0 +1,14 @@
+apiVersion: v2
+name: secret-template
+description: >-
+  One Secret, with the keys a workload will look for and no values in them. An operator fills it
+  in; Argo CD is told to ignore the contents from then on, so no sync overwrites what was typed.
+type: application
+version: 0.1.0
+
+# The chart behind `modules/secret-template`, which is not a capability and renders nothing on its
+# own. Every module needing a credential it was given no name for points an Application here, in
+# its own namespace, with the key names its workload reads — which is what stops a Secret existing
+# under the right name carrying the wrong keys.
+#
+# No dependencies. There is no upstream chart for "an empty Secret", and there should not be.

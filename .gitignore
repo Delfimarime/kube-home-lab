@@ -137,14 +137,6 @@ Temporary Items
 # iCloud generated files
 *.icloud
 
-### Terragrunt ###
-# terragrunt cache directories
-**/.terragrunt-cache/*
-
-# Terragrunt debug output file (when using `--terragrunt-debug` option)
-# See: https://terragrunt.gruntwork.io/docs/reference/cli-options/#terragrunt-debug
-terragrunt-debug.tfvars.json
-
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
@@ -192,3 +184,26 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,visualstudiocode,intellij+all,terragrunt
 
+### Terraform ###
+.terraform/
+.tfstate/
+*.tfstate
+*.tfstate.*
+
+.claude/
+.zencoder/
+.copilot/
+docs/superpowers/
+docs/decisions
+.deploy-values/
+*/.deploy-values
+*/*/.deploy-values/
+deploy.sh
+prompt/
+
+.terraform.lock.hcl
+modules/*/tofu/.terraform.lock.hcl
+
+# CI
+.ci-out/
+.tofu-plugin-cache/

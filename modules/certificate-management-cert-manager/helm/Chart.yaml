@@ -1,0 +1,10 @@
+apiVersion: v2
+name: cert-pki
+description: >-
+  The environment's two certificate authorities, the certificates they sign, the trust bundle
+  every namespace receives, and the grant that lets the Gateway read them.
+type: application
+version: 0.1.0
+
+# No dependencies, and nothing wrapped. Everything here is a cert-manager or trust-manager custom
+# resource: there is no upstream chart for "this lab's authorities" to build on.

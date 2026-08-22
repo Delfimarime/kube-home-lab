@@ -1,0 +1,51 @@
+# Where the authorities, their certificates and their Secrets live. cert-manager's
+# --cluster-resource-namespace and trust-manager's --trust-namespace must both be set to this, or
+# a ClusterIssuer looks for its CA Secret somewhere it is not. The module sets both.
+namespace: cert-manager
+
+# Exactly two, and the chart does not loop over an open-ended set: `server` signs what serves TLS,
+# `client` signs what authenticates to a listener. A listener trusts a CA and not a purpose, so
+# two authorities are what stop a server certificate authenticating as a client — a single root
+# would leave that to the Gateway enforcing Extended Key Usage.
+authorities:
+  server:
+    commonName: example.internal server CA
+    duration: 87600h # the authority outlives what it signs
+  client:
+    commonName: example.internal client CA
+    duration: 87600h
+
+# One entry per certificate. `server` is always present; `client` is present only when the module
+# resolved that entry's mode to "mtls".
+#
+# **The chart has no notion of "mtls".** The presence of a `client` block *is* the pair, so there
+# is no second place where this chart and the module could disagree about what the mode means.
+#
+# certificates:
+#   default:
+#     server:
+#       dnsNames: ["*.lab.internal"]
+#       duration: 8760h
+#     client:
+#       commonName: default.lab.internal
+#       duration: 8760h
+#       renewBefore: 720h        # short, so the expiry metric describes the deployed cert
+#   storage:
+#     server:
+#       dnsNames: ["mimir.lab.internal"]
+#       duration: 8760h
+certificates: {}
+
+trustBundle:
+  # The ConfigMap every namespace receives. Consumers mount this name.
+  name: cert-ca-bundle
+  # Which authorities every namespace is told to trust. The client authority does not belong
+  # here: nothing in-cluster verifies a client certificate.
+  authorities:
+    - server
+
+# The namespace whose Gateway may reference the certificate Secrets. Not the gateway contract:
+# this chart renders no route, so it needs a namespace and nothing else. null means no
+# ReferenceGrant, which means a Gateway elsewhere cannot use them.
+gateway: null
+#   namespace: kube-system
