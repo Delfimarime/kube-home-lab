@@ -1,6 +1,7 @@
 variable "argocd" {
   type = object({
     namespace = optional(string, "argocd")
+    skip_tls_verify = optional(bool,false)
   })
   description = "Where ApplicationSets are created, and how the provider reaches Argo CD."
   default     = {}
