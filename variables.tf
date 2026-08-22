@@ -1,7 +1,7 @@
 variable "argocd" {
   type = object({
-    namespace = optional(string, "argocd")
-    skip_tls_verify = optional(bool,false)
+    namespace       = optional(string, "argocd")
+    skip_tls_verify = optional(bool, false)
   })
   description = "Where ApplicationSets are created, and how the provider reaches Argo CD."
   default     = {}
@@ -100,6 +100,52 @@ variable "object_storage" {
   })
   description = "The S3 endpoint every store writes into: how big its volume is, where its access key comes from, and whether anything outside the cluster can reach it."
   default     = {}
+}
+
+variable "identity" {
+  type = object({
+    namespace = optional(string, "security")
+
+    # Required: the issuer's address is its whole published contract, so there is no useful
+    # configuration of this module that leaves it out.
+    hostname = string
+    gateway = optional(object({
+      name         = optional(string)
+      namespace    = optional(string)
+      section_name = optional(string)
+    }), {})
+
+    database = object({
+      host_port     = string
+      database_name = optional(string, "keycloak")
+      secret_name   = optional(string)
+      username_key  = optional(string, "username")
+      password_key  = optional(string, "password")
+      sslmode       = optional(string, "require")
+    })
+
+    bootstrap_admin_secret_name = optional(string)
+
+    # One release pins the operator's manifests and, by leaving `image` unset, the server build
+    # that goes with them.
+    version = optional(string, "26.7.2")
+    image   = optional(string)
+
+    # Which tenant this unit's own telemetry is stored under. Unlike the other units here it
+    # names one by default rather than falling through to the cluster's: an issuer's telemetry is
+    # the record of who signed in and from where, which is worth keeping separable from
+    # everything else the platform emits.
+    tenant = optional(string, "security")
+  })
+  description = "The environment's OIDC issuer: where it runs, the address it is reached on, and the database it keeps its realm in. null ships no issuer."
+  default     = null
+
+  validation {
+    condition = var.identity == null || var.observability == null || contains(
+      keys(var.observability.tenants), coalesce(var.identity.tenant, "x")
+    )
+    error_message = "identity.tenant must name one of observability.tenants: a tenant the stores do not have is not rejected by anything downstream — its telemetry is simply collected as unattributed, which reads as data loss and is a typo."
+  }
 }
 
 variable "git_repository" {

@@ -38,6 +38,24 @@ locals {
       enabled = local.metrics_enabled
       tenant  = local.metrics_enabled ? coalesce(try(local.observability.console.tenant, null), local.observability.default_tenant) : null
     }
+    identity = {
+      enabled = local.metrics_enabled
+      tenant  = local.metrics_enabled ? coalesce(try(var.identity.tenant, null), local.observability.default_tenant) : null
+    }
+  }
+
+  # The issuer's Gateway, resolved the same way every other exposed surface here is: it names its
+  # own host and inherits the rest of the listener from the cluster's Gateway, so an environment
+  # states that once.
+  #
+  # Unlike the others there is no null branch. An issuer with no address publishes no issuer_url,
+  # which the module refuses — so an environment that ships this module has already stated a
+  # hostname, and this expression has nothing to guard.
+  identity_gateway = var.identity == null ? null : {
+    name         = coalesce(var.identity.gateway.name, var.gateway.name)
+    namespace    = coalesce(var.identity.gateway.namespace, var.gateway.namespace)
+    hostname     = var.identity.hostname
+    section_name = var.identity.gateway.section_name != null ? var.identity.gateway.section_name : var.gateway.section_name
   }
 
   # Each store's version pin is written beside the signal it pins, and the storage module takes it
