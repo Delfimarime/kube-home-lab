@@ -51,8 +51,14 @@ validate: check-tf ## init -backend=false && validate, for the root module and e
 		$(TF) -chdir=$$d validate -no-color; \
 	done
 
+# `--call-module-type=none` is not optional here. tflint evaluates every module call's arguments
+# eagerly, with variables at their defaults — and a module call in this repo is `count = 0` when
+# its variable is null, which is the default for `var.observability`. Without the flag it reads
+# `local.observability.namespace` off a null and fails to build the configuration at all. The flag
+# is passed here rather than in a .tflint.hcl because `--recursive` changes directory per module
+# and a config file in the repository root is not found from inside one.
 tflint: ## Lint HCL for unused declarations and deprecated syntax
-	@if command -v tflint >/dev/null 2>&1; then tflint --recursive; \
+	@if command -v tflint >/dev/null 2>&1; then tflint --recursive --call-module-type=none; \
 	else echo "tflint is not installed - skipping (CI installs it)"; fi
 
 helm-deps: ## Resolve chart dependencies, adding whatever repository a Chart.yaml names

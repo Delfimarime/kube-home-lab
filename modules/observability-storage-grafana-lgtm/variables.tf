@@ -431,21 +431,6 @@ variable "tempo" {
   default     = {}
 }
 
-# The collector's own chart is wrapped by one authored here, so two versions are pinned and a bump
-# is two edits: this one is the upstream dependency's, and the wrapper's is in its Chart.yaml.
-# Forgetting the second is a change that looks applied and is not.
-#
-# Read its changelog before bumping. Its pod-logs feature has already split into three and its
-# collector list has already stopped being derived from features, so its values are not a stable
-# surface.
-variable "k8s_monitoring" {
-  type = object({
-    chart_version = optional(string, "4.4.0")
-  })
-  description = "The upstream collector chart the local wrapper depends on."
-  default     = {}
-}
-
 # A per-component escape hatch, merged over what this module builds, and keyed by signal like
 # everything else here. **Merged one level deep**: a key present in both is merged when both sides
 # are maps and replaced otherwise, so `logs = { loki = { limits_config = {...} } }` replaces that
