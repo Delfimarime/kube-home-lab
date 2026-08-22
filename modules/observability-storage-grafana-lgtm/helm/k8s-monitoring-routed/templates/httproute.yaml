@@ -50,7 +50,9 @@ spec:
             type: PathPrefix
             value: /v1/{{ $signal }}
       backendRefs:
-        - name: {{ $.Values.receiver.service }}
+        - group: ""
+          kind: "Service"
+          name: {{ $.Values.receiver.service }}
           port: {{ $.Values.receiver.port }}
     {{- end }}
 {{- end }}
