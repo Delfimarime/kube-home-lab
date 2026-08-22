@@ -1,0 +1,41 @@
+{{- with .Values.route }}
+# The one path in. The operator creates the Service; this chart names it above and addresses it
+# here, so the two agree by construction rather than by both restating a default.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "keycloak-instance.name" $ }}
+  labels:
+    {{- include "keycloak-instance.labels" $ | nindent 4 }}
+#
+# **Every defaultable field is written out.** `group`, `kind`, `weight` and the `/` path match are
+# all supplied by the API server when omitted, and a manifest that leaves them out is one the live
+# object no longer matches — which reads as permanent drift rather than as defaulting. The other
+# route this repository renders states them for the same reason.
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "route.gateway.name is required" .gateway.name | quote }}
+      namespace: {{ required "route.gateway.namespace is required" .gateway.namespace | quote }}
+      {{- with .gateway.sectionName }}
+      # The ordinary TLS listener. A browser cannot present a client certificate, so the mTLS
+      # listener is never the right answer for a login page.
+      sectionName: {{ . | quote }}
+      {{- end }}
+  hostnames:
+    - {{ required "route.hostname is required" .hostname | quote }}
+  rules:
+      # Keycloak serves from the root of the host — /realms, /admin, /resources — so the whole
+      # host goes to it and there is no second backend to split a path between.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $.Values.service.name | quote }}
+          port: {{ $.Values.service.port }}
+          weight: 1
+{{- end }}

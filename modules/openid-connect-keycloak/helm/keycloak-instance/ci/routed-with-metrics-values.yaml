@@ -1,0 +1,32 @@
+# What an environment actually deploys: exposed on a Gateway, scraped, and its telemetry
+# attributed to a tenant. The image is pinned here rather than left to the operator, so the
+# override path is rendered by CI too.
+name: keycloak
+image: quay.io/keycloak/keycloak:26.7.2
+
+service:
+  name: keycloak-service
+  port: 8080
+
+hostname: https://id.lab.internal
+
+database:
+  url: jdbc:postgresql://postgresql.storage.svc.cluster.local:5432/keycloak?sslmode=disable
+  secretName: identity-database-credentials
+  usernameKey: username
+  passwordKey: password
+
+bootstrapAdmin:
+  secretName: keycloak-bootstrap-admin
+
+route:
+  hostname: id.lab.internal
+  gateway:
+    name: web
+    namespace: traefik
+    sectionName: websecure
+
+metrics:
+  enabled: true
+  labels:
+    opentelemetry.io/tenant: security

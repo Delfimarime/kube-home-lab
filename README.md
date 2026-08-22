@@ -25,6 +25,7 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | Module | Provides |
 | --- | --- |
 | `certificate-management-cert-manager` | the lab's certificate authorities, and one trust bundle |
+| `object-storage-rustfs` | one S3-compatible endpoint the stores keep their data in |
 | `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |
@@ -70,7 +71,8 @@ One OpenTofu root module composes the cluster; each module it calls provisions A
 resources — one `ApplicationSet` per module. Argo CD does the installing and the reconciling:
 OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 
-Specs come first. One module exists so far.
+Specs come first. Five of the six specified modules are built; `audit-management-auditum` is
+blocked on an open question and deliberately has no OpenTofu.
 
 ```
 main.tf                        required_version, required_providers, provider, backend

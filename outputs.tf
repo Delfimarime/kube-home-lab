@@ -17,3 +17,10 @@ output "trust_bundle_name" {
   value       = module.cert_manager.trust_bundle_name
   description = "The ConfigMap present in every namespace; consumers mount it."
 }
+
+# Null where the environment ships no issuer. It is here because every client is registered by
+# hand in Keycloak's console, and this is the address whoever does that has to work against.
+output "issuer_url" {
+  value       = one(module.identity[*].issuer_url)
+  description = "The OIDC issuer. A consumer's oidc.issuer_url is wired from this, and a client is registered against it by hand."
+}

@@ -55,10 +55,13 @@ Live state, not rules. Each of these is a reason to stop and ask rather than pro
   Don't build it out further — if the answer is the second, the module should not exist.
 - **The identity model is not declared anywhere, and this is the largest gap in the platform.**
   Keycloak's realm — clients, redirect URIs, the `<SLUG>_<ROLE>` roles, every grant — is created
-  by hand in a console. `KeycloakRealmImport` is a partial fix and is deferred: it applies rather
-  than reconciles, and a realm export embeds client secrets that
-  [REQ-05](docs/requirements.md) forbids reaching a rendered `Application`. Don't paper over it
-  with a module input carrying a role list (§6.3).
+  by hand in a console. **This was surveyed on 2026-08-22 and the gap was left open on purpose**:
+  no mechanism that exists reconciles a realm, and the one CRD that reconciles anything covers
+  clients without roles, on an experimental API, behind a server feature flag. The survey, the
+  four candidates and the conditions worth revisiting it under are in
+  [the module's Open items](docs/modules/openid-connect-keycloak/README.md#open-items) — read
+  them before proposing this again, because the obvious answer has already been costed. Don't
+  paper over it with a module input carrying a role list (§6.3).
 - **Nothing backs up PostgreSQL**, and two things in it cannot be regenerated from git: Keycloak's
   realm and every Grafana alert rule. Don't add a third without saying so. OpenTofu state is in a
   PostgreSQL too, but a separate one, and it *is* regenerable

@@ -8,4 +8,6 @@ terraform {
   }
 }
 
-provider "argocd" {}
+provider "argocd" {
+  insecure = var.argocd.skip_tls_verify
+}
