@@ -288,6 +288,12 @@ and nothing compares them.
 tolerance: one pod, one volume, one node, chosen deliberately rather than by whichever node the
 scheduler picked on the day.
 
+**`rustfs.chart_version` is the pin, and it is the only place this version is written.** A value
+set at the root would not add a second opinion, it would replace this one silently — so it is set
+from a caller only to make *that* cluster run something other than what this module installs.
+Plus `argocd.namespace`, where the `ApplicationSet` object goes; no environment normally writes
+it.
+
 ## Outputs
 
 | Output | Used by |

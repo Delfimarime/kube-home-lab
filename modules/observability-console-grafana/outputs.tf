@@ -5,8 +5,8 @@
 # reading an output rather than by working out which mode the caller chose — and a caller that
 # resolved a name from a fallback does not hold the same expression twice.
 
-output "grafana_url" {
-  value       = local.grafana_url
+output "console_url" {
+  value       = local.console_url
   description = "The console from outside the cluster, and the redirect URI its OIDC client must be registered with. null unless it was given a gateway — and what may reach it is the listener's business, not this module's."
 }
 

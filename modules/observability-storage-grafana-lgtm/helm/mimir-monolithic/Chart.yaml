@@ -5,8 +5,12 @@ description: >-
   blocks to an S3-compatible bucket, with multitenancy on and a runtime overrides file carrying
   per-tenant limits and retention.
 type: application
+
+# The chart's own version. There is no appVersion: which Mimir runs is decided by the image tag,
+# which the module pins and passes in, and this file is never the thing that sets it. A version
+# stated here would be read by nothing — no template references .Chart.AppVersion — while being
+# free to disagree with the pin, which is the one failure a second copy of a version can cause.
 version: 0.1.0
-appVersion: "3.2.0"
 
 # No dependencies, and nothing wrapped. The only official chart deploys the microservices topology
 # — distributor, ingester, querier, query-frontend, store-gateway, compactor, plus caches and a

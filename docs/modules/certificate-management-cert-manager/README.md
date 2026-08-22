@@ -198,6 +198,13 @@ each entry's `dns_names` and client subject. `namespace`, `default_certificate`,
 `gateway_namespace` and `metrics` come from root variables, because they describe the cluster
 rather than this module. The root module is a pass-through — it composes nothing.
 
+**The two chart pins are `cert_manager.chart_version` and `trust_manager.chart_version`**, and
+this is the only place either version is written. Setting one at the root would not add a second
+opinion, it would replace this one silently — so a pin is written here and set from a caller only
+to make *that* cluster run something other than what this module installs. `git_repository` is
+the last input, taken by every module that renders a chart out of this repository: which
+repository, and the revision Argo CD reads it at.
+
 ## Outputs
 
 | Output | Used by |

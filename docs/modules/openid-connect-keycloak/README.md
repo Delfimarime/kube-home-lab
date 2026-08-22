@@ -180,6 +180,12 @@ through `issuer_url` and never name it separately.
 OTLP ingest endpoint and a browser cannot present a client certificate
 ([certificate-management-cert-manager](../certificate-management-cert-manager/README.md)).
 
+**`keycloak.version` is the pin, and it is one number doing two jobs**: it selects the operator's
+manifests, and — by leaving `keycloak.image` unset — the server build those manifests expect.
+Setting `image` separates them, which is worth doing only to run a build the operator was not
+released against. This is the only place either is written; a value set at the root would not add
+a second opinion, it would replace this one silently.
+
 Plus two inputs no environment normally writes: `argocd.namespace`, where the `ApplicationSet`
 object goes, and `git_repository` — this repository and the revision Argo CD reads its charts at,
 which every module rendering one of them takes. This module always renders one, so it is always

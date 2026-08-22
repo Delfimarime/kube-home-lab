@@ -530,8 +530,15 @@ environment shipping one signal creates one bucket, and nothing validates that i
 volume, and none of them owns one now. Placing the machine that holds the data is the object
 store module's input, where the volume actually is.
 
-Plus three inputs no environment normally writes: `prometheus_operator_crds.chart_version`, the
-CRD bundle the collector reads scrape configuration from; `argocd.namespace`, where the
+**Each store's version is pinned separately**, and these are the only places those versions are
+written — a value set at the root would not add a second opinion, it would replace this one
+silently. `loki.chart_version` and `tempo.chart_version` pin upstream charts. **Mimir's is
+`mimir.image_tag` and not a chart version**, because the chart is this repository's own and its
+`version` describes the packaging rather than the server; what decides which Mimir runs is the
+image. Set one only to make *this* cluster run something other than what this module installs.
+
+Plus three more inputs no environment normally writes: `prometheus_operator_crds.chart_version`,
+the CRD bundle the collector reads scrape configuration from; `argocd.namespace`, where the
 `ApplicationSet` object goes; and `git_repository` — this repository and the revision Argo CD
 reads its charts at, which every module rendering one of them takes. This module renders two, so
 it is always consulted.

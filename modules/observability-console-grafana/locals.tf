@@ -58,9 +58,9 @@ locals {
   issuer      = var.oidc == null ? null : trimsuffix(var.oidc.issuer_url, "/")
   oidc_prefix = var.oidc == null ? null : "${local.issuer}/protocol/openid-connect"
 
-  # Where Grafana is reachable from a browser, which is also the redirect URI its OIDC client must
-  # be registered with. null when nothing routes it.
-  grafana_url = var.gateway == null ? null : "https://${var.gateway.hostname}"
+  # Where the console is reachable from a browser, which is also the redirect URI its OIDC client
+  # must be registered with. null when nothing routes it.
+  console_url = var.gateway == null ? null : "https://${var.gateway.hostname}"
 
   # The three stores, keyed by the capability rather than by the product behind it. A datasource's
   # type follows from which address it is and is not an input: swapping a store means swapping it
@@ -208,9 +208,9 @@ locals {
 
     # Grafana builds its redirect URI from this, so a console behind a Gateway that is left to the
     # default advertises its own pod port and the callback lands nowhere.
-    local.grafana_url == null ? {} : {
+    local.console_url == null ? {} : {
       server = {
-        root_url = "${local.grafana_url}/"
+        root_url = "${local.console_url}/"
       }
     },
 
