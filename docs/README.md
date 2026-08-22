@@ -75,6 +75,7 @@ with the layer that is actually correct.
 | [cert-manager LOCAL-001](modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md) | Certificates come from an internal CA, not a public one | accepted |
 | [cert-manager LOCAL-002](modules/certificate-management-cert-manager/adr/LOCAL-002-one-certificate-per-authority.md) | One certificate per authority; no client list | accepted |
 | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md) | OIDC provider is Keycloak, deployed by its operator | accepted |
+| [keycloak LOCAL-002](modules/openid-connect-keycloak/adr/LOCAL-002-the-operator-comes-from-upstream-manifests.md) | The operator comes from upstream's manifests, pinned by tag | accepted |
 | [object-storage LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md) | The object store is RustFS, running standalone | accepted |
 | [observability-storage LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
 | [observability-storage LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |

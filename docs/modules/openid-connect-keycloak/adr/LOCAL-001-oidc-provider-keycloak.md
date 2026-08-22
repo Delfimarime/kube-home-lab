@@ -74,9 +74,13 @@ environment's initial instance — an operator with no instance is not an identi
   [REQ-05](../../../requirements.md): a realm export embeds client secrets, and a realm resource
   is rendered into an `Application` spec in etcd.
 - **The issuer URL now carries a realm.** `https://<hostname>/realms/<realm>` rather than the
-  bare host, so `realm` is an input and every consumer's `oidc.issuer_url` changes shape. There
-  is no default realm worth using; `master` is for administering Keycloak, not for signing users
-  in.
+  bare host, so `realm` is an input and every consumer's `oidc.issuer_url` changes shape. **It
+  defaults to `master`**, revised in place on 2026-08-22 from the opposite position, and the
+  reason is that this module creates no realm. `master` is the only realm a fresh Keycloak has,
+  so it is the only default that describes something real; naming any other means naming one a
+  person creates in the console first. The objection to it stands and is now carried as prose
+  rather than as a refusal — `master` administers the server, so signing people in there is a
+  choice an environment makes, not a mistake this module can catch.
 - **Server-to-server calls stay on the external hostname.** No backchannel split, so Grafana
   reaches this issuer over TLS for the token and userinfo endpoints and needs the lab root in
   its trust store. That makes

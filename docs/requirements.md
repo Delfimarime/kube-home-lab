@@ -146,6 +146,9 @@ Each is owned by the ADR or spec that would resolve it.
   after any rebuild that loses the database. The claim *shape* is fixed
   ([ADR 013](adr/013-roles-are-carried-in-the-token.md)) and its *content* is recorded nowhere,
   which is REQ-11 failing at the one place it matters most. Recording it in git is possible and
-  deferred, and would be a record rather than a reconciled resource; the obstacle is REQ-05,
-  because a realm export embeds client secrets — see
+  deferred, and would be a record rather than a reconciled resource. **The obstacle is not
+  REQ-05**, which a declaration avoids by letting the issuer mint each client secret rather than
+  carrying one; it is that nothing available reconciles a realm, and that roles — the part
+  [ADR 013](adr/013-roles-are-carried-in-the-token.md) makes load-bearing — cannot be declared at
+  all. Surveyed 2026-08-22; the candidates and the revisit conditions are in
   [`openid-connect-keycloak`](modules/openid-connect-keycloak/README.md#open-items).
