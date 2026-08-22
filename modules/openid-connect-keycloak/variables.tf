@@ -135,10 +135,13 @@ variable "bootstrap_admin_secret_name" {
 # defaults to *true*, so leaving it unset on a cluster without the Prometheus operator's CRDs
 # fails the sync — the one default here that points the wrong way.
 #
-# `tenant` reaches the Service through `spec.serviceMonitor.labels`. **It does not reach the
-# pods**: the resource exposes no supported pod-label field, so this workload's logs are collected
-# as the cluster's own tenant whatever is set here. Every other module labels both; this one
-# labels what it can.
+# `tenant` is written onto the Service and onto the pods, as every module here does — a label on
+# only one of them routes only one of the two signals, since metrics are discovered through the
+# Service and logs from the pods.
+#
+# **Reaching the pods costs a field the operator calls unsupported**, which is the one liberty this
+# module takes and is argued where it is taken. Null leaves both unlabelled, which is collected as
+# the cluster's own.
 variable "metrics" {
   type = object({
     enabled = optional(bool, false)

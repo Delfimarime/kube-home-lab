@@ -64,10 +64,13 @@ locals {
   # has no request behind it to carry a header, so what a pushing workload says per request a
   # scraped one says once, here.
   #
-  # **On the Service only, and that is a gap rather than a choice.** Metrics are discovered through
-  # the Service a ServiceMonitor selects, and this resource appends these to it. Logs are
-  # discovered from pods, where no Service exists to be read, and the resource offers no supported
-  # pod-label field — so this workload's logs land in the cluster's own tenant regardless.
+  # **On the Service and on the pods, and the two are not redundant.** Metrics are discovered
+  # through the Service a ServiceMonitor selects; logs are discovered from pods, where no Service
+  # exists to be read. A label on only one of them routes only one of the two signals.
+  #
+  # Two traps live in how the chart writes them, both recorded there: the field that labels the
+  # Service is `http.labels` rather than the `serviceMonitor.labels` whose description claims it,
+  # and the only field that labels the pods is under `unsupported`.
   tenant_label  = "opentelemetry.io/tenant"
   tenant_labels = var.metrics.tenant == null ? {} : { (local.tenant_label) = var.metrics.tenant }
 

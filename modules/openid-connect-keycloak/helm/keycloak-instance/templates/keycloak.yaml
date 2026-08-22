@@ -36,6 +36,14 @@ spec:
     httpEnabled: true
     serviceName: {{ .Values.service.name | quote }}
     serviceHttpPort: {{ .Values.service.port }}
+    {{- with .Values.metrics.labels }}
+    # The tenant, on the Service, where the collector reads it to route this workload's metrics.
+    # **This is `http.labels` and not `serviceMonitor.labels`** — the latter is described as
+    # labelling the Service and does not: the operator puts it on the ServiceMonitor's own
+    # metadata, where nothing routes anything.
+    labels:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
 
   # Changes no URL above — those are fixed by the hostname — but it is what makes Keycloak read
   # the X-Forwarded-For the Gateway already sets, so a login event records the client's address
@@ -56,16 +64,34 @@ spec:
   serviceMonitor:
     # Never omitted: this field defaults to true, so an unset value on a cluster without the
     # Prometheus operator's CRDs fails the sync.
+    #
+    # No `labels` here on purpose. They would land on the ServiceMonitor rather than on the
+    # Service, which is not where a tenant is read from.
     enabled: {{ .Values.metrics.enabled }}
-    {{- with .Values.metrics.labels }}
-    labels:
-      {{- toYaml . | nindent 6 }}
-    {{- end }}
 
   {{- if .Values.metrics.enabled }}
   # The management interface serves /metrics only once this is on, and it is off by default — a
   # ServiceMonitor pointed at it without this scrapes a 404 and reports the workload as down.
+  #
+  # This is a *build-time* option, so changing it makes the container re-run its Quarkus
+  # augmentation before serving anything.
   additionalOptions:
     - name: metrics-enabled
       value: "true"
+  {{- end }}
+
+  {{- with .Values.metrics.labels }}
+  # The same tenant, on the pods. **This is the one field here the operator calls unsupported**,
+  # and it is used because the alternative is worse: logs are discovered from pods and never see a
+  # Service, so without this an issuer's log — the record of who signed in and from where — is
+  # collected as the cluster's own tenant while its metrics are correctly attributed. The
+  # podTemplate is merged with the operator's own, so this adds labels and replaces nothing.
+  #
+  # The risk is real and is the field's name: upstream reserves the right to change it. What
+  # breaks if they do is the log tenant, not the deployment.
+  unsupported:
+    podTemplate:
+      metadata:
+        labels:
+          {{- toYaml . | nindent 10 }}
   {{- end }}

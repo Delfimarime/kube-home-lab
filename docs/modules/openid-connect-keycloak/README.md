@@ -85,12 +85,21 @@ field ([ADR 004](../../adr/004-scrape-config-via-prometheus-crds.md),
 is the dangerous direction: on a cluster with no Prometheus CRDs an unset value fails the sync, so
 this module writes `metrics.enabled` into it explicitly and never omits it.
 
-**The tenant label reaches the Service and not the pods**, which is the one place this module
-cannot do what [ADR 025](../../adr/025-a-workload-carries-its-tenant.md) asks. `spec.serviceMonitor.labels`
-lands on the Service, so metrics are attributed. The CR exposes no pod-label field — only
-`spec.unsupported.podTemplate` — so logs, which are discovered from pods and never see a Service,
-are collected as the cluster's own tenant. Every other module here labels both; this one labels
-what it can and the gap is in logs.
+**The tenant label goes on the Service and on the pods**, as
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md) asks, and reaching both costs two
+non-obvious choices.
+
+The Service is labelled through **`spec.http.labels`** and not through `spec.serviceMonitor.labels`.
+The CRD documents both as "labels to be appended to the Service object" and only the first one is —
+the operator puts the second on the ServiceMonitor's own metadata, where nothing routes anything.
+A tenant written there fails silently: metrics keep flowing, into the wrong tenant.
+
+The pods are labelled through **`spec.unsupported.podTemplate`**, the only field that reaches them
+and one named the way it is on purpose. It is used anyway, because the alternative is an issuer
+whose metrics are attributed and whose *logs* — the record of who signed in, and from where — are
+not. The podTemplate is merged with the operator's, so this adds labels and replaces nothing.
+Upstream reserves the right to change the field; what breaks if they do is the log tenant, not the
+deployment.
 
 ## Prerequisites
 
