@@ -203,3 +203,7 @@ prompt/
 
 .terraform.lock.hcl
 modules/*/tofu/.terraform.lock.hcl
+
+# CI
+.ci-out/
+.tofu-plugin-cache/
