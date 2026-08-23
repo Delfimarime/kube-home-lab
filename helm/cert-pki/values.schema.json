@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "cert-pki values",
+  "description": "Helm validates these values on lint, template and install, so a values file that names a key this chart does not read is rejected where the mistake was made rather than accepted and quietly ignored. Unknown keys are refused everywhere for that reason: the failure this guards against is a caller who renames a field and gets a silently empty rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["authorities", "trustBundle"],
+  "properties": {
+    "nameOverride": {
+      "description": "Replaces the chart name in the app.kubernetes.io/name label. Empty means the chart's own name.",
+      "type": "string",
+      "maxLength": 63
+    },
+    "fullnameOverride": {
+      "description": "The prefix every derived name is built from. Empty means the release name.",
+      "type": "string",
+      "maxLength": 63
+    },
+    "authorities": {
+      "description": "Exactly two authorities, server and client. Not an open-ended map: the certificates below are issued from these two names, so a third would render an authority nothing signs with and dropping either would leave an issuerRef pointing at nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["server", "client"],
+      "properties": {
+        "server": { "$ref": "#/definitions/authority" },
+        "client": { "$ref": "#/definitions/authority" }
+      }
+    },
+    "certificates": {
+      "description": "One entry per certificate, keyed by name. An entry carrying a client block is an mTLS pair; the chart has no notion of a mode beyond that presence.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/dnsLabel" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["server"],
+        "properties": {
+          "server": {
+            "description": "The certificate that serves TLS, issued from the server authority. Always present.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dnsNames"],
+            "properties": {
+              "dnsNames": {
+                "description": "The hosts this certificate is valid for. A server certificate with no hosts is one nothing can present.",
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "duration": { "$ref": "#/definitions/duration" },
+              "renewBefore": { "$ref": "#/definitions/duration" },
+              "secretName": { "$ref": "#/definitions/secretName" }
+            }
+          },
+          "client": {
+            "description": "The certificate that authenticates to a listener, issued from the client authority. Present only for an mTLS pair.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["commonName"],
+            "properties": {
+              "commonName": {
+                "description": "A client certificate names itself, because there is no hostname to name. The subject is an identity label; what authorizes it is the authority that signed it.",
+                "type": "string",
+                "minLength": 1
+              },
+              "duration": { "$ref": "#/definitions/duration" },
+              "renewBefore": { "$ref": "#/definitions/duration" },
+              "secretName": { "$ref": "#/definitions/secretName" }
+            }
+          }
+        }
+      }
+    },
+    "trustBundle": {
+      "description": "The ConfigMap trust-manager distributes to every namespace, and which authorities it carries.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "description": "Required, and never derived: this is the one name a workload in an unrelated namespace has to know in order to mount the roots.",
+          "allOf": [{ "$ref": "#/definitions/dnsSubdomain" }],
+          "minLength": 1
+        },
+        "authorities": {
+          "description": "Which of the two authorities the bundle carries. Empty renders no Bundle at all.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["server", "client"] }
+        }
+      }
+    },
+    "gateway": {
+      "description": "The namespace whose Gateway may reference the certificate Secrets, or null for no ReferenceGrant. Not the whole gateway contract: this chart renders no route, so a namespace is all it can use and asking for more would force a caller to invent values nothing reads.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["namespace"],
+      "properties": {
+        "namespace": { "$ref": "#/definitions/dnsLabel" }
+      }
+    }
+  },
+  "definitions": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commonName"],
+      "properties": {
+        "commonName": {
+          "description": "The authority's subject. Required, because an authority with no name is indistinguishable from every other one in a certificate viewer.",
+          "type": "string",
+          "minLength": 1
+        },
+        "duration": { "$ref": "#/definitions/duration" },
+        "secretName": { "$ref": "#/definitions/secretName" }
+      }
+    },
+    "duration": {
+      "description": "A Go duration as cert-manager parses it, e.g. 8760h. Hours are the only unit worth using here; minutes and seconds are accepted because cert-manager writes durations back in that form.",
+      "type": "string",
+      "pattern": "^[0-9]+[hms]([0-9]+[ms])*$"
+    },
+    "secretName": {
+      "description": "Names the object and the Secret holding it outright. Empty means the chart derives one. Setting it is how a caller knows the name without reproducing the chart's naming somewhere else, where the copy stops matching the day the formula changes.",
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+    },
+    "dnsLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "dnsSubdomain": {
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+    }
+  }
+}

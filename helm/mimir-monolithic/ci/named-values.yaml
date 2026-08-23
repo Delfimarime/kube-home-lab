@@ -1,0 +1,46 @@
+# The deployment named by its caller rather than by its release. This is how anything publishing an
+# address for this store is supposed to work — state the name, then read it back out of the same
+# configuration — so it is the case that has to render: every object under `metrics-store`, the
+# name label saying what this is rather than which one it is, and a second Secret key naming
+# convention to prove neither is baked into a template.
+#
+# It also covers the second use for the pair: two releases of this chart in one namespace, which
+# only stay distinguishable because both names can be set.
+nameOverride: metrics-store
+fullnameOverride: metrics-store
+
+storage:
+  endpoint: s3.remote.example:9000
+  region: eu-west-1
+  bucket: mimir-remote
+  insecure: false
+  existingSecret:
+    name: mimir-remote-credentials
+    accessKeyKey: AWS_ACCESS_KEY_ID
+    secretKeyKey: AWS_SECRET_ACCESS_KEY
+
+# The one place the version label can disagree with the chart's own appVersion, and the reason it
+# is derived from the tag: this renders `app.kubernetes.io/version: 3.1.3` and not `3.1.4`.
+image:
+  tag: "3.1.3"
+
+# Environment beside the two the access key arrives in — asserts that adding one does not displace
+# the credential entries the chart builds for itself.
+extraEnv:
+  - name: GOMAXPROCS
+    value: "2"
+
+# A ceiling on the scratch volume, which is the branch of the emptyDir the other two files leave
+# unrendered.
+dataVolume:
+  sizeLimit: 8Gi
+
+tenants:
+  lab:
+    ingestion_rate: 25000
+
+serviceMonitor:
+  enabled: true
+  interval: 60s
+  additionalLabels:
+    release: kube-prometheus-stack

@@ -1,0 +1,32 @@
+#!/bin/sh
+# Keep each chart's generated README in step with the values.yaml it is generated from.
+#
+# **This hook generates; it does not gate.** The gate is `make helm-docs-check`, which CI runs —
+# a hook can be skipped with `--no-verify` and is missing entirely in a fresh clone, so nothing
+# that has to be true is allowed to depend on one. What this buys is that the ordinary case, an
+# edited comment, never reaches CI stale.
+#
+# It does one job. Formatting, validation, linting and scanning belong to `make ci`, which is far
+# too slow to run on every commit and would make this the hook people delete.
+
+set -e
+
+# Nothing staged under helm/ means nothing a chart README is generated from has changed, and
+# regenerating five READMEs to discover that is a cost paid on every unrelated commit.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'helm/*')
+[ -n "$staged" ] || exit 0
+
+# The same target `make helm-docs` and CI use, called rather than restated, so there is one
+# definition of how a README is produced. It skips itself when helm-docs is not installed, which is
+# why a missing tool leaves the commit alone rather than blocking it.
+make --no-print-directory helm-docs
+
+# **Only the READMEs of charts this commit actually touches are staged.** helm-docs regenerates
+# every chart in the tree, so an unrelated chart whose values.yaml was edited but not staged will
+# have its README rewritten in the working tree — that shows up as an ordinary unstaged change for
+# you to deal with, rather than being swept into a commit you did not intend it to be part of.
+for chart in $(printf '%s\n' "$staged" | cut -d/ -f1-2 | sort -u); do
+	readme="$chart/README.md"
+	[ -f "$readme" ] || continue
+	git add -- "$readme"
+done

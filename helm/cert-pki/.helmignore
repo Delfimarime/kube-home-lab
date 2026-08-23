@@ -1,0 +1,23 @@
+# Patterns excluded when this chart is packaged. Matching is per path element, .gitignore style.
+
+# Version control and editor droppings, which would otherwise travel inside a released .tgz.
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.tmp
+*.bak
+*.orig
+.DS_Store
+
+# The values files under ci/ are test fixtures: they exist so `helm lint` and `helm template` have
+# something to render, and shipping them invites someone to install one as if it were an example.
+ci/
+
+# Rendered output and OpenTofu working directories, in case a chart is packaged from a tree that
+# has been built in.
+.ci-out/
+.terraform/
+*.tfstate
+*.tfstate.*

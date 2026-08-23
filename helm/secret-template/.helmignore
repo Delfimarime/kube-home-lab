@@ -1,0 +1,24 @@
+# What never belongs inside a packaged chart. Argo CD reads this directory from git rather than
+# from a package, so nothing here changes what a cluster gets today — it is what stops a working
+# copy's noise being published the day one of these charts is packaged.
+
+# Version control and the editor droppings that live beside it.
+.git/
+.gitignore
+.bzr/
+.hg/
+.svn/
+.idea/
+.vscode/
+.project
+*.swp
+*.tmproj
+
+# The operating system's own files, which travel further than anyone expects.
+.DS_Store
+
+# Anything a test run leaves behind. A rendered manifest is an output of this chart and is never
+# part of it.
+.ci-out/
+*.orig
+*.rej

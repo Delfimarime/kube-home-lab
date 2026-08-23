@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "k8s-monitoring-routed values",
+  "description": "The published interface of this chart, which is everything above the `k8s-monitoring` key and nothing below it. Helm checks these values on lint, template and install. What sits under `k8s-monitoring` is the wrapped chart's dialect and is validated by the wrapped chart's own schema if it has one - restating it here would be a fork of a values file rather than a wrapper around a chart, and it would go stale on the first dependency bump.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receiver",
+    "routes"
+  ],
+  "properties": {
+    "gateway": {
+      "description": "The Gateway this chart attaches its route to. Null renders no HTTPRoute, which is a receiver reachable from inside the cluster and from nowhere else - so both an object and null are valid here and the null is the default, because exposure is a decision an environment makes rather than one it gets by leaving a value alone. Given an object, the Gateway and the hostname are required together: a route missing either is one the API server accepts and no Gateway ever binds.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "namespace",
+        "hostname"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "description": "The Gateway's namespace, which is not this release's. Stated rather than assumed, because a shared Gateway lives wherever the ingress does.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "hostname": {
+          "description": "The DNS name the route matches. A host and only a host - no scheme and no path, because an HTTPRoute hostname is compared against the Host header and nothing else.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        },
+        "sectionName": {
+          "description": "The listener on that Gateway, and the whole of how this chart asks for a particular admission policy: pointed at a listener demanding a client certificate, only a caller holding one reaches the receiver at all. Null or absent attaches to every listener the Gateway allows, which is the API's own default rather than this chart's.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 253
+        }
+      }
+    },
+    "receiver": {
+      "description": "What the route points at: the Service the wrapped chart's receiver collector creates, and the port on it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "port"
+      ],
+      "properties": {
+        "service": {
+          "description": "The Service name. It must be the one the wrapped chart is told to create - this chart addresses that Service and does not create it, so a name only one of the two knows is a route to nothing.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        },
+        "port": {
+          "description": "The receiver's OTLP/HTTP port, and not the gRPC one: routing gRPC would need an h2c backend protocol on the Service and a GRPCRoute rather than an HTTPRoute. An integer, because a Gateway API backend port is a number.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "routes": {
+      "description": "One rule per signal this environment actually stores, keyed by the signal names the OTLP specification itself defines - so a signal nothing here keeps gets a 404 from the Gateway rather than being accepted by the receiver and dropped afterwards. The three keys are closed: each becomes the path /v1/<signal>, and a fourth name would render a rule matching a path no client ever sends.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metrics",
+        "logs",
+        "traces"
+      ],
+      "properties": {
+        "metrics": {
+          "type": "boolean"
+        },
+        "logs": {
+          "type": "boolean"
+        },
+        "traces": {
+          "type": "boolean"
+        }
+      }
+    },
+    "labels": {
+      "description": "Extra labels on the route, for an environment's own tooling. Label values are strings, and a number or a boolean written here reaches the API server as the wrong type.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "k8s-monitoring": {
+      "description": "The wrapped chart's values, unconstrained on purpose. They belong to that chart's schema and not to this one, and every one of them is written by the module rendering this chart.",
+      "type": "object"
+    },
+    "global": {
+      "description": "Helm's own well-known key, reachable by every chart in the release. Nothing here reads it; it is declared so that a caller using it is not refused by a schema that closed the door on a Helm feature.",
+      "type": "object"
+    }
+  }
+}
