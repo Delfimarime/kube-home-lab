@@ -1,7 +1,10 @@
 {{/*
 One Bundle for the whole cluster, distributed to every namespace by trust-manager rather than
-mounted per workload. It reads its sources from trust-manager's --trust-namespace, which the
-module pins to .Values.namespace.
+mounted per workload. It reads its sources from trust-manager's --trust-namespace, which has to be
+the namespace this release is installed into — otherwise trust-manager looks for the authorities'
+Secrets somewhere they are not and the Bundle never becomes ready.
+
+The Bundle itself is cluster-scoped and so carries no namespace of its own.
 */}}
 {{- if .Values.trustBundle.authorities }}
 apiVersion: trust.cert-manager.io/v1alpha1

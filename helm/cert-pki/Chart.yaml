@@ -4,7 +4,17 @@ description: >-
   The environment's two certificate authorities, the certificates they sign, the trust bundle
   every namespace receives, and the grant that lets the Gateway read them.
 type: application
-version: 0.1.0
+
+# No appVersion: the authorities and certificates this renders are cert-manager resources, and
+# which cert-manager reconciles them is that chart's pin rather than this one's. A version stated
+# here would be a number nothing reads and everything could disagree with, so the version label is
+# omitted rather than invented.
+#
+# Bumped for `values.schema.json` and for the naming overrides: the values are now a schema Helm
+# enforces on lint and install, `namespace` is gone in favour of the release's own, and every
+# Secret name can be stated by the caller instead of derived. All three change what a caller may
+# write, which is what a version is for.
+version: 0.2.0
 
 # No dependencies, and nothing wrapped. Everything here is a cert-manager or trust-manager custom
 # resource: there is no upstream chart for "this lab's authorities" to build on.

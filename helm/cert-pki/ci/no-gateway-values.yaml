@@ -1,6 +1,5 @@
-# Same, without a Gateway: asserts zero ReferenceGrant.
-namespace: cert-manager
-
+# Same, without a Gateway: asserts zero ReferenceGrant. The namespace is not stated anywhere here
+# either — every namespaced object takes the release namespace, which `helm template -n` supplies.
 authorities:
   server:
     commonName: lab.internal server CA

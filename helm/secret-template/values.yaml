@@ -1,3 +1,8 @@
+# Every value below is also described in `values.schema.json`, which Helm checks before it renders
+# anything. The two say the same thing on purpose: this file explains why a value exists, the
+# schema states what it may be, and a caller getting it wrong is told so at render time rather than
+# by a pod that will not start.
+
 # The Secret's name. Required — there is no sensible default for a credential's name, and
 # guessing one produces an object nothing reads.
 name: ""

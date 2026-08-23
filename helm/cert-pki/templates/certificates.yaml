@@ -16,7 +16,9 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "cert-pki.certName" $ctx }}
-  namespace: {{ $.Values.namespace }}
+  # The release namespace rather than a value: the Application's destination already decides where
+  # this goes, and a second place to say it is a second place for it to be wrong.
+  namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "cert-pki.labels" $ | nindent 4 }}
 spec:
@@ -42,7 +44,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "cert-pki.clientCertName" $ctx }}
-  namespace: {{ $.Values.namespace }}
+  namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "cert-pki.labels" $ | nindent 4 }}
 spec:

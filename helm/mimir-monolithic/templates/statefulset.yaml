@@ -63,7 +63,10 @@ spec:
               containerPort: 7946
               protocol: TCP
           env:
-            {{- toYaml .Values.credentialEnv | nindent 12 }}
+            {{- include "mimir-monolithic.credentialEnv" . | nindent 12 }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /ready

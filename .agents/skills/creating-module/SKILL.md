@@ -128,6 +128,14 @@ nobody renders is one nobody promised ([§2.2.1](../../../CONSTITUTION.md#2-modu
 **Changing an existing chart's values schema is a `Chart.yaml` version bump**, and the chart may
 have consumers other than yours. `grep` the `chart_path` locals before you edit one.
 
+**A chart's `README.md` is generated and never hand-written.** `make helm-docs` renders it from
+the comments in `values.yaml`, which are the only description of the interface the chart
+publishes; writing the README by hand would make a second copy of that prose, free to disagree
+with the schema beside it. So **document an input where it is declared** — a comment above the key
+in `values.yaml` — and **run `make helm-docs` in the same change that edits one**, because
+`make ci` regenerates and fails on any difference. A missing README fails the same check, so a new
+chart is not finished until it has one.
+
 **At the root**, four or five files:
 
 - `module_<capability>.tf` — the `module` block. Having one **is** how an environment ships it

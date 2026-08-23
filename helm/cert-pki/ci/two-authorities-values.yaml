@@ -1,7 +1,6 @@
 # The shape an environment actually ships: the wildcard as an mTLS pair, one extra server-only
-# certificate, and a Gateway to grant.
-namespace: cert-manager
-
+# certificate, and a Gateway to grant. Every name is left to the chart, which is what an operator
+# installing this by hand gets.
 authorities:
   server:
     commonName: lab.internal server CA

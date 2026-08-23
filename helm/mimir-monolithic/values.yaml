@@ -1,8 +1,23 @@
+# What `app.kubernetes.io/name` says — what this is, rather than which deployment of it. Empty
+# means the chart's own name, which is almost always right; it is here because two releases of this
+# chart in one namespace would otherwise carry the same name label, and a ServiceMonitor selecting
+# on it would scrape both as one.
+nameOverride: ""
+
+# What every object this chart renders is called. Empty means the release name.
+#
+# **Set this rather than reproducing the rule.** The name is also the in-cluster hostname every
+# reader of this store is configured with, so anything publishing that address needs to know it —
+# and a caller that works it out from the release name has written down a copy of a derivation that
+# lives in this chart and is free to change. Stating the name here means the caller reads it back
+# from its own configuration and the two cannot disagree.
+fullnameOverride: ""
+
 image:
   repository: grafana/mimir
   # Pinned by the module rather than defaulted meaningfully here: an upgrade is a deliberate edit,
   # which is what stops a configuration key changing underneath this chart silently.
-  tag: "3.2.0"
+  tag: "3.1.4"
   pullPolicy: IfNotPresent
 
 # Every read and write carries a tenant header. Nothing validates it — a caller states its tenant
@@ -24,15 +39,29 @@ storage:
   bucket: ""
   insecure: true
 
-  # The access key, by reference and never by value. These are the literal strings written into the
-  # configuration file; the process expands them at start-up from the environment, which is what
-  # `credentialEnv` fills. A value here would be a credential in a rendered Application spec.
-  accessKeyRef: "${OBJECT_STORAGE_ACCESS_KEY}"
-  secretKeyRef: "${OBJECT_STORAGE_SECRET_KEY}"
+  # The access key, by reference and never by value: a Secret this chart only reads, and the names
+  # of the two keys inside it holding the two halves. Whoever creates that Secret and when is
+  # somebody else's business — this chart declares what it needs to find there and nothing about
+  # when it appears.
+  #
+  # **A value never belongs here.** From these three names the chart builds both the environment
+  # entries on the container and the placeholders the configuration file carries, so nothing
+  # sensitive reaches a values file, a ConfigMap, or the Application spec that renders them. That
+  # both are built from one place is also the point of the shape: they used to be given separately
+  # and had to be kept in agreement by hand, and the failure when they were not was a store
+  # authenticating with the literal text of its own placeholder while every pod stayed healthy.
+  #
+  # The two keys must differ. They are two keys in one Secret and one name cannot hold both halves.
+  existingSecret:
+    name: ""
+    accessKeyKey: ""
+    secretKeyKey: ""
 
-# Environment entries added to the container verbatim — a secretKeyRef per half of the access key.
-# The chart never learns the Secret's key names and never holds a value.
-credentialEnv: []
+# Environment entries added to the container beside the two the access key arrives in. The
+# credential is not configured here — it has its own shape above, because a credential passed as
+# raw environment plumbing is one the caller has to assemble correctly rather than one this chart
+# assembles from a name.
+extraEnv: []
 
 # What applies to a tenant this deployment was told nothing about. A caller may write under any
 # name it likes, including one nothing below mentions, and such a write lands here rather than

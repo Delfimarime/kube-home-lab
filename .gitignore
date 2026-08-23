@@ -207,3 +207,7 @@ modules/*/tofu/.terraform.lock.hcl
 # CI
 .ci-out/
 .tofu-plugin-cache/
+
+# Python bytecode from the docs checker
+__pycache__/
+*.pyc

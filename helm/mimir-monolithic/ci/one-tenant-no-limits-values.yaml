@@ -6,18 +6,10 @@ storage:
   region: af-south-1
   bucket: mimir
   insecure: true
-
-credentialEnv:
-  - name: OBJECT_STORAGE_ACCESS_KEY
-    valueFrom:
-      secretKeyRef:
-        name: object-storage-credentials
-        key: RUSTFS_ACCESS_KEY
-  - name: OBJECT_STORAGE_SECRET_KEY
-    valueFrom:
-      secretKeyRef:
-        name: object-storage-credentials
-        key: RUSTFS_SECRET_KEY
+  existingSecret:
+    name: object-storage-credentials
+    accessKeyKey: RUSTFS_ACCESS_KEY
+    secretKeyKey: RUSTFS_SECRET_KEY
 
 tenants:
   lab: {}

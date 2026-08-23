@@ -19,10 +19,23 @@ locals {
   # happens to be terminating OTLP this year.
   receiver_service = "otlp"
 
-  # In-cluster addresses. Each store's Service is named for its release, so these follow the names
-  # above by construction; change one and change the other, or this module publishes an address
-  # nothing answers on.
-  metrics_store_host  = "${local.metrics_store_release}.${var.namespace}.svc.cluster.local:8080"
+  # What every object the metrics store's chart renders is called. That chart takes it as
+  # `fullnameOverride`, so this module *states* the name and then reads it back below — rather than
+  # reproducing whatever rule the chart derives a name by, which is a copy that goes stale the day
+  # the chart changes and whose only symptom is an address nothing answers on.
+  metrics_store_name = local.metrics_store_release
+
+  # The port that store answers on, stated here for the same reason its name is: it is handed to
+  # the chart as `server.httpPort` and read back into the address below, so the two cannot be
+  # different numbers. Left to the chart's own default it would be a value this module copied, and
+  # a copy of a port is the same failure as a copy of a name — an address nothing answers on, found
+  # by whoever queries it rather than by anything here.
+  metrics_store_port = 8080
+
+  # In-cluster addresses. The metrics store's is built from the name and port handed to its chart;
+  # the other two are upstream charts named for their release and listening on their own defaults,
+  # which are their rules and not ones this module can set.
+  metrics_store_host  = "${local.metrics_store_name}.${var.namespace}.svc.cluster.local:${local.metrics_store_port}"
   logs_store_host     = "${local.logs_store_release}.${var.namespace}.svc.cluster.local:3100"
   traces_store_host   = "${local.traces_store_release}.${var.namespace}.svc.cluster.local:3200"
   traces_store_ingest = "${local.traces_store_release}.${var.namespace}.svc.cluster.local:4318"
@@ -52,8 +65,14 @@ locals {
   # start-up, so the credential is a Secret reference in a pod spec and never a value in a rendered
   # Application. The two names below are this module's, not any Secret's: the Secret's keys are the
   # caller's to choose, and mapping them to fixed names here is what keeps a chosen key name out of
-  # three different configuration dialects — and lets three stores reading three different Secrets
-  # all be configured the same way.
+  # two different configuration dialects — and lets two stores reading two different Secrets all be
+  # configured the same way.
+  #
+  # **These are for the two upstream charts only.** The metrics store's chart is this repository's
+  # own and is given the Secret's name and its two key names instead, building its own environment
+  # entries and its own placeholders from them; keeping the environment variable name and the
+  # placeholder text in agreement is the chart's job there, because it is the only place both are
+  # written. The upstream charts offer nowhere to put that, so for them it is done here.
   access_key_env = "OBJECT_STORAGE_ACCESS_KEY"
   secret_key_env = "OBJECT_STORAGE_SECRET_KEY"
 
@@ -133,7 +152,10 @@ locals {
     for signal, s in local.storage : signal => s.insecure ? "http" : "https"
   }
 
-  # One Secret reference pair per store, pointing at whichever Secret that store resolved to.
+  # One Secret reference pair per store whose chart takes environment entries verbatim, pointing at
+  # whichever Secret that store resolved to. The metrics store is absent on purpose and not by
+  # oversight: its chart takes the Secret's name and its two key names and builds these itself, so
+  # an entry here would be a second author of the same pod's environment.
   credential_env = {
     for signal, s in local.storage : signal => [
       {
@@ -154,7 +176,7 @@ locals {
           }
         }
       },
-    ]
+    ] if signal != "metrics"
   }
 
   # A placeholder per *distinct* Secret this module was asked to create. Two stores left on the
@@ -275,6 +297,18 @@ locals {
 
 locals {
   metrics_store_base = {
+    # The name this store's objects carry, stated rather than left to the chart to derive. It is
+    # what makes the address published above a fact this module owns: the Service is called this
+    # because it was told to be, so nothing here has to know how that chart would otherwise pick a
+    # name.
+    fullnameOverride = local.metrics_store_name
+
+    # Stated rather than defaulted, so the address published above is built from the same number
+    # this store is told to listen on.
+    server = {
+      httpPort = local.metrics_store_port
+    }
+
     image = {
       tag = var.mimir.image_tag
     }
@@ -293,13 +327,16 @@ locals {
       bucket   = try(local.shipped.metrics.bucket, "")
       insecure = try(local.storage.metrics.insecure, true)
 
-      # The credential by reference. The two environment variable names are what the rendered
-      # configuration expands; the Secret's key names stay the caller's.
-      accessKeyRef = local.access_key_ref
-      secretKeyRef = local.secret_key_ref
+      # The credential by reference, and by reference only: the Secret this store resolved to and
+      # the names of the two keys inside it. What that chart does with them — the environment
+      # entries on its pod, the placeholders in its configuration file — is its own business, so
+      # this module states three names and no Kubernetes plumbing at all.
+      existingSecret = {
+        name         = try(local.storage_secret_name.metrics, "")
+        accessKeyKey = try(local.storage.metrics.access_key_key, "")
+        secretKeyKey = try(local.storage.metrics.secret_key_key, "")
+      }
     }
-
-    credentialEnv = try(local.credential_env.metrics, [])
 
     limits = {
       retention = try(local.component_retention.metrics, var.retention.default)

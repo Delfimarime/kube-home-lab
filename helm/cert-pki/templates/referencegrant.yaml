@@ -12,7 +12,9 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: gateway-reads-certificates
-  namespace: {{ .Values.namespace }}
+  # The release namespace rather than a value: a grant has to live beside the Secrets it grants
+  # access to, and the Application's destination already decides where those are.
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "cert-pki.labels" . | nindent 4 }}
 spec:

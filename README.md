@@ -146,6 +146,8 @@ make            # list the targets
 make ci         # everything the pipeline runs
 make lint       # the fast half: formatting, validation, tflint, helm lint
 make docs       # the documentation, against itself and against the code
+make helm-docs  # regenerate each chart's README from its values.yaml comments
+make hooks      # point git at .githooks, once per clone
 ```
 
 **The Makefile is the local twin of [`.github/workflows/ci.yml`](.github/workflows/ci.yml)**, and
@@ -157,11 +159,27 @@ network no runner can reach, so a pull request is the only gate.
 values from OpenTofu, so their defaults render almost nothing and each chart's `ci/` values files
 are the only description of what actually gets deployed.
 
+**`make hooks` installs one hook, and it only generates.** `.githooks/pre-commit` regenerates a
+chart's README when that chart is staged, and stages the README with it — so an edited comment
+never reaches CI with a stale README beside it. It gates nothing: `--no-verify` skips it and a
+fresh clone does not have it at all, so the thing that has to be true is checked by
+`make helm-docs-check` in CI instead. Only the READMEs of charts the commit touches are staged;
+another chart regenerated along the way is left as an ordinary unstaged change.
+
 `make docs` checks the mechanical half of a documentation review — that links and anchors
 resolve, that every index agrees with what is on disk, that a spec does not say `draft` while its
 module runs, and that no code file cites a document. It is a check rather than a convention
 because the documentation here is the deliverable, and the drift it catches is invisible to a
 reviewer reading one file at a time.
+
+`make helm-docs` renders each chart's `README.md` from the comments in its `values.yaml`, and
+`make ci` runs `make helm-docs-check`, which regenerates into a temporary directory and fails if
+what is committed differs. A chart's `values.yaml` is its published interface and its comments are
+the only description of it, so the README is generated *from* them rather than written beside
+them — a hand-written one would be a second copy of the same prose, free to disagree with the
+schema it claims to describe. Neither target fails when `helm-docs` is missing: like `tflint` it
+is skipped locally and installed in CI, so the check is one a runner always applies and a laptop
+applies when it can.
 
 Underneath, the same two commands by hand:
 

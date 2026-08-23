@@ -35,8 +35,15 @@ deterministic — a link resolves or it does not:
 | Scenario IDs are unique, and every cited one exists | an ID reused for a second scenario, or a matrix row citing one that is gone |
 | Every ADR has a lede and the five sections in order | a decision written in the old Context-first shape, or with no `Alternatives` |
 | No code file cites a document | [§10.3](../../../CONSTITUTION.md#10-documentation) |
+| Chart READMEs are generated | a `helm/<chart>/README.md` somebody typed, which is a second copy of the values schema and free to disagree with it |
 
 **Run it first.** It is free and it narrows what is left to read.
+
+**`make ci` adds one more that `make docs` cannot.** `make helm-docs-check` regenerates every
+chart README from its `values.yaml` comments into a temporary directory and fails on any
+difference, which is how a generated file that lives in git stays worth reading. It is not part of
+`make docs` because it needs `helm-docs` installed, and skips itself when the tool is absent —
+`make docs` deliberately needs nothing but the python already on the machine.
 
 **Its false negatives are the point of the rest of this file.** It reads structure, never
 meaning: a spec can pass every check above while describing a module that no longer behaves that
@@ -81,6 +88,11 @@ not exist and now does — is a decision worth reopening, and nothing else in th
 **Open items and `AGENTS.md`.** Both hold live state, which is the fastest-rotting kind. An open
 question that has since been answered, or a "blocked" entry whose blocker is gone, actively
 misleads.
+
+**And check `AGENTS.md` is not quietly holding facts.** It says of itself that no entry restates
+something a file already holds — a version, a count, a list of modules — because that copy is the
+one that goes stale while nothing checks it. Two crept in and were removed on 2026-08-23; one of
+them had gone stale within hours of being written. A number in that file is the thing to look for.
 
 ## Retiring — the registration set, in reverse
 

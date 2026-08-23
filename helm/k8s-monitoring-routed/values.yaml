@@ -1,5 +1,10 @@
 # Everything this chart adds on its own is in this file down to `k8s-monitoring:`. Below that key
 # is the dependency's own dialect, unchanged and not restated here.
+#
+# `values.schema.json` draws the same line and Helm checks it before rendering: the keys above
+# `k8s-monitoring` are described there in full, and that key itself is allowed through
+# unconstrained. Schemaing the dependency's dialect would be a copy of its values file that goes
+# stale on the first version bump, and the dependency already validates its own.
 
 # The Gateway this chart attaches its route to. null is not exposed, and null is the default: a
 # receiver reachable from outside the cluster is a decision an environment makes, not one it gets

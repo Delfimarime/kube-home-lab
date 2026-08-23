@@ -1,19 +1,38 @@
-# Where the authorities, their certificates and their Secrets live. cert-manager's
-# --cluster-resource-namespace and trust-manager's --trust-namespace must both be set to this, or
-# a ClusterIssuer looks for its CA Secret somewhere it is not. The module sets both.
-namespace: cert-manager
+# Where the authorities, their certificates and their Secrets live is *not* a value here: every
+# namespaced object this chart renders takes the release namespace, because whoever installs the
+# release already chose it and a second place to say it is a second place for it to be wrong.
+# cert-manager's --cluster-resource-namespace and trust-manager's --trust-namespace must both name
+# that same namespace, or a ClusterIssuer looks for its CA Secret somewhere it is not.
+
+# The chart's own name, as it appears in the app.kubernetes.io/name label. Overriding it is how two
+# releases of this chart in one cluster are told apart by a label selector rather than only by
+# instance.
+nameOverride: ""
+
+# The prefix every generated name is built from. Unset, it is the release name — which for a chart
+# delivered by Argo CD means whatever the Application was called. Set it when a caller needs the
+# generated names to be predictable without depending on that coincidence.
+fullnameOverride: ""
 
 # Exactly two, and the chart does not loop over an open-ended set: `server` signs what serves TLS,
 # `client` signs what authenticates to a listener. A listener trusts a CA and not a purpose, so
 # two authorities are what stop a server certificate authenticating as a client — a single root
 # would leave that to the Gateway enforcing Extended Key Usage.
+#
+# `secretName` names the authority outright — its Certificate, its Secret and its ClusterIssuer all
+# take that name. Unset, the chart derives one. Set it when something outside this chart has to
+# reference the authority by name before the cluster has it: stating the name is the only way to
+# know it that does not mean reimplementing the chart's naming inside another artifact, where the
+# copy silently stops matching the day the formula changes.
 authorities:
   server:
     commonName: example.internal server CA
     duration: 87600h # the authority outlives what it signs
+    secretName: ""
   client:
     commonName: example.internal client CA
     duration: 87600h
+    secretName: ""
 
 # One entry per certificate. `server` is always present; `client` is present only when the module
 # resolved that entry's mode to "mtls".
@@ -21,11 +40,15 @@ authorities:
 # **The chart has no notion of "mtls".** The presence of a `client` block *is* the pair, so there
 # is no second place where this chart and the module could disagree about what the mode means.
 #
+# Each half takes its own optional `secretName`, for the same reason the authorities do: a consumer
+# is told the Secret name by setting it, never by predicting it.
+#
 # certificates:
 #   default:
 #     server:
 #       dnsNames: ["*.lab.internal"]
 #       duration: 8760h
+#       secretName: wildcard-tls    # optional; derived when unset
 #     client:
 #       commonName: default.lab.internal
 #       duration: 8760h
@@ -37,10 +60,11 @@ authorities:
 certificates: {}
 
 trustBundle:
-  # The ConfigMap every namespace receives. Consumers mount this name.
+  # The ConfigMap every namespace receives. Consumers mount this name. Always stated, never
+  # derived: it is the one name in this chart a workload in an unrelated namespace has to know.
   name: cert-ca-bundle
   # Which authorities every namespace is told to trust. The client authority does not belong
-  # here: nothing in-cluster verifies a client certificate.
+  # here: nothing in-cluster verifies a client certificate. An empty list renders no Bundle at all.
   authorities:
     - server
 

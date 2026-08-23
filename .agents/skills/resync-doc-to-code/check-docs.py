@@ -234,6 +234,31 @@ def check_charts_are_at_the_root():
                           "`set -e`, so this fails the build rather than being skipped")
 
 
+# helm-docs signs everything it renders with a footer linking to itself. That link is the only
+# marker in the file that survives every version of the tool, so it is what a generated README is
+# recognised by.
+GENERATED_BY = "github.com/norwoodj/helm-docs"
+
+
+def check_chart_readmes_are_generated():
+    """A chart's README is rendered from the comments in its values.yaml, which are the
+    description of the interface it publishes. One written by hand is a second copy of that
+    description, free to disagree with the schema beside it — so a README with no sign of having
+    been generated is reported here. Whether a generated one is *current* is `make helm-docs-check`
+    instead, because answering that needs helm-docs installed and this file needs nothing."""
+    charts = os.path.join(ROOT, "helm")
+    if not os.path.isdir(charts):
+        return
+    for name in sorted(os.listdir(charts)):
+        chart = os.path.join(charts, name)
+        readme = os.path.join(chart, "README.md")
+        if not os.path.exists(os.path.join(chart, "Chart.yaml")):
+            continue
+        if os.path.exists(readme) and GENERATED_BY not in read(readme):
+            report(readme, "nothing generated this — a chart README comes from its values.yaml "
+                           "comments via `make helm-docs`, and is never written by hand")
+
+
 def glob_ci(chart):
     folder = os.path.join(chart, "ci")
     if not os.path.isdir(folder):
@@ -363,6 +388,7 @@ def main():
     check_spec_status()
     check_module_has_spec()
     check_charts_are_at_the_root()
+    check_chart_readmes_are_generated()
     check_scenario_ids()
     check_code_cites_no_document()
 

@@ -1,6 +1,7 @@
 {{/*
-One Service, named for the release, and the address the module publishes is built from that name.
-It is never routed: what reaches this is the collector and the console, both inside the cluster.
+One Service, carrying the name every other object here carries, so whoever publishes an address for
+this store states that name rather than working it out from the release. It is never routed: what
+reaches this is the collector and the console, both inside the cluster.
 */}}
 apiVersion: v1
 kind: Service

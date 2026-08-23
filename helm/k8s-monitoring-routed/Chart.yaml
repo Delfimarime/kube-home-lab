@@ -4,7 +4,11 @@ description: >-
   The collector chart, plus the one route it does not render for its own OTLP receiver. Nothing
   else is re-authored and the upstream values dialect is unchanged.
 type: application
-version: 0.1.0
+
+# Moved for `values.schema.json`: the keys this chart owns are now stated as a schema Helm enforces,
+# and the dependency's key is allowed through unconstrained. The version below did not move with it —
+# nothing about the wrapped chart changed.
+version: 0.2.0
 
 # **A wrapper, not a fork.** The chart below renders no Gateway API resource for the receiver it
 # creates, and one HTTPRoute is the entire difference — so it is declared as a dependency and a

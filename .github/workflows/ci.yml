@@ -39,6 +39,30 @@ jobs:
       - uses: azure/setup-helm@v5
       - run: make helm-lint
 
+  # A chart's README is rendered from the comments in its values.yaml, so the thing that rots is
+  # the rendering: a comment edited in a pull request and the README left describing what the
+  # chart used to take. Regenerating into a temporary directory and failing on any difference is
+  # what keeps a generated file that lives in git worth reading. It needs no helm, only helm-docs.
+  helm-docs:
+    name: helm-docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # There is no first-party action for helm-docs, and a pinned release tarball is more honest
+      # about what it installs than an unpinned third-party one. The version is pinned because
+      # helm-docs stamps it into the footer of everything it writes; the Makefile's check ignores
+      # that line, so bumping this does not make every README look stale.
+      - name: Install helm-docs
+        env:
+          HELM_DOCS_VERSION: 1.14.2
+        run: |
+          curl -fsSL "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz helm-docs
+          sudo install helm-docs /usr/local/bin/helm-docs
+
+      - run: make helm-docs-check
+
   # The mechanical half of a documentation review. It needs no tooling beyond the python every
   # runner already has, and it is the check most likely to catch a change that passed review —
   # a heading renamed, a table not updated, a spec still saying draft.

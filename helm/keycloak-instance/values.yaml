@@ -1,6 +1,11 @@
 # Every value here is set by the module that renders this chart. The defaults exist so the chart
 # is readable on its own and so `helm template` says something useful; they are not a working
 # configuration, and the two under ci/ are what CI renders.
+#
+# The same values are described in `values.schema.json`, which Helm checks before it renders
+# anything. The two are not duplicates: this file says why a value exists, the schema says what it
+# may be, and a second consumer rendering against the wrong shape is refused rather than producing
+# a resource the operator accepts and never reconciles.
 
 # The name of the Keycloak resource.
 name: keycloak

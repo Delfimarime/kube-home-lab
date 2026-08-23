@@ -34,8 +34,8 @@ data:
           endpoint: {{ .Values.storage.endpoint | quote }}
           region: {{ .Values.storage.region | quote }}
           bucket_name: {{ .Values.storage.bucket | quote }}
-          access_key_id: {{ .Values.storage.accessKeyRef | quote }}
-          secret_access_key: {{ .Values.storage.secretKeyRef | quote }}
+          access_key_id: {{ include "mimir-monolithic.accessKeyPlaceholder" . | quote }}
+          secret_access_key: {{ include "mimir-monolithic.secretKeyPlaceholder" . | quote }}
           insecure: {{ .Values.storage.insecure }}
 
     # Three components share one bucket and each is refused unless it is given somewhere distinct

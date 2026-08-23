@@ -18,6 +18,7 @@ rules are not repeated here.
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
 | How to run anything | [README.md](README.md#running-it) |
 | How to check your work before you claim it passes | [Makefile](Makefile) — `make help` |
+| What a fresh clone needs wiring up | `make skills` and `make hooks` — both are untracked wiring over tracked content |
 | The procedure for a recurring job — creating a module, writing an ADR, resyncing the docs | `.agents/skills/<name>/SKILL.md` |
 
 **Skills live in `.agents/skills/`**, one directory per procedure, and hold *order and
@@ -42,8 +43,8 @@ module_<capability>.tf         the module blocks for one capability — usually 
                                where a capability ships as a pair (module_observability.tf
                                holds the storage and the console)
 outputs.tf
-helm/<chart>/                  a chart this repo publishes: its values.yaml is the interface,
-                               its Chart.yaml version is bumped when that interface changes
+helm/<chart>/                  a chart this repo publishes, consumed by the modules that
+                               render it — one or more of them
 modules/<capability>-<impl>/
   *.tf                         the OpenTofu that renders this module's ApplicationSet, and
                                nothing else — the charts it points at are in helm/
@@ -74,15 +75,17 @@ docs/                          requirements, specs, decisions
 
 Live state, not rules. Each of these is a reason to stop and ask rather than proceed.
 
+**No entry here restates a fact that lives in a file.** A version, a count, a list of modules —
+those are read from the thing that holds them, because a copy here is the one that goes stale and
+nothing checks it. What belongs is what no file records: an action still outstanding, a gap
+somebody chose to leave open, a trap worth naming before somebody steps in it.
+
 - **Charts moved to a root `helm/` on 2026-08-23, and the first `tofu apply` after that has an
   ordering hazard.** Every generated `Application`'s `source.path` changed
   ([ADR 028](docs/adr/028-charts-are-first-class-artifacts.md)). **The chart must exist at the
   revision Argo CD tracks before the `ApplicationSet` points at the new path** — push, then
   `tofu apply`. The other order leaves every `Application` in `ComparisonError` until the push
   lands. This entry can go once that apply has happened in every environment.
-- **A chart's version is now a promise nobody has yet kept.** All five read `0.1.0` and none has
-  been bumped. The first change to a chart's values schema is the one that establishes whether
-  §2.2.1 is real; nothing enforces it.
 - **Audit record management is out of scope, and the requirement behind it is retired.** REQ-07
   and the `audit-management-auditum` spec were both dropped on 2026-08-23: nothing here writes an
   audit record, and the requirement never resolved into a single subject — application audit
@@ -103,10 +106,10 @@ Live state, not rules. Each of these is a reason to stop and ask rather than pro
   PostgreSQL too, but a separate one, and it *is* regenerable
   ([ADR 012](docs/adr/012-state-is-per-environment.md)).
 - **The object store is pre-1.0, and nothing creates its buckets.** `object-storage-rustfs` pins
-  a chart whose appVersion is `1.0.0-rc.3`, and every stored signal now lives behind it. The
-  buckets each store writes to are created by hand, per environment; a missing one is not a sync
-  failure — every store comes up healthy and fails on its first write. Don't add a bucket input
-  to a module that cannot create one.
+  a release candidate — its own `variables.tf` says which — and every stored signal now lives
+  behind it. The buckets each store writes to are created by hand, per environment; a missing one
+  is not a sync failure — every store comes up healthy and fails on its first write. Don't add a
+  bucket input to a module that cannot create one.
 - **Three things are unverified, and each would change a spec.** Check before implementing, not
   after:
   - whether Alloy's `otelcol.auth.headers` accepts `from_context` and `default_value` at the

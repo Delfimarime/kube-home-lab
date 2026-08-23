@@ -4,7 +4,11 @@ description: >-
   One Secret, with the keys a workload will look for and no values in them. An operator fills it
   in; Argo CD is told to ignore the contents from then on, so no sync overwrites what was typed.
 type: application
-version: 0.1.0
+
+# Moved for `values.schema.json`: the same four values, now stated as a schema Helm enforces rather
+# than as prose and two `fail` calls. Nothing a caller was already sending is refused, and a caller
+# sending something this chart never rendered now hears about it.
+version: 0.2.0
 
 # The chart behind `modules/secret-template`, which is not a capability and renders nothing on its
 # own. Every module needing a credential it was given no name for points an Application here, in
