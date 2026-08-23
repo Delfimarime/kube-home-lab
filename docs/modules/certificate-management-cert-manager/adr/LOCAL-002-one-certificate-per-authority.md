@@ -10,17 +10,7 @@
 > two-authority split is kept**, because it is what CERT-05 rests on, and it is the half of this
 > decision that was load-bearing.
 
-## Context
-
-[LOCAL-001](LOCAL-001-certificates-from-an-internal-ca.md) settles where certificates come from.
-It settles nothing about how many there are, or how a caller asks for one that needs a client
-counterpart.
-
-The obvious shape is a list of named clients — `clients = ["laptop", "nas"]` — each getting its
-own certificate, so the mTLS listener can tell one pusher from another. That is what
-[ADR 014](../../../adr/014-exposed-does-not-mean-authorized.md) priced when it examined and
-rejected an `ingress-gateway-api` module, and it named the rotation problem in passing: a
-certificate renewed in-cluster does not renew the copy on the laptop.
+**There are exactly two authorities, `server` and `client`, and no list of clients.**
 
 ## Decision
 
@@ -37,6 +27,18 @@ from `certificates`, keyed by name.
 | --- | --- | --- |
 | `tls` | a server certificate, from the `server` authority | `<release>-<name>-tls` |
 | `mtls` | **a pair** — that certificate *and* a client certificate from the `client` authority | `<release>-<name>-tls`, `<release>-<name>-client` |
+
+## Context
+
+[LOCAL-001](LOCAL-001-certificates-from-an-internal-ca.md) settles where certificates come from.
+It settles nothing about how many there are, or how a caller asks for one that needs a client
+counterpart.
+
+The obvious shape is a list of named clients — `clients = ["laptop", "nas"]` — each getting its
+own certificate, so the mTLS listener can tell one pusher from another. That is what
+[ADR 014](../../../adr/014-exposed-does-not-mean-authorized.md) priced when it examined and
+rejected an `ingress-gateway-api` module, and it named the rotation problem in passing: a
+certificate renewed in-cluster does not renew the copy on the laptop.
 
 ## Rationale
 
@@ -63,6 +65,17 @@ from `certificates`, keyed by name.
 - **A name is enough to derive everything else.** An entry with no `dns_names` gets
   `<name>.<domain>`; its client half gets `CN=<name>.<domain>`. Nothing makes a caller repeat the
   domain it already declared.
+
+## Alternatives
+
+- **A list of named clients** — `clients = ["laptop", "nas"]` — one certificate each, so an mTLS
+  listener can tell one pusher from another. This is the shape
+  [ADR 014](../../../adr/014-exposed-does-not-mean-authorized.md) already priced and rejected: it
+  buys per-caller identity that nothing here consumes, and it multiplies the rotation problem,
+  because a certificate renewed in-cluster does not renew the copy on the device holding it.
+- **Configurable authorities.** A map instead of two fixed ones. It makes the trust bundle's
+  contents a per-environment question ([ADR 018](../../../adr/018-one-trust-bundle-for-the-cluster.md))
+  and adds a dimension no environment has asked for.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # Platform specification
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-05, REQ-06, REQ-08, REQ-09, REQ-10, REQ-12, REQ-13](requirements.md) ·
 **Decisions:** [ADR 004](adr/004-scrape-config-via-prometheus-crds.md),
 [ADR 005](adr/005-modules-are-applicationsets.md),
@@ -13,7 +13,8 @@
 [ADR 016](adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](adr/017-stores-are-multi-tenant.md),
 [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md),
-[ADR 020](adr/020-one-root-module.md) ·
+[ADR 020](adr/020-one-root-module.md),
+[ADR 026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) ·
 **Date:** 2026-08-05
 
 This is the system: what the parts are, how they fit together, and which decision owns each
@@ -22,9 +23,9 @@ repeats it.
 
 ## Intent
 
-Provision workload-facing platform services — observability, identity, certificates and audit —
-onto existing k3s clusters, in a way that is still understandable after six months of not being
-touched.
+Provision workload-facing platform services — observability, identity, authorization, certificates
+and the object storage behind them — onto existing k3s clusters, in a way that is still
+understandable after six months of not being touched.
 
 The measure of success is not uptime. It is that a person returning to this repo can tell what
 runs, why it was chosen, and what happens if they change it.
@@ -32,7 +33,7 @@ runs, why it was chosen, and what happens if they change it.
 ## Scope
 
 **In scope.** Argo CD `ApplicationSet`/`Application` resources and their configuration, for:
-observability (metrics, logs, traces), OIDC identity, certificate management, audit trail
+observability (metrics, logs, traces), OIDC identity, resource-level authorization, certificate
 management, and the object storage those workloads keep their data in — per environment.
 
 **Object storage is in scope where PostgreSQL is not**, and the line is not size. A database is
@@ -65,7 +66,7 @@ Each environment's cluster exists and already runs:
 - **Gateway API (Traefik)** — a `Gateway` exists to attach `HTTPRoute`s to, with listeners open
   to routes from any namespace (`allowedRoutes.namespaces.from: All`). **Two listeners** are
   expected: one ordinary TLS, one demanding a client certificate — see
-  [exposure and authorization](#exposure-and-authorization)
+  [exposure](#exposure-gateway-in-a-route-out)
 - **PostgreSQL** — reachable, with a database and credentials per consumer, described in that
   environment's var file. Where it runs, and whether two environments share a server, is
   invisible to every module. OpenTofu's state lives in a PostgreSQL too
@@ -94,16 +95,17 @@ Six nouns carry all the weight. Everything else is a detail of one of them.
   Environment ──is──▶ one cluster ──runs──▶ its own Argo CD ──▶ the modules it ships
 ```
 
-**Capability** — a job that needs doing: identity, observability, certificates, audit.
-Capabilities are stable. What implements one is not.
+**Capability** — a job that needs doing: identity, authorization, observability, certificates,
+object storage. Capabilities are stable. What implements one is not.
 
 **Module** — one implementation of one capability, named `<capability>-<implementation>`
 (`openid-connect-keycloak`). The implementation half of the name is the swappable half, so a
 module's outputs are named for the capability and never for the product: `issuer_url`, not
 `keycloak_realm_id`. That naming rule is the whole mechanism behind REQ-09.
 
-**Contract** — the three optional inputs every consumer module accepts, in one shape each. See
-[contracts](#contracts).
+**Contract** — one of three inputs a consumer module accepts when it needs it, each in a fixed
+shape. A module takes the contracts it uses and no others, so the shape is what is shared and the
+set is not. See [contracts](#contracts).
 
 **Provider and consumer** — a module is a *provider* of what it publishes and a *consumer* of
 what it is wired to. A provider publishes its own address and knows nothing about who uses it; a
@@ -141,110 +143,111 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | [`object-storage-rustfs`](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint the stores write into |
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
-| [`audit-management-auditum`](modules/audit-management-auditum/README.md) | an audit record API — **blocked** |
+| [`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) | answers whether a subject may act on a particular resource |
 
 **What each one provides and consumes is in its own spec**, and only there. This table names
-the parts; the [mechanisms](#mechanisms) below describe how they meet.
+the parts; the [joints](#joints) below describe where they meet.
 
 Modules an environment ships are deployed into that environment's cluster only. Nothing here is
 shared between environments.
 
-## Mechanisms
+## Joints
 
-Six behaviours span more than one module. Each is owned by exactly one decision, and this is the
-list of them — a change to any is a change here first and in the modules second.
+Seven places where modules meet. **Each names the value that passes and the decision that owns
+it**; the rule is in the [CONSTITUTION](../CONSTITUTION.md) and the argument is in the ADR, and
+neither is repeated here. What this section is for is the thing neither of those holds — which
+module hands what to which, and what breaks at the seam.
 
-### Wiring
+### Wiring — how any value crosses a boundary
 
-**Modules are wired by reference, in the root module** ([ADR 020](adr/020-one-root-module.md)).
-A value one module publishes and another consumes — a store address, an issuer URL — is
-`module.<a>.<output>` passed into `module.<b>`: one graph, resolved at plan time, reading no
-state file. A value that belongs to the cluster rather than to any module — a hostname, a tenant
-list — is a root variable, declared once in that environment's var file and passed to each module
-that reads it.
+Three kinds, and which one a value is decides whether it can ever disagree with itself:
 
-The consequence worth knowing: the *first* kind cannot disagree with what it describes, and the
-second still can. A hostname written down twice is two facts; deriving both from one root
-variable is what keeps that narrow.
+| Kind | Written | Can drift? |
+| --- | --- | --- |
+| `module.<a>.<output>` → `module.<b>` | nowhere — resolved at plan time | no |
+| a root variable read by several modules | once, in the environment's var file | across environments only |
+| derived at the root from another input | nowhere | no |
 
-There is a third kind, and it is the shape to prefer where it is available: a fact the root module
-can *derive* from an input it already has. `metrics.enabled` is one — no environment declares it,
-because whether the cluster has the scrape CRDs and a collector is decided by whether it ships a
-metrics store ([ADR 024](adr/024-the-metrics-fact-is-derived.md)).
+The third is the shape to prefer where it exists. `metrics.enabled` is the worked example: no
+environment declares it, because whether the cluster has scrape CRDs and a collector follows from
+whether it ships a metrics store ([ADR 024](adr/024-the-metrics-fact-is-derived.md), §4.2, §4.5).
 
-### Exposure and authorization
+### Exposure — `gateway` in, a route out
 
-**`gateway` says a request can arrive, and nothing more**
-([ADR 014](adr/014-exposed-does-not-mean-authorized.md)). A module authorizes where its workload
-natively can — the console delegates to the issuer and refuses anyone carrying no role. Where
-the workload cannot, that job belongs to the Gateway, which this repo does not provision.
+`gateway` carries a hostname and a listener reference; the module renders an `HTTPRoute` and
+nothing else. **The joint most likely to be misread** is that this repo provisions the *material*
+a Gateway authorizes with — a client authority and a shared client certificate
+([REQ-14](requirements.md)) — and provisions no Gateway. `gateway.section_name` is the whole of
+the mechanism: pointing a surface at the mTLS listener rather than the ordinary one is a
+call-site edit, and no module changes either way
+([ADR 014](adr/014-exposed-does-not-mean-authorized.md), §6.4).
 
-**What changed, and it is the joint most likely to be misread:** this repo now provisions the
-*material* for a Gateway to authorize with — a client authority and one shared client
-certificate ([REQ-14](requirements.md)) — while still provisioning no Gateway. So an environment
-may demand a client certificate on a listener, and whether it does is that environment's
-configuration rather than this repo's. The OTLP ingest endpoint is the surface where this
-matters, and `gateway.section_name` is the entire mechanism: pointing an endpoint at the mTLS
-listener rather than the ordinary one is a call-site edit, with no module change either way.
+Holds regardless of listener: the OTLP ingest surface is write-only, and no store is ever routed.
 
-The claim that holds regardless of listener: that surface is **write-only**, and no store is
-ever routed.
+### Identity — an issuer address in, a refusal or a native role out
 
-### Identity and roles
+`openid-connect-keycloak` publishes `issuer_url`; a consumer's `oidc` input carries it, a client
+id and a Secret reference. What crosses is an address and a claim path — never a user list, never
+a role list ([ADR 013](adr/013-roles-are-carried-in-the-token.md), §6.1, §6.2).
 
-**One issuer per environment, and what a person may do comes from the token**
-([ADR 013](adr/013-roles-are-carried-in-the-token.md)). A consumer wired to `oidc` reads roles
-named `<SLUG>_ADMIN` / `<SLUG>_VIEWER` from `resource_access.<slug>.roles`, maps them onto its
-own native roles, and **refuses anyone carrying none**. `<slug>` is the OIDC client ID, not a
-label chosen beside it. A workload that keeps its own permission list satisfies REQ-01 and still
-fails [REQ-13](requirements.md).
+`<slug>` and `oidc.client_id` are two inputs holding one value and **nothing compares them**; a
+mismatch is indistinguishable from a person with no role. The clients, roles and grants
+themselves exist only in the issuer's console — see [the open questions](#open-questions).
 
-The issuer publishes only its address. Clients, roles and grants are created by hand in its
-console and are recorded nowhere — see [the open questions](#open-questions).
+### Authorization — a store address in, a per-resource answer out
 
-### Trust
+Roles decide whether a person may perform an operation; relationships decide whether they may
+perform it on a particular resource
+([ADR 026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md)). The two are
+`AND`, never a fallback for one another.
 
-**One bundle, in every namespace** ([ADR 018](adr/018-one-trust-bundle-for-the-cluster.md)).
-Certificates come from an authority this repo owns, so a workload calling another over its
-external hostname must trust the root or fail at the TLS handshake. The certificate module
-distributes it; every consumer mounts it.
+What crosses this joint is an address —
+[`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) publishes a
+read URL and a write URL, and they are different trust levels rather than one address with a
+credential. A consumer holding the read address cannot write whatever it does with it.
 
-This is the first cross-module dependency here that is not an address, and it is load-bearing
-for identity: a console with no bundle cannot complete an OIDC login, and the symptom looks like
-a broken OIDC configuration rather than a trust problem.
+**This is the one joint whose other side is not a module here.** The store's consumers are
+applications, which this repository does not deploy: they read the open port to ask questions, and
+they write tuples through the restricted one when they grant access to something they own. So the
+selector admitting them is stated by the composing root rather than published by the module on the
+other side — there is no module on the other side.
 
-### Telemetry and tenancy
+The model is the schema and the tuples are the data. What relations exist is declared in this
+repository and reconciled; who is related to what is written at runtime by whoever grants it.
 
-**The stores are multi-tenant and the caller names its tenant**
-([ADR 017](adr/017-stores-are-multi-tenant.md)). `X-Scope-OrgID` is mandatory on every read and
-write, nothing validates it, and it is **not** a security boundary. What it buys is per-tenant
-limits and retention, which is how [REQ-15](requirements.md) is met, and reads that can be
-scoped.
+### Trust — one bundle, mounted everywhere
+
+`certificate-management-cert-manager` publishes `trust_bundle_name`; every consumer mounts that
+ConfigMap ([ADR 018](adr/018-one-trust-bundle-for-the-cluster.md), §7.2).
+
+**The only cross-module dependency here that is not an address**, and it is load-bearing for
+identity: a console with no bundle cannot complete an OIDC login, and the symptom reads as a
+broken OIDC configuration rather than a trust problem.
+
+### Tenancy — a header on a write, a label on a workload
+
+`X-Scope-OrgID` crosses from caller to store on every read and write, and **nothing validates
+it** ([ADR 017](adr/017-stores-are-multi-tenant.md), §8.2). A scraped workload has no request to
+put it in, so it carries `opentelemetry.io/tenant` on its Service and its pods and the collector
+copies it ([ADR 025](adr/025-a-workload-carries-its-tenant.md)).
+
+The environment's `tenants` value reaches the storage module for limits and the console for
+datasources, and passes between neither — which is why the console reads the storage module's
+`reserved_tenants` rather than restating them.
 
 Certificates and tenancy are deliberately unrelated: a client certificate says a caller may
-write, the header says where. The environment's `tenants` value is read by the storage module
-for limits and by the console for datasources, and passes between neither.
+write, the header says where.
 
-### Scraping
+### Scraping — a chart flag in, a series out
 
-**A workload declares scraping through its own chart**
-([ADR 004](adr/004-scrape-config-via-prometheus-crds.md)) — `serviceMonitor.enabled`, read
-directly by the collector, never hand-written scrape config. It may only do so when the
-environment has the CRDs and a collector, which is what `metrics.enabled` says
-([ADR 016](adr/016-metrics-is-the-fourth-input.md)).
+A workload declares scraping through its own chart's `serviceMonitor.enabled` and nothing else
+([ADR 004](adr/004-scrape-config-via-prometheus-crds.md), §8.1). `metrics.enabled` is what says
+it may — the CRDs and the collector ship with a metrics store and with nothing else, so the root
+derives it ([ADR 024](adr/024-the-metrics-fact-is-derived.md)).
 
-**No environment declares that.** The root module derives it: the CRDs and the collector ship with
-a metrics store and with nothing else, so `observability.components.metrics` being set is what
-makes scraping possible and is therefore what decides it
-([ADR 024](adr/024-the-metrics-fact-is-derived.md)). `initial_deployment` holds every
-`ServiceMonitor` back for the one apply that installs the CRDs, and is unset again after it.
-
-**Which tenant the result is stored under is the workload's own to state**, in an
-`opentelemetry.io/tenant` label on its Service and its pods
-([ADR 025](adr/025-a-workload-carries-its-tenant.md)). The Service label wins for metrics; logs are
-discovered from pods and see no Service, so the pod label is the one that covers both signals. A
-workload carrying neither is stored as the cluster's own tenant, and one naming a tenant the stores
-do not have is stored as `unattributed` — the same three outcomes a pushed request already had.
+`initial_deployment` holds every `ServiceMonitor` back for the one apply that installs the CRDs,
+and is unset again after it. That ordering is the seam: a `ServiceMonitor` applied before its CRD
+fails the sync rather than waiting.
 
 ## Contracts
 
@@ -290,8 +293,8 @@ Three rules follow, and hold across every module:
    that does not resolve yet is an operational state, not a spec violation. This is the same
    rule that lets `database` name a PostgreSQL this repo never provisions.
 
-The two rules that used to sit here — roles come from the token, and exposure is not
-authorization — are mechanisms rather than input conventions, and live above.
+Two rules that used to sit here — roles come from the token, and exposure is not authorization —
+are joints rather than input conventions, and live above.
 
 ## Acceptance criteria
 
@@ -348,7 +351,6 @@ first — it is checkable from a plan, and it is the criterion behind REQ-12.
 Tracked in [requirements.md](requirements.md#open-questions), owned by the specs and ADRs that
 would resolve them:
 
-- **What is Auditum for?** — [audit-management-auditum](modules/audit-management-auditum/README.md)
 - **What creates the Secrets every module references?** — nothing. See
   [requirements.md](requirements.md#open-questions)
 - **What declares the realm?** — nothing. Clients, roles and grants exist only in the issuer's

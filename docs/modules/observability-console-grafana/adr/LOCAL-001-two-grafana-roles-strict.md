@@ -5,17 +5,8 @@
 revised 2026-08-16 (the login form is derived, not an input; the admin credential is a Secret an
 operator fills)
 
-## Context
-
-[ADR 013](../../../adr/013-roles-are-carried-in-the-token.md) settles the shape:
-`<SLUG>_<ROLE>` at `resource_access.<slug>.roles`, two roles as the baseline, and a principal
-with no recognised role refused rather than admitted. This ADR is what that costs in Grafana
-specifically, and the three choices the platform decision deliberately leaves to a module.
-
-Grafana's own model has three org roles — `Viewer`, `Editor`, `Admin` — plus a server-level
-`GrafanaAdmin`, assignable from OIDC only when `allow_assign_grafana_admin` is set. Role
-assignment is driven by `role_attribute_path`, a **JMESPath** expression evaluated against the
-token and userinfo claims.
+**Grafana maps `GRAFANA_ADMIN` and `GRAFANA_VIEWER` from the token and admits nobody carrying
+neither.**
 
 ## Decision
 
@@ -38,6 +29,18 @@ Three module-level choices on top of the platform decision:
   the derived one and the fourth admitted nobody and had to be refused at plan time. A knob whose
   only novel setting is invalid is not a knob.
 
+## Context
+
+[ADR 013](../../../adr/013-roles-are-carried-in-the-token.md) settles the shape:
+`<SLUG>_<ROLE>` at `resource_access.<slug>.roles`, two roles as the baseline, and a principal
+with no recognised role refused rather than admitted. This ADR is what that costs in Grafana
+specifically, and the three choices the platform decision deliberately leaves to a module.
+
+Grafana's own model has three org roles — `Viewer`, `Editor`, `Admin` — plus a server-level
+`GrafanaAdmin`, assignable from OIDC only when `allow_assign_grafana_admin` is set. Role
+assignment is driven by `role_attribute_path`, a **JMESPath** expression evaluated against the
+token and userinfo claims.
+
 ## Rationale
 
 - **`role_attribute_strict = true` is how ADR 013's rule 2 is spelled in Grafana.** Without it,
@@ -52,6 +55,18 @@ Three module-level choices on top of the platform decision:
   looks like a broken issuer rather than a broken expression.
 - **Closing the login form is what makes REQ-01 true rather than merely available.** Leaving it
   open means Grafana keeps a user list after all, which is the thing REQ-01 forbids.
+
+## Alternatives
+
+- **Map to `Editor` as well.** Grafana has three org roles and this uses two. A third would be a
+  name for a person who does not exist here, and
+  [ADR 013](../../../adr/013-roles-are-carried-in-the-token.md) sets two as the baseline.
+- **Assign `GrafanaAdmin` from the token**, with `allow_assign_grafana_admin`. It hands
+  server-level control to whatever the issuer says, and the break-glass admin account exists
+  precisely for when the issuer is what is broken.
+- **Leave `role_attribute_strict` off**, so a principal with no recognised role falls through to
+  Grafana's default. That is exactly the comfortable default
+  [ADR 013](../../../adr/013-roles-are-carried-in-the-token.md)'s rule 2 refuses.
 
 ## Consequences
 

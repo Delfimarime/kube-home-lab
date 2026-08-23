@@ -1,0 +1,30 @@
+{{/*
+The platform assumes a Gateway whose listeners accept routes from any namespace, and that
+assumption covers route attachment and nothing else. A listener's certificateRefs — and its
+frontendValidation, on the mTLS listener — read Secrets across a namespace boundary, which
+Gateway API requires a grant for. This is the one ReferenceGrant in the repository.
+
+Absent when gateway is null, which is the contract's ordinary "not wired" meaning: a Gateway in
+another namespace then cannot use these Secrets.
+*/}}
+{{- if .Values.gateway }}
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: gateway-reads-certificates
+  # The release namespace rather than a value: a grant has to live beside the Secrets it grants
+  # access to, and the Application's destination already decides where those are.
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cert-pki.labels" . | nindent 4 }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: {{ required "gateway.namespace is required when gateway is set" .Values.gateway.namespace }}
+  to:
+    # Secrets only, and unnamed so that adding an authority does not mean editing a grant.
+    # Everything in this namespace is certificate material; there is nothing else to leak.
+    - group: ""
+      kind: Secret
+{{- end }}

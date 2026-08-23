@@ -2,26 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
-## Context
-
-The three telemetry stores ran single-tenant: Mimir with `multitenancy_enabled: false`, Loki with
-`auth_enabled: false`, Tempo the same. Everything written landed in one anonymous tenant.
-
-Two things made that the wrong default.
-
-**Nothing bounded what a writer could consume.**
-[ADR 014](014-exposed-does-not-mean-authorized.md) accepted an unauthenticated ingest endpoint
-on the grounds that the failure mode is a full volume rather than a leak — while naming no
-mechanism that bounds the volume. Per-tenant ingestion limits are that mechanism, and they
-require tenants. This is what [REQ-15](../requirements.md) now asks for.
-
-**Switching it on later is a migration.** Everything written while multitenancy is off belongs
-to the anonymous tenant. Turning it on afterwards means moving blocks or abandoning history.
-Turning it on now costs a header in a few configuration files.
-
-What that leaves is where the tenant comes from. Three shapes were real: derive it from the
-client certificate presented at the Gateway; stamp it per ingest path, so it describes how data
-arrived rather than who sent it; or take it from the caller and believe them.
+**The three telemetry stores run multi-tenant, and the tenant comes from the caller's
+`X-Scope-OrgID` with nothing validating it.**
 
 ## Decision
 
@@ -46,6 +28,27 @@ ones and carries a short retention.
 This is platform-scoped because reversing it changes the console as much as the stores: how many
 datasources exist, which correlation links can be wired, and two of the console's inputs.
 
+## Context
+
+The three telemetry stores ran single-tenant: Mimir with `multitenancy_enabled: false`, Loki with
+`auth_enabled: false`, Tempo the same. Everything written landed in one anonymous tenant.
+
+Two things made that the wrong default.
+
+**Nothing bounded what a writer could consume.**
+[ADR 014](014-exposed-does-not-mean-authorized.md) accepted an unauthenticated ingest endpoint
+on the grounds that the failure mode is a full volume rather than a leak — while naming no
+mechanism that bounds the volume. Per-tenant ingestion limits are that mechanism, and they
+require tenants. This is what [REQ-15](../requirements.md) now asks for.
+
+**Switching it on later is a migration.** Everything written while multitenancy is off belongs
+to the anonymous tenant. Turning it on afterwards means moving blocks or abandoning history.
+Turning it on now costs a header in a few configuration files.
+
+What that leaves is where the tenant comes from. Three shapes were real: derive it from the
+client certificate presented at the Gateway; stamp it per ingest path, so it describes how data
+arrived rather than who sent it; or take it from the caller and believe them.
+
 ## Rationale
 
 - **Tenancy here is not a security boundary and is not pretending to be.** In OSS Mimir, Loki
@@ -69,6 +72,19 @@ datasources exist, which correlation links can be wired, and two of the console'
   answers `200` and the store rejects the write afterwards, so the data is gone and nobody is
   told. With it, the same mistake produces a visible tenant filling with orphaned telemetry —
   which names the problem and points at whoever caused it.
+
+## Alternatives
+
+- **Stay single-tenant.** What every store did before this. Nothing bounds what one writer
+  consumes, and switching over later is a migration: everything written while multitenancy is off
+  belongs to the anonymous tenant, so turning it on afterwards means moving blocks or abandoning
+  history. Turning it on now costs a header in a few files.
+- **Derive the tenant from the client certificate.** It would make the header trustworthy, and it
+  ties tenancy to the Gateway's authentication — so a caller with no certificate could not write at
+  all, and a tenant could not be added without issuing one.
+- **Validate `X-Scope-OrgID` against a known list.** Rejects typos at the cost of making an unknown
+  tenant an outage rather than a line in `unattributed`, and it still is not a security boundary,
+  because nothing authenticates the caller who set it.
 
 ## Consequences
 

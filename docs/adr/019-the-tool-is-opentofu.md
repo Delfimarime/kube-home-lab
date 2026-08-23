@@ -2,6 +2,16 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
+**The tool is OpenTofu; "Terraform" in these documents means the language, never the binary.**
+
+## Decision
+
+**OpenTofu.** `tofu` is the binary named everywhere, `required_version` is read as an OpenTofu
+version, and providers resolve from OpenTofu's registry.
+
+**"Terraform" in these documents means the *language*.** Where the tool is meant, it is called
+OpenTofu or `tofu`. Prose that says one and means the other is a defect, not a synonym.
+
 ## Context
 
 This repository is written in the Terraform language. Two
@@ -12,14 +22,6 @@ and diverge on licence, registry, release cadence and a handful of features.
 The choice was implicit until now — `terraform` appeared in every runbook and every Gherkin
 scenario, and the binary actually on the machine was `tofu`. That is the sort of gap that costs
 an afternoon the first time someone new follows the documentation exactly.
-
-## Decision
-
-**OpenTofu.** `tofu` is the binary named everywhere, `required_version` is read as an OpenTofu
-version, and providers resolve from OpenTofu's registry.
-
-**"Terraform" in these documents means the *language*.** Where the tool is meant, it is called
-OpenTofu or `tofu`. Prose that says one and means the other is a defect, not a synonym.
 
 ## Rationale
 
@@ -33,6 +35,15 @@ OpenTofu or `tofu`. Prose that says one and means the other is a defect, not a s
 - **Naming it costs one ADR and saves a category of confusion.** `>= 1.9` means a different
   feature set in each implementation, so a version constraint with no named tool is ambiguous in
   exactly the way version constraints exist to prevent.
+
+## Alternatives
+
+- **HashiCorp Terraform.** The same language and provider protocol, under the BUSL since 1.6, with
+  its own registry and cadence. Nothing here needs a feature only it has, and the binary already on
+  the machine was `tofu` — so the choice was being made by the shell and recorded nowhere.
+- **Stay implicit** and let either run. That is what this repository did, and it cost the accuracy
+  of every runbook: `required_version` is read differently by the two, so a floor written for one
+  does not read across.
 
 ## Consequences
 

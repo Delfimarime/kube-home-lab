@@ -46,9 +46,14 @@ variable "cert_manager" {
       name        = optional(string, "cert-ca-bundle")
       authorities = optional(list(string), ["server"])
     }), {})
-    chart_version = optional(string, "v1.21.1")
+    # **Unset here on purpose, and every version pin below follows the same rule.** What each
+    # module installs is the module's own fact and is pinned there; a copy at this level would be
+    # a second place to change and the one that silently wins, because a value written here is
+    # passed down and overrides it. Set one only to make *this cluster* run something other than
+    # what the module pins.
+    chart_version = optional(string)
     trust_manager = optional(object({
-      chart_version = optional(string, "v0.24.0")
+      chart_version = optional(string)
     }), {})
 
     # Which tenant this unit's own telemetry is stored under. Unset means this cluster's own
@@ -76,7 +81,8 @@ variable "object_storage" {
       class         = optional(string, "local-path")
       node_selector = optional(map(string))
     }), {})
-    chart_version = optional(string, "0.12.0")
+    # Unset: the chart the module pins. See `cert_manager.chart_version`.
+    chart_version = optional(string)
     services = optional(object({
       api = optional(object({
         port     = optional(number, 9000)
@@ -127,8 +133,9 @@ variable "identity" {
     bootstrap_admin_secret_name = optional(string)
 
     # One release pins the operator's manifests and, by leaving `image` unset, the server build
-    # that goes with them.
-    version = optional(string, "26.7.2")
+    # that goes with them. Unset here: the release the module pins. See
+    # `cert_manager.chart_version`.
+    version = optional(string)
     image   = optional(string)
 
     # Which tenant this unit's own telemetry is stored under. Unlike the other units here it
@@ -173,7 +180,7 @@ variable "observability" {
       metrics = optional(object({
         bucket    = string
         retention = optional(string)
-        image_tag = optional(string, "3.1.4")
+        image_tag = optional(string) # unset: the image the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -186,7 +193,7 @@ variable "observability" {
       logs = optional(object({
         bucket        = string
         retention     = optional(string)
-        chart_version = optional(string, "7.3.0")
+        chart_version = optional(string) # unset: the chart the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -199,7 +206,7 @@ variable "observability" {
       traces = optional(object({
         bucket        = string
         retention     = optional(string)
-        chart_version = optional(string, "1.24.4")
+        chart_version = optional(string) # unset: the chart the module pins
         object_storage = optional(object({
           endpoint       = string
           region         = optional(string, "us-east-1")
@@ -250,7 +257,7 @@ variable "observability" {
     }), {})
     console = optional(object({
       hostname      = optional(string)
-      chart_version = optional(string, "10.5.15")
+      chart_version = optional(string) # unset: the chart the module pins
       tenant        = optional(string)
       gateway = optional(object({
         name         = optional(string)
@@ -292,5 +299,42 @@ variable "observability" {
       keys(var.observability.tenants), try(var.observability.console.tenant, "")
     )
     error_message = "observability.console.tenant must name one of observability.tenants: a tenant the stores do not have collects as unattributed rather than failing, which reads as the console's own telemetry going missing."
+  }
+}
+
+variable "resource_authorization" {
+  type = object({
+    namespace            = optional(string, "security")
+    database_secret_name = optional(string)
+    tenant               = optional(string)
+    write_access_from = map(object({
+      namespace = string
+      labels    = map(string)
+    }))
+    model = optional(object({
+      file       = optional(string)
+      namespaces = optional(any)
+    }))
+  })
+  default     = null
+  description = "The relationship store, and how this cluster's permission model is stated."
+
+  validation {
+    condition     = try(var.resource_authorization.model, null) == null ? true : !(try(var.resource_authorization.model.file, null) != null && try(var.resource_authorization.model.namespaces, null) != null)
+    error_message = "resource_authorization.model.file and .namespaces are two ways to say the same thing: set one, or neither for the default."
+  }
+
+  validation {
+    condition = var.resource_authorization == null || var.observability == null || contains(
+      keys(var.observability.tenants), coalesce(var.resource_authorization.tenant, "x")
+    )
+    error_message = "resource_authorization.tenant must name one of observability.tenants: a tenant the stores do not have is not rejected by anything downstream — its telemetry is simply collected as unattributed, which reads as data loss and is a typo."
+  }
+
+  # An empty string is a caller who meant to name a file and did not, and would otherwise resolve
+  # to the root directory itself.
+  validation {
+    condition     = try(var.resource_authorization.model.file, null) == null ? true : length(trimspace(var.resource_authorization.model.file)) > 0
+    error_message = "resource_authorization.model.file must be null or name a file. Null ships the default model."
   }
 }

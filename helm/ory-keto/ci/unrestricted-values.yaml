@@ -1,0 +1,13 @@
+# Everything left at its default: the shipped model, and no network policy.
+#
+# **This is the configuration a caller gets by supplying almost nothing**, and rendering it is two
+# claims at once. That `writeAccessFrom: null` produces a working store with both ports open — the
+# honest meaning of not-wired, whose cost is stated in the module's spec. And that the default
+# model renders: a store that starts, holds subjects, and grants nobody anything, which is what
+# should be running before there is an application whose objects are worth describing.
+writeAccessFrom: null
+
+keto:
+  keto:
+    config:
+      dsn: memory

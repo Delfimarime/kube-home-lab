@@ -5,18 +5,8 @@ revised 2026-08-09 (absorbed [ADR 006](006-shared-gateway-input.md)) ·
 revised 2026-08-16 (`secret_name` is optional — [ADR 022](022-secrets-are-rendered-empty.md);
 `gateway` covers one routable surface, and a module with several takes `services`)
 
-## Context
-
-An identity provider, a database and a Gateway all have to be wired to the things that use
-them. Two questions follow: which side owns the credential, and what shape the wiring takes
-at the call site.
-
-An earlier draft had `openid-connect-keycloak` accept a map of clients and output their IDs
-and secrets. That makes the identity provider aware of every consumer, and puts every client
-secret in one module's state.
-
-On shape, the alternative to a shared contract is each module taking whatever its own chart
-happens to expect — which makes every call site an exercise in per-chart archaeology.
+**A provider publishes only its address; a consumer receives a fully-formed reference, in one of
+three fixed shapes.**
 
 ## Decision
 
@@ -38,6 +28,7 @@ instead: one entry per surface, each with its own `port`, its own `hostname`, an
 reference — the same object as below, minus the hostname that moved up beside the port because it
 belongs to the surface rather than to the Gateway. Nothing else changes: absence still means not
 exposed, and the root still composes what a service leaves out from the cluster's own `gateway`.
+
 
 ```hcl
 variable "gateway" {
@@ -77,8 +68,22 @@ variable "oidc" {
 
 `database` and `oidc` carry a Secret *reference*, never a password.
 
+
 How a module turns `gateway` into an actual `HTTPRoute` is a separate decision — see
 [ADR 010](010-resources-delivered-via-chart.md).
+
+## Context
+
+An identity provider, a database and a Gateway all have to be wired to the things that use
+them. Two questions follow: which side owns the credential, and what shape the wiring takes
+at the call site.
+
+An earlier draft had `openid-connect-keycloak` accept a map of clients and output their IDs
+and secrets. That makes the identity provider aware of every consumer, and puts every client
+secret in one module's state.
+
+On shape, the alternative to a shared contract is each module taking whatever its own chart
+happens to expect — which makes every call site an exercise in per-chart archaeology.
 
 ## Rationale
 
@@ -94,6 +99,18 @@ How a module turns `gateway` into an actual `HTTPRoute` is a separate decision �
 - The same principle scales past this repo's boundary. A module receiving `database` knows a
   host, a port and a Secret — not where PostgreSQL runs, whether it is shared between
   environments, or who created it. That ignorance is the feature.
+
+## Alternatives
+
+- **The issuer accepts a map of clients and outputs their IDs and secrets.** This was an earlier
+  draft. It makes the identity provider aware of every consumer — so adding a consumer edits its
+  provider — and it puts every client secret in one module's state, which
+  [REQ-05](../requirements.md) forbids.
+- **Each module takes whatever its own chart expects.** No shared shape at all. Every call site
+  becomes per-chart archaeology, and the inputs change whenever the chart does — the caller absorbs
+  a cost that belongs to the module.
+- **One combined `dependencies` object** rather than three named inputs. It reads tidily and hides
+  which of the three a module actually uses, which is the thing §3.4 exists to keep visible.
 
 ## Consequences
 

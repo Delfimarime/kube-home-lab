@@ -12,6 +12,26 @@ revised 2026-08-16
 > environment. And it does not carry one field: `tenant` is the second, and is the label this ADR
 > left room for ([ADR 025](025-a-workload-carries-its-tenant.md)).
 
+**`metrics` is a fourth cross-module input, carrying whether the cluster has the scrape CRDs and a
+collector reading them.**
+
+## Decision
+
+**`metrics` is a named platform input**, taken by every module whose workload can emit a
+`ServiceMonitor`. It carries one field, `enabled`, defaulting to `false`, and it is listed in
+[the platform spec](../platform.md#contracts) beside the three contracts.
+
+**An object rather than a bare `metrics_enabled`**, so that whatever scraping needs next — an
+interval, a label, a port — has somewhere to go without renaming the input in every module a
+second time.
+
+**It is not a fourth contract, and does not become one.** The three carry a reference to
+something addressable — a Gateway, a database, an issuer. This carries a fact about the
+environment.
+
+**A module with no metrics endpoint does not take it**, and says so in its spec rather than
+accepting it and ignoring it.
+
 ## Context
 
 [ADR 004](004-scrape-config-via-prometheus-crds.md) says a workload declares scraping through
@@ -31,23 +51,6 @@ This has been solved once per module and named nowhere.
 Neither appears in the platform spec's contracts, and its component list names neither as
 something those modules consume. [ADR 007](007-modules-receive-credentials.md) says *every*
 consumer takes the same three optional inputs, which has quietly not been the whole truth.
-
-## Decision
-
-**`metrics` is a named platform input**, taken by every module whose workload can emit a
-`ServiceMonitor`. It carries one field, `enabled`, defaulting to `false`, and it is listed in
-[the platform spec](../platform.md#contracts) beside the three contracts.
-
-**An object rather than a bare `metrics_enabled`**, so that whatever scraping needs next — an
-interval, a label, a port — has somewhere to go without renaming the input in every module a
-second time.
-
-**It is not a fourth contract, and does not become one.** The three carry a reference to
-something addressable — a Gateway, a database, an issuer. This carries a fact about the
-environment.
-
-**A module with no metrics endpoint does not take it**, and says so in its spec rather than
-accepting it and ignoring it.
 
 ## Rationale
 
@@ -69,6 +72,20 @@ accepting it and ignoring it.
   read what the `ServiceMonitor` declares. A module declaring scraping into a cluster with the
   CRDs but no collector produces an object nobody reads, which is worse than a failure because
   it looks like it worked.
+
+## Alternatives
+
+- **Always declare scraping** and let the sync fail where the CRDs are absent. Applying a
+  `ServiceMonitor` to a cluster without its CRD fails outright, so this makes an environment that
+  ships no observability module unable to sync anything.
+- **Detect the CRDs at plan time.** A module cannot: it is applied standalone, against an Argo CD
+  API rather than a Kubernetes one, and a plan that queries the target cluster is a plan that needs
+  the target cluster.
+- **A bare `metrics_enabled` boolean.** One field, no room. An object was chosen so the next thing
+  scraping needs has somewhere to go without renaming the input in every module a second
+  time — which [ADR 025](025-a-workload-carries-its-tenant.md) then did.
+- **Make it a fourth contract.** It carries a fact about the environment rather than a reference to
+  something addressable, so it fails the test the other three pass.
 
 ## Consequences
 

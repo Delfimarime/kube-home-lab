@@ -1,6 +1,6 @@
 # Module: observability-storage-grafana-lgtm
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-02, REQ-06, REQ-09, REQ-10](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-grafana-lgtm-stack.md),
 [LOCAL-002](adr/LOCAL-002-mimir-monolithic-chart.md),
@@ -18,7 +18,8 @@
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
 [ADR 022](../../adr/022-secrets-are-rendered-empty.md),
-[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 
@@ -52,6 +53,13 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | 1 | `loki` | `loki`, `deploymentMode: SingleBinary` | `components.logs` is set |
 | 1 | `tempo` | `tempo` — the monolithic chart, not `tempo-distributed` | `components.traces` is set |
 | 2 | `k8s-monitoring` | `k8s-monitoring-routed` — authored here, wrapping `k8s-monitoring` | always |
+
+**Charts this repository publishes are at `helm/<chart>/`, not in this module's directory** — here
+[`helm/mimir-monolithic`](../../../helm/mimir-monolithic) and
+[`helm/k8s-monitoring-routed`](../../../helm/k8s-monitoring-routed), both at version `0.1.0`. A
+module renders against a chart's published values schema, and the chart's `Chart.yaml` version is
+what moves when that schema does, so **it may have consumers other than this one**. Check before
+editing it.
 
 **A component's presence is what ships it** ([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)).
 There is no `enable_metrics_support` and no sibling of it: the block that says where metrics land
@@ -529,6 +537,19 @@ environment shipping one signal creates one bucket, and nothing validates that i
 **There is no `storage_node_selector` any more.** It placed the three components that owned a
 volume, and none of them owns one now. Placing the machine that holds the data is the object
 store module's input, where the volume actually is.
+
+**Each store's version is pinned separately**, and these are the only places those versions are
+written — a value set at the root would not add a second opinion, it would replace this one
+silently. `loki.chart_version` and `tempo.chart_version` pin upstream charts. **Mimir's is
+`mimir.image_tag` and not a chart version**, because the chart is this repository's own and its
+`version` describes the packaging rather than the server; what decides which Mimir runs is the
+image. Set one only to make *this* cluster run something other than what this module installs.
+
+Plus three more inputs no environment normally writes: `prometheus_operator_crds.chart_version`,
+the CRD bundle the collector reads scrape configuration from; `argocd.namespace`, where the
+`ApplicationSet` object goes; and `git_repository` — this repository and the revision Argo CD
+reads its charts at, which every module rendering one of them takes. This module renders two, so
+it is always consulted.
 
 ## Outputs
 

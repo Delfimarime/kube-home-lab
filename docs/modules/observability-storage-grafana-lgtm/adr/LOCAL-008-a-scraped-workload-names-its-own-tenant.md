@@ -5,23 +5,8 @@
 refines [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) and
 [ADR 017](../../../adr/017-stores-are-multi-tenant.md)
 
-## Context
-
-[ADR 017](../../../adr/017-stores-are-multi-tenant.md) made every store multi-tenant and said the
-tenant comes from the caller. The pushed path does exactly that — an `X-Scope-OrgID` on the request
-is carried forward by the exporter. The scrape path could not: *"a scrape has no request behind it
-to carry a header"*, so everything scraped in the cluster was written under one name,
-`default_tenant`, and a workload had no way to say it belonged anywhere else.
-
-That was the right first answer and it is the wrong second one. Per-tenant ingestion limits and
-retention are the whole of what tenancy buys here
-([ADR 017](../../../adr/017-stores-are-multi-tenant.md)), and a cluster running workloads for more
-than one tenant cannot reach them for anything that only exposes `/metrics` — which is most things,
-and everything with an upstream chart.
-
-There is no setting that closes the gap directly. A `prometheus.remote_write` header is fixed per
-endpoint: `tenantId` takes a string or a Secret reference, never a series label. Reading the tenant
-off the data is not a property a write client has.
+**A scraped workload names its own tenant in an `opentelemetry.io/tenant` label, and the collector
+routes the write on it.**
 
 ## Decision
 
@@ -92,6 +77,24 @@ label, and stays with the cluster's own tenant. "Is the storage healthy" therefo
 datasources, and Grafana cannot join across them in one panel. That is the price of routing by
 workload rather than by namespace, and it is paid knowingly.
 
+## Context
+
+[ADR 017](../../../adr/017-stores-are-multi-tenant.md) made every store multi-tenant and said the
+tenant comes from the caller. The pushed path does exactly that — an `X-Scope-OrgID` on the request
+is carried forward by the exporter. The scrape path could not: *"a scrape has no request behind it
+to carry a header"*, so everything scraped in the cluster was written under one name,
+`default_tenant`, and a workload had no way to say it belonged anywhere else.
+
+That was the right first answer and it is the wrong second one. Per-tenant ingestion limits and
+retention are the whole of what tenancy buys here
+([ADR 017](../../../adr/017-stores-are-multi-tenant.md)), and a cluster running workloads for more
+than one tenant cannot reach them for anything that only exposes `/metrics` — which is most things,
+and everything with an upstream chart.
+
+There is no setting that closes the gap directly. A `prometheus.remote_write` header is fixed per
+endpoint: `tenantId` takes a string or a Secret reference, never a series label. Reading the tenant
+off the data is not a property a write client has.
+
 ## Rationale
 
 - **The label is the scrape path's version of the header, not a new idea.** A push states its tenant
@@ -115,6 +118,18 @@ workload rather than by namespace, and it is paid knowingly.
   in the module, one behaviour to reason about in every environment, and the typo case is caught in
   the lab exactly as it is in a cluster with five tenants. The cost is one extra write client where
   a single-tenant environment used to have one.
+
+## Alternatives
+
+- **A field on the `ServiceMonitor`.** There is none, and
+  [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) limits a module to its chart's
+  `serviceMonitor.enabled` regardless — a `ServiceMonitor`'s own metadata labels are read by
+  whoever selects the CR and never reach a series.
+- **One collector per tenant**, each with a fixed header. It works, and it is a collector per
+  tenant on a two-node cluster.
+- **Map namespaces to tenants** in the collector's configuration. It needs no label on the
+  workload and puts the mapping in a file that has to be edited whenever a namespace appears —
+  far from the module that owns the workload.
 
 ## Consequences
 

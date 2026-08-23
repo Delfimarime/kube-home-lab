@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "mimir-monolithic values",
+  "description": "Helm checks these values against this file on every lint, template, install and upgrade, so a value of the wrong shape is refused before anything renders instead of surfacing as a manifest the API server rejects or, worse, accepts. What cannot be said here is said in the chart's own validation: emptiness whose reason needs a sentence, and the two Secret key names that must differ, which no schema can compare.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "server", "storage", "limits", "serviceMonitor", "serviceAccount"],
+  "properties": {
+    "nameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "description": "What app.kubernetes.io/name says. Empty means the chart's own name."
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "What every object this chart renders is called, and therefore the in-cluster hostname of this store. Empty means the release name. A lower-case DNS label, because it is the name of a Service."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The image, without a tag."
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-zA-Z0-9_][a-zA-Z0-9._-]*$",
+          "description": "An image tag, and not a digest. It is also what app.kubernetes.io/version carries, which is why the pattern is the intersection of a tag and a label value rather than a tag alone."
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "multitenancyEnabled": {
+      "type": "boolean",
+      "description": "Whether every read and write carries a tenant header. Switching this off once data has been written is a migration rather than a configuration change."
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["httpPort", "grpcPort"],
+      "properties": {
+        "httpPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "grpcPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "bucket", "existingSecret"],
+      "description": "The object store every component writes to. There is no filesystem alternative, so nothing here is optional in practice even where the schema cannot say so.",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "pattern": "^$|^[a-z0-9.-]+:[0-9]+$",
+          "description": "Host and port, no scheme — whether the hop speaks TLS is `insecure`. The empty string is allowed here only because that is the default this file also describes; the chart refuses it at render time, with the reason."
+        },
+        "region": {
+          "type": "string",
+          "description": "The region the endpoint signs requests for. Empty where the implementation does not care, which most S3-compatible stores in a cluster do not."
+        },
+        "bucket": {
+          "type": "string",
+          "description": "The one bucket this store writes every block, rule and alertmanager object into, under a prefix each."
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "Whether the hop to the endpoint is plaintext. Not part of the address, which is why it is not a scheme on it."
+        },
+        "existingSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "accessKeyKey", "secretKeyKey"],
+          "description": "The access key by reference: a Secret this chart only reads, and the two keys inside it. Three names and never a value — the schema deliberately offers nowhere to put one.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+              "description": "The Secret's name, in this release's namespace. A lower-case DNS subdomain."
+            },
+            "accessKeyKey": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-zA-Z0-9._-]+$",
+              "description": "The key inside that Secret holding the access key id. Must differ from secretKeyKey, which the chart checks because a schema cannot compare two values beside each other."
+            },
+            "secretKeyKey": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-zA-Z0-9._-]+$",
+              "description": "The key inside that Secret holding the secret access key."
+            }
+          }
+        }
+      }
+    },
+    "extraEnv": {
+      "type": "array",
+      "description": "Environment entries added verbatim beside the two the access key arrives in. Entries are passed through untouched, so this is the one place the chart cannot vouch for what it renders.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retention"],
+      "description": "What applies to a tenant this deployment was told nothing about.",
+      "properties": {
+        "retention": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|[smhdwy])$",
+          "description": "How long blocks are kept for a tenant with no ceiling of its own. A duration, e.g. \"168h\"."
+        }
+      }
+    },
+    "tenants": {
+      "type": "object",
+      "description": "Per-tenant ceilings, keyed by the value callers send in the tenant header. A tenant with an empty block is legitimate and means \"bounded by the default\"; every field is optional and an omitted one leaves the default in place.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ingestion_rate": { "type": "number", "minimum": 0, "description": "Samples per second." },
+          "ingestion_burst_size": { "type": "number", "minimum": 0, "description": "Samples." },
+          "max_series": { "type": "number", "minimum": 0, "description": "Active series held for this tenant." },
+          "retention": {
+            "type": "string",
+            "pattern": "^[0-9]+(ms|[smhdwy])$",
+            "description": "How long this tenant's blocks are kept."
+          }
+        }
+      }
+    },
+    "dataVolume": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The scratch volume. An emptyDir on purpose — everything durable is in the bucket.",
+      "properties": {
+        "sizeLimit": {
+          "type": "string",
+          "pattern": "^$|^[0-9]+(\\.[0-9]+)?(m|k|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei)?$",
+          "description": "A quantity, e.g. \"8Gi\". Empty leaves the volume unbounded, which is the node's disk."
+        }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "description": "How this deployment declares its own scraping — through a resource the collector already watches, and only where the CRD and a reader both exist.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval": {
+          "type": "string",
+          "pattern": "^$|^[0-9]+(ms|[smhdwy])$",
+          "description": "Empty leaves the collector's own scrape interval in place."
+        },
+        "additionalLabels": {
+          "type": "object",
+          "description": "Labels the collector's selector matches on, where it selects ServiceMonitors by label rather than watching all of them.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "The container's requests and limits, passed through as given."
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "affinity": { "type": "object" },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "podLabels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "serviceLabels": {
+      "type": "object",
+      "description": "Labels on the Service. Separate from podLabels because scrape discovery reads a Service's labels first and a pod's only where the Service carries none.",
+      "additionalProperties": { "type": "string" }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Applied to the pod. The process runs as an unprivileged user and writes only to the scratch volume."
+    },
+    "securityContext": {
+      "type": "object",
+      "description": "Applied to the container."
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create"],
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Whether this chart renders the ServiceAccount. False means an existing one, named below."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+          "description": "Empty means the chart's own object name when creating one, and \"default\" when not."
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

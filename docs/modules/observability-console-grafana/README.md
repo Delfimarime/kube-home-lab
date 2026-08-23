@@ -1,6 +1,6 @@
 # Module: observability-console-grafana
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-01, REQ-03, REQ-05, REQ-06, REQ-13](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-two-grafana-roles-strict.md),
 [LOCAL-003](adr/LOCAL-003-alerting-lives-in-grafana.md),
@@ -219,9 +219,23 @@ kubectl patch secret grafana-admin-credentials -n observability --type merge -p 
 every namespace ([ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md)). This module mounts
 it and does not create it; if it is absent the pod does not start.
 
-**An OIDC client**, registered by hand in the issuer's console with this module's `grafana_url`
+**An OIDC client**, registered by hand in the issuer's console with this module's `console_url`
 as a redirect URI, and the two roles the [Access](#access) section names. Nothing in this
 repository declares it ([ADR 013](../../adr/013-roles-are-carried-in-the-token.md)).
+
+**Its client secret, filled in.** Registering the client produces a secret, and that value has to
+reach the Secret named by `oidc_secret_name` — this module renders it empty when `oidc.secret_name`
+is null, under the key `oidc.secret_key` (default `client-secret`). It is the one credential here
+whose value is minted by another system rather than chosen, so it is also the one most likely to
+be registered and then never carried across; until it is, Grafana starts and every sign-in fails
+at the token exchange:
+
+```sh
+kubectl patch secret grafana-oidc-credentials -n observability --type merge -p "$(jq -n \
+  --arg s "$(printf %s "$CLIENT_SECRET" | base64)" '{data:{"client-secret":$s}}')"
+
+kubectl rollout restart deployment/grafana -n observability
+```
 
 ## Inputs
 
@@ -298,11 +312,18 @@ then its traces. Marking one per type instead is `Only one datasource per organi
 as default`, which refuses the whole provisioning file: Grafana then starts with none of the
 datasources, not with the ones it did not object to.
 
+Plus three inputs no environment normally writes: `grafana.chart_version`, the pin — and the only
+place that version is written, since a value set at the root would not add a second opinion but
+replace this one silently; `argocd.namespace`, where the `ApplicationSet` object goes; and
+`git_repository` — this repository and the revision Argo CD reads its charts at, which every
+module rendering one of them takes. The last is only consulted where a `secret_name` is null,
+since the placeholder Secret is the one chart of this repository's that this module renders.
+
 ## Outputs
 
 | Output | Used by |
 | --- | --- |
-| `grafana_url` | OIDC client redirect URI registration |
+| `console_url` | OIDC client redirect URI registration |
 | `database_secret_name` | the operator, to know what to fill in |
 | `admin_secret_name` | the same |
 | `oidc_secret_name` | the same — `null` unless `oidc` is set |

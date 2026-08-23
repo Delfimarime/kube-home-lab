@@ -2,6 +2,18 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
+**No code file cites a document; a comment states its reason in enough words to stand alone.**
+
+## Decision
+
+**No file under `modules/`, no root `.tf`, and no chart file cites a document.** Not an ADR
+number, not a `REQ-NN`, not a Gherkin scenario ID, not a constitution section.
+
+**A comment states the reason itself**, in enough words to stand alone.
+
+**Traceability runs one way: documentation → code.** A spec names the module it specifies and an
+ADR describes what it affects. Nothing points back.
+
 ## Context
 
 Until now the convention was the opposite one, stated in the agent guidance as *"code implements
@@ -20,16 +32,6 @@ There is a second cost, quieter. A comment reading `# ADR 018` explains nothing 
 does not have the document open. It is a promise that the reason exists elsewhere, which is
 strictly worse than the reason.
 
-## Decision
-
-**No file under `modules/`, no root `.tf`, and no chart file cites a document.** Not an ADR
-number, not a `REQ-NN`, not a Gherkin scenario ID, not a constitution section.
-
-**A comment states the reason itself**, in enough words to stand alone.
-
-**Traceability runs one way: documentation → code.** A spec names the module it specifies and an
-ADR describes what it affects. Nothing points back.
-
 ## Rationale
 
 - **A citation is an unchecked link, and this repository renumbers.** Superseding, absorbing and
@@ -47,6 +49,18 @@ ADR describes what it affects. Nothing points back.
   that genuinely cannot be stated in a line or two is a signal the code needs its spec read —
   and the spec is where a reader should be sent, by the module's own documentation, not by a
   parenthesis in a comment.
+
+## Alternatives
+
+- **Keep citing documents from code**, which is what the guidance said before this: *"code
+  implements the spec and cites the ADRs it follows"*. Twenty-two citations across nine files, four
+  ID schemes, and nothing checking any of them — then four renumberings in two weeks left every one
+  of them either wrong or pointing at something that no longer said what the comment implied.
+- **Check the citations with a linter.** It would work, and it means building and maintaining a
+  cross-reference checker for four ID schemes so that comments can keep saying less than they
+  should. Writing the reason itself costs a sentence and needs no tooling.
+- **Cite only stable IDs** — requirements, say, but not ADRs. There are no stable IDs here: REQ-04
+  and REQ-07 are both retired, and the ADR sequence has four gaps.
 
 ## Consequences
 

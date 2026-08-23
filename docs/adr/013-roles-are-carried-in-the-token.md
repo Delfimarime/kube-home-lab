@@ -2,22 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-13
 
-## Context
-
-[ADR 007](007-modules-receive-credentials.md) gives every consumer module the same `oidc`
-input — issuer, client id, a Secret reference — and that settles **authentication**. A person
-signs in once per environment, and no workload keeps its own user list
-([REQ-01](../requirements.md)).
-
-It settles nothing about **authorization**. A workload that authenticates everyone the issuer
-vouches for, and then decides for itself what each of them may do, has simply moved its
-permission list rather than removed it — which is the failure
-[REQ-13](../requirements.md) names.
-
-Left to each module, this would go three ways at once: every consumer picking its own claim
-name, its own role vocabulary, and its own answer for a principal carrying no role at all. The
-third is the dangerous one, because the comfortable default — fall back to a viewer role, let
-them in — is the one a chart picks when nobody chooses.
+**What a person may do comes from the token — roles named `<SLUG>_<ROLE>` at
+`resource_access.<slug>.roles`, and absence is a denial.**
 
 ## Decision
 
@@ -49,6 +35,23 @@ A module declares the claim it reads; whether the issuer emits it is operational
 shared-contract rule in [the platform spec](../platform.md#contracts). Where an issuer
 puts roles somewhere else, `oidc.groups_claim` overrides the path.
 
+## Context
+
+[ADR 007](007-modules-receive-credentials.md) gives every consumer module the same `oidc`
+input — issuer, client id, a Secret reference — and that settles **authentication**. A person
+signs in once per environment, and no workload keeps its own user list
+([REQ-01](../requirements.md)).
+
+It settles nothing about **authorization**. A workload that authenticates everyone the issuer
+vouches for, and then decides for itself what each of them may do, has simply moved its
+permission list rather than removed it — which is the failure
+[REQ-13](../requirements.md) names.
+
+Left to each module, this would go three ways at once: every consumer picking its own claim
+name, its own role vocabulary, and its own answer for a principal carrying no role at all. The
+third is the dangerous one, because the comfortable default — fall back to a viewer role, let
+them in — is the one a chart picks when nobody chooses.
+
 ## Rationale
 
 - **One shape means a reader can predict any service's claim without opening its module.** That
@@ -68,6 +71,18 @@ puts roles somewhere else, `oidc.groups_claim` overrides the path.
   see a dashboard without being able to change what it queries. A third role would be a name
   for a person who does not exist.
 
+## Alternatives
+
+- **A flat `roles` claim** — `roles: ["admin"]`, unscoped. Simpler to emit and it makes every
+  consumer trust every other consumer's grant: `admin` anywhere is `admin` everywhere. Scoping by
+  client is what makes a grant mean one thing.
+- **Groups instead of roles.** Widely used, and it moves the vocabulary into a directory structure
+  whose shape the issuer owns and no consumer can predict. `oidc.groups_claim` exists so an issuer
+  that works this way can still be wired, without making it the convention.
+- **Let each consumer decide**, mapping whatever its chart supports. Three consumers, three claim
+  names, three answers for a principal carrying no role — and the third is the dangerous one,
+  because the comfortable default is to let them in.
+
 ## Consequences
 
 - **The issuer must emit the claim, and no module makes that happen.** Wiring `oidc` to a
@@ -81,8 +96,8 @@ puts roles somewhere else, `oidc.groups_claim` overrides the path.
 - **How the claim is evaluated is per-product and not specified here.** Grafana reads it with a
   JMESPath expression and no `$.` prefix; another consumer may want a different form of the same
   path. The claim's *shape* is the contract; parsing it is the module's business.
-- **A consumer with no role model ignores this ADR**, and says so in its own spec. Auditum has
-  no authentication at all, so nothing here applies to it.
+- **A consumer with no role model ignores this ADR**, and says so in its own spec. A workload
+  that authenticates nobody has nothing here to apply.
 - Adding a third role later is a values change in one consumer, not a change to this decision,
   as long as it keeps the shape.
 - **`<slug>` and `oidc.client_id` are two inputs holding one value, and nothing compares them.**

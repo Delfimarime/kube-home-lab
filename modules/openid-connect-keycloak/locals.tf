@@ -1,10 +1,11 @@
 locals {
   release = "keycloak"
 
-  # Where this module's chart sits inside this repository. A constant rather than an input: the
-  # only correct value is this one, and a caller able to change it could only ever point an
-  # Application at a path that does not exist.
-  instance_chart_path = "modules/openid-connect-keycloak/helm/keycloak-instance"
+  # The chart this module renders, published from this repository's own `helm/` tree rather than
+  # owned by this module — so its values schema is the chart's and a second consumer is allowed.
+  # A constant rather than an input: the only correct value is this one, and a caller able to
+  # change it could only ever point an Application at a path that does not exist.
+  instance_chart_path = "helm/keycloak-instance"
 
   # Upstream's manifests, which are not a chart and are not this repository's. Both are constants
   # for the same reason the path above is — there is one correct value for each. Only the tag

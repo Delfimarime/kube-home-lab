@@ -1,6 +1,24 @@
 # 023. A module's OpenTofu is at its root
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-16
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-16 ·
+the sentence keeping `helm/` inside the module superseded by
+[ADR 027](027-charts-are-first-class-artifacts.md)
+
+**A module's `.tf` files live at the module root, not under `tofu/`.**
+
+## Decision
+
+**A module's `.tf` files live at the module root.** `helm/<chart>/` stays where it is, as a
+subdirectory of the module that owns the chart.
+
+```
+modules/<capability>-<implementation>/
+  *.tf                    the OpenTofu that renders this module's ApplicationSet
+  helm/<chart>/           a chart this repo authors, when no upstream one fits
+```
+
+Call sites become `source = "./modules/<name>"`. Nothing about what Argo CD reads changes: an
+Application's `path` already pointed at `modules/<module>/helm/<chart>`, and it still does.
 
 ## Context
 
@@ -21,20 +39,6 @@ chart is a thing that OpenTofu points an Application at.
 
 The cost of deciding is entirely in when. There are two modules today.
 
-## Decision
-
-**A module's `.tf` files live at the module root.** `helm/<chart>/` stays where it is, as a
-subdirectory of the module that owns the chart.
-
-```
-modules/<capability>-<implementation>/
-  *.tf                    the OpenTofu that renders this module's ApplicationSet
-  helm/<chart>/           a chart this repo authors, when no upstream one fits
-```
-
-Call sites become `source = "./modules/<name>"`. Nothing about what Argo CD reads changes: an
-Application's `path` already pointed at `modules/<module>/helm/<chart>`, and it still does.
-
 ## Rationale
 
 - **The directory named a tool, and there is one tool.** A level that distinguishes nothing from
@@ -46,6 +50,15 @@ Application's `path` already pointed at `modules/<module>/helm/<chart>`, and it 
   not get cheaper.
 - **Nothing depends on the old shape.** No Application path, no `.gitignore` rule, no runbook step
   survives it unchanged except the `source` lines, which are two.
+
+## Alternatives
+
+- **Keep `tofu/`**, which is what the layout had. It answers a question this repository does not
+  have — distinguishing OpenTofu from some other tool at the same level — while costing one segment
+  on every `source`, one on every `cd` in a runbook, and an ambiguity about where a new file goes.
+- **Move the chart out too**, to a repository-level `charts/`. It separates a module from what it
+  deploys, so a reader has to hold two paths, and it makes accidental sharing of a chart between
+  modules the easy thing to do.
 
 ## Consequences
 

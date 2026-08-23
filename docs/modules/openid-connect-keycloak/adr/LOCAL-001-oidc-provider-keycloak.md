@@ -3,6 +3,14 @@
 **Status:** accepted · **Scope:** module — `openid-connect-keycloak` · **Date:** 2026-08-15 ·
 replaces the Zitadel decision this module previously carried
 
+**The OIDC provider is Keycloak, deployed by its operator, and this module ships both the operator
+and the environment's instance.**
+
+## Decision
+
+**Keycloak, deployed by the Keycloak Operator.** The module ships the operator *and* the
+environment's initial instance — an operator with no instance is not an identity provider.
+
 ## Context
 
 [REQ-01](../../../requirements.md) asks for one account per environment.
@@ -25,11 +33,6 @@ That leaves three ways out. Loosen [ADR 013](../../../adr/013-roles-are-carried-
 to a semantic contract and let each consumer own its extraction expression. Keep the shape and
 write a Zitadel action to emit it. Or run the issuer whose native output is already the shape
 the platform specified.
-
-## Decision
-
-**Keycloak, deployed by the Keycloak Operator.** The module ships the operator *and* the
-environment's initial instance — an operator with no instance is not an identity provider.
 
 ## Rationale
 
@@ -55,6 +58,18 @@ environment's initial instance — an operator with no instance is not an identi
   lacks. It applies rather than reconciles, so it is a record rather than a reconciled resource
   — and a record is what [REQ-11](../../../requirements.md) is asking for. It is not being taken
   up yet, but the door is a CRD away rather than a product away.
+
+## Alternatives
+
+- **Zitadel**, which this module previously ran, chosen on footprint: a Go binary against a JVM is
+  not a close contest on two nodes, and [REQ-10](../../../requirements.md) is paid daily. It came
+  apart on the claim shape — `resource_access.<client>.roles` is Keycloak's, and
+  [ADR 013](../../../adr/013-roles-are-carried-in-the-token.md) makes that shape load-bearing.
+- **Keycloak from a community Helm chart** rather than its operator. Fewer moving parts and it
+  gives up the `Keycloak` custom resource, which is what makes the instance declarative.
+- **Dex or another lightweight OIDC front-end** over an existing directory. Small and it federates
+  rather than owning accounts, so [REQ-01](../../../requirements.md) needs the directory
+  underneath it that no environment here has.
 
 ## Consequences
 

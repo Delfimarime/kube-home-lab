@@ -1,0 +1,40 @@
+{{/*
+The permission model, as a file the store reads at boot.
+
+The wrapped chart can mount a ConfigMap and cannot create one — it has `extraVolumes` and
+`extraVolumeMounts` and no way to produce the object they point at. That gap is the reason this
+chart exists at all, alongside the policy next door.
+
+**The name is fixed rather than derived from the release**, because `values.yaml` names it too, in
+the `keto.deployment.extraVolumes` entry that mounts it, and a values file cannot template a
+release name. One name written twice in one file beats a name derived here and copied there.
+
+**The key is `permissions.ts` and it must stay that**: `keto.keto.config.namespaces.location` in
+values.yaml is the full path to it, and the two are the same fact stated in a file and in a
+path. The `.ts` is not decoration — the Ory Permission Language is a syntactic subset of
+TypeScript, and the file is parsed as one.
+*/}}
+{{- $mountPath := "/etc/keto-model" }}
+{{- $mounts := dig "deployment" "extraVolumeMounts" (list) (.Values.keto | default dict) }}
+{{- $mounted := false }}
+{{- range $mounts }}
+{{- if eq (.mountPath | default "") $mountPath }}
+{{- $mounted = true }}
+{{- end }}
+{{- end }}
+{{- if not $mounted }}
+{{- fail (printf "ory-keto: nothing mounts the permission model at %s. Helm replaces lists rather than merging them, so a caller supplying its own keto.deployment.extraVolumeMounts drops the entry this chart ships — and the store then starts against a namespaces.location that does not exist, which is a crash loop rather than a plan error. Add the mount back, or stop overriding that list." $mountPath) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.model.configMapName | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ory-keto.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  permissions.ts: |
+    {{- .Values.model.content | nindent 4 }}

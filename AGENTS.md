@@ -12,23 +12,42 @@ rules are not repeated here.
 | --- | --- |
 | The rules, and what breaks if you ignore one | [CONSTITUTION.md](CONSTITUTION.md) |
 | What has to be true, and why | [docs/requirements.md](docs/requirements.md) |
-| The domain model, contracts, and behaviour spanning modules | [docs/platform.md](docs/platform.md#mechanisms) |
+| The domain model, contracts, and where modules meet | [docs/platform.md](docs/platform.md#joints) |
 | A specific module | `docs/modules/<module>/README.md` and its `adr/` |
 | Why a platform-wide choice was made | [docs/adr/](docs/README.md#decisions) |
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |
 | How to run anything | [README.md](README.md#running-it) |
+| How to check your work before you claim it passes | [Makefile](Makefile) — `make help` |
+| What a fresh clone needs wiring up | `make skills` and `make hooks` — both are untracked wiring over tracked content |
+| The procedure for a recurring job — creating a module, writing an ADR, resyncing the docs | `.agents/skills/<name>/SKILL.md` |
+
+**Skills live in `.agents/skills/`**, one directory per procedure, and hold *order and
+checklists* — never rules, which are the CONSTITUTION's and would drift the moment they were
+copied. There are three:
+[`creating-module`](.agents/skills/creating-module/SKILL.md),
+[`writing-adr`](.agents/skills/writing-adr/SKILL.md) and
+[`resync-doc-to-code`](.agents/skills/resync-doc-to-code/SKILL.md). They are outside `.claude/`
+so that they are tracked and shared by every agent rather than one vendor's; `make skills` links
+them where Claude Code looks.
 
 ## Repository structure
 
 ```
 CONSTITUTION.md                the rules
+Makefile                       every check CI runs; `make ci` is the local twin
+.agents/skills/<name>/         the procedure for a recurring job, and any script it runs
 main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
-<capability>.tf                one module block per capability this cluster ships
+locals.tf                      what the root derives before passing it down
+module_<capability>.tf         the module blocks for one capability — usually one, two
+                               where a capability ships as a pair (module_observability.tf
+                               holds the storage and the console)
 outputs.tf
+helm/<chart>/                  a chart this repo publishes, consumed by the modules that
+                               render it — one or more of them
 modules/<capability>-<impl>/
-  *.tf                         the OpenTofu that renders this module's ApplicationSet
-  helm/<chart>/                a chart this repo authors, when no upstream one fits
+  *.tf                         the OpenTofu that renders this module's ApplicationSet, and
+                               nothing else — the charts it points at are in helm/
 modules/secret-template/       the one directory here that is not a capability: other
                                modules import it, it renders nothing, and it returns the
                                element that puts an empty Secret in their ApplicationSet
@@ -42,17 +61,49 @@ docs/                          requirements, specs, decisions
 2. **Read the module's `README.md` and every ADR it links** — its own `LOCAL-` ones and the
    platform ADRs it obeys (§10.6).
 3. **Specs before code** (§10.2). A new decision needs the scope test in §10.4, and the tell in
-   §10.5 is worth checking before you write it in the wrong place.
+   §10.5 is worth checking before you write it in the wrong place. Both jobs have a skill:
+   [`creating-module`](.agents/skills/creating-module/SKILL.md) and
+   [`writing-adr`](.agents/skills/writing-adr/SKILL.md).
 4. **Don't cite a document from code** (§10.3). Write the reason into the comment instead.
+5. **Run `make ci` before saying it works.** It is the same set of targets the pipeline calls, so
+   "it passed locally" means the same thing there. `make lint` is the fast half; `make docs`
+   checks the documentation against itself and against the code; `make trivy` scans what Helm
+   actually renders rather than the chart sources, because these charts take their real values
+   from OpenTofu and their defaults render almost nothing.
 
 ## Blocked and undecided
 
 Live state, not rules. Each of these is a reason to stop and ask rather than proceed.
 
-- **`audit-management-auditum` is blocked** on an open question: application audit trails vs.
-  Kubernetes API audit logs
-  ([its blocking question](docs/modules/audit-management-auditum/README.md#blocking-question)).
-  Don't build it out further — if the answer is the second, the module should not exist.
+**No entry here restates a fact that lives in a file.** A version, a count, a list of modules —
+those are read from the thing that holds them, because a copy here is the one that goes stale and
+nothing checks it. What belongs is what no file records: an action still outstanding, a gap
+somebody chose to leave open, a trap worth naming before somebody steps in it.
+
+- **Charts moved to a root `helm/` on 2026-08-23, and the first `tofu apply` after that has an
+  ordering hazard.** Every generated `Application`'s `source.path` changed
+  ([ADR 027](docs/adr/027-charts-are-first-class-artifacts.md)). **The chart must exist at the
+  revision Argo CD tracks before the `ApplicationSet` points at the new path** — push, then
+  `tofu apply`. The other order leaves every `Application` in `ComparisonError` until the push
+  lands. This entry can go once that apply has happened in every environment.
+- **The relationship store cannot be exposed outside the cluster, and its permission language is
+  not a way around that.** It has no authentication of its own by design, and the model describes
+  the graph rather than who may call the API — there is no model you can write that limits who
+  creates tuples. Anything able to reach the write port writes what it likes, including a tuple
+  granting itself everything, which is why a network policy is the entire boundary. Exposing that
+  path means running something in front of it that validates a token, and nothing here does. That
+  is a decision to take deliberately, not a gap to fill in passing.
+- **The relationship store is built, has never been shipped, and would currently authorize
+  nobody.** No environment states a `model`, so it runs the default — one subject namespace, no
+  objects, no permits — which grants nothing on purpose. That is the correct state until an
+  application exists whose objects are worth describing; it is also a store nobody is querying yet,
+  so don't read a green sync as this capability being in use.
+- **Audit record management is out of scope, and the requirement behind it is retired.** REQ-07
+  and the `audit-management-auditum` spec were both dropped on 2026-08-23: nothing here writes an
+  audit record, and the requirement never resolved into a single subject — application audit
+  trails and Kubernetes API audit logs are different systems. Don't reinstate either. An
+  application that later needs an audit trail gets a new requirement written against it, not this
+  one revived ([requirements.md](docs/requirements.md)).
 - **The identity model is not declared anywhere, and this is the largest gap in the platform.**
   Keycloak's realm — clients, redirect URIs, the `<SLUG>_<ROLE>` roles, every grant — is created
   by hand in a console. **This was surveyed on 2026-08-22 and the gap was left open on purpose**:
@@ -67,10 +118,10 @@ Live state, not rules. Each of these is a reason to stop and ask rather than pro
   PostgreSQL too, but a separate one, and it *is* regenerable
   ([ADR 012](docs/adr/012-state-is-per-environment.md)).
 - **The object store is pre-1.0, and nothing creates its buckets.** `object-storage-rustfs` pins
-  a chart whose appVersion is `1.0.0-beta.12`, and every stored signal now lives behind it. The
-  buckets each store writes to are created by hand, per environment; a missing one is not a sync
-  failure — every store comes up healthy and fails on its first write. Don't add a bucket input
-  to a module that cannot create one.
+  a release candidate — its own `variables.tf` says which — and every stored signal now lives
+  behind it. The buckets each store writes to are created by hand, per environment; a missing one
+  is not a sync failure — every store comes up healthy and fails on its first write. Don't add a
+  bucket input to a module that cannot create one.
 - **Three things are unverified, and each would change a spec.** Check before implementing, not
   after:
   - whether Alloy's `otelcol.auth.headers` accepts `from_context` and `default_value` at the

@@ -3,26 +3,7 @@
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-16
 
-## Context
-
-[LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) gave each signal a boolean —
-`enable_metrics_support` and its two siblings — and everything else about that signal went
-somewhere else. Its bucket was a key in `object_storage.buckets`
-([LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)), its retention a key under
-each tenant in `var.tenants`, and its store's own settings a key in a values override map. Four
-inputs, each holding one third of three signals, and no input holding one signal.
-
-That shape has a defect the module already argues against elsewhere. The console module refused
-to take three booleans describing the stores and takes three addresses instead, because *"a flag
-and the store it claims to describe are two truths that could disagree"*. The same sentence is
-true one module earlier: `enable_traces_support = true` with no `buckets.traces` is a state
-nothing prevents, and it plans clean, syncs clean, and fails on the first write.
-
-Two further requirements arrive at the same time and point the same way. **A store must be able
-to write to a different endpoint from its siblings** — the module was written assuming one object
-store because there was one, not because one is required. And **a bucket must not be settable
-globally**: two stores sharing a bucket is not a configuration anyone wants, and the surest way
-to prevent it is for there to be no place to say it.
+**Each signal is one optional block, and the block's presence is what ships its store.**
 
 ## Decision
 
@@ -72,6 +53,27 @@ one, the top-level block is not consulted at all. `endpoint` is required inside 
 `insecure` is uniform across both — a field meaning two things depending on where it is written
 would be worse than a default that has to be overridden.
 
+## Context
+
+[LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) gave each signal a boolean —
+`enable_metrics_support` and its two siblings — and everything else about that signal went
+somewhere else. Its bucket was a key in `object_storage.buckets`
+([LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)), its retention a key under
+each tenant in `var.tenants`, and its store's own settings a key in a values override map. Four
+inputs, each holding one third of three signals, and no input holding one signal.
+
+That shape has a defect the module already argues against elsewhere. The console module refused
+to take three booleans describing the stores and takes three addresses instead, because *"a flag
+and the store it claims to describe are two truths that could disagree"*. The same sentence is
+true one module earlier: `enable_traces_support = true` with no `buckets.traces` is a state
+nothing prevents, and it plans clean, syncs clean, and fails on the first write.
+
+Two further requirements arrive at the same time and point the same way. **A store must be able
+to write to a different endpoint from its siblings** — the module was written assuming one object
+store because there was one, not because one is required. And **a bucket must not be settable
+globally**: two stores sharing a bucket is not a configuration anyone wants, and the surest way
+to prevent it is for there to be no place to say it.
+
 ## Rationale
 
 - **One input holds one signal.** Reading `components.logs` tells you whether logs are shipped,
@@ -92,6 +94,16 @@ would be worse than a default that has to be overridden.
   elsewhere state everything about writing elsewhere.
 - **The default block stays**, because the common case is genuinely one object store and stating
   it three times would be worse than the sharp edge below.
+
+## Alternatives
+
+- **Keep the three `enable_*_support` booleans**, with each signal's bucket, retention and
+  settings in three other inputs. Four inputs each holding one third of three signals, and no
+  input holding one signal — so switching a signal on means editing four places and forgetting one
+  is silent.
+- **One block per signal plus a boolean.** The boolean can then contradict the block: a signal
+  configured and switched off, or switched on and unconfigured, both of which have to be validated
+  rather than being unrepresentable.
 
 ## Consequences
 

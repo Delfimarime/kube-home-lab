@@ -42,7 +42,12 @@ locals {
       enabled = local.metrics_enabled
       tenant  = local.metrics_enabled ? coalesce(try(var.identity.tenant, null), local.observability.default_tenant) : null
     }
+    resource_authorization = {
+      enabled = local.metrics_enabled
+      tenant  = local.metrics_enabled ? coalesce(try(var.resource_authorization.tenant, null), local.observability.default_tenant) : null
+    }
   }
+
 
   # The issuer's Gateway, resolved the same way every other exposed surface here is: it names its
   # own host and inherits the rest of the listener from the cluster's Gateway, so an environment

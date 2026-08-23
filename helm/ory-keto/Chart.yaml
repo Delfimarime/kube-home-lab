@@ -1,0 +1,31 @@
+apiVersion: v2
+name: ory-keto
+description: >-
+  The relationship store's chart, plus the two objects it cannot produce for itself: the network
+  policy its write port's protection depends on, and the ConfigMap its permission model is read
+  from. The upstream values dialect is unchanged.
+type: application
+
+# Moves when the keys above `keto:` in values.yaml change, because those keys are this chart's
+# interface and a consumer needs a number to notice by.
+#
+# 0.2.0 made `writeAccessFrom` a list of workloads where it was a single object, which is a
+# breaking change to that interface. **Under 0.x the minor position carries breaking changes** —
+# semver's own rule for initial development — rather than the major, which would claim a stability
+# this chart has not earned.
+version: 0.2.0
+
+# **A wrapper, not a fork.** The chart below runs the store and renders neither of the two objects
+# above: it has no NetworkPolicy template at all, and while it can *mount* a ConfigMap through
+# `extraVolumes` it cannot create one. Two templates are added on top rather than its values being
+# restated or its templates copied.
+#
+# **Two versions are pinned here and a bump is two edits**: this chart's `version` above, and the
+# dependency's below. Forgetting the second is a change that looks applied and is not.
+#
+# The dependency is resolved when the manifests are generated rather than vendored into this
+# directory, so whatever renders this chart needs to be able to reach the repository below.
+dependencies:
+  - name: keto
+    version: 0.63.0
+    repository: https://k8s.ory.sh/helm/charts

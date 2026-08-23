@@ -5,29 +5,8 @@
 revised 2026-08-16 (the features follow a component's presence, not a flag —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
-## Context
-
-Nothing in the Grafana stack collects anything. Mimir, Loki and Tempo all wait to be written
-to, so something has to scrape, tail and receive. Three questions came with that.
-
-**What collects?** Grafana's `k8s-monitoring` chart is the supported path: Alloy, plus
-`kube-state-metrics`, `node-exporter` and Kubernetes scrape presets, with destinations pointed
-at Mimir, Loki and Tempo. Its reputation on a small cluster is that it deploys Alloy five ways
-— `alloy-metrics`, `alloy-logs`, `alloy-singleton`, `alloy-receiver`, `alloy-profiles` — which
-on two nodes reads as too much machinery for a lab that may not even want logs. That objection
-suggested splitting the collector by flag: `k8s-monitoring` only alongside Loki, and some
-lighter standalone agent when only metrics are on.
-
-**Push or pull?** [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) already made
-scraping the platform's mechanism for metrics: every workload declares itself through its own
-chart's `serviceMonitor.enabled`, and no scrape resource is written by hand. Meanwhile the
-Grafana stack's own idiom is OTLP push, and an earlier draft of this ADR led with it — which
-would have quietly demoted a platform-wide decision to a per-module preference.
-
-**What address do consumers get?** The obvious answer is one endpoint per backend — a
-remote-write URL, a log push URL, an OTLP URL — so a workload addresses a store directly. It is
-also how a consumer's configuration ends up naming the implementation, and how it ends up
-re-wired every time a signal is toggled.
+**Scraping is the default path and only traces are pushed; one collector, and one neutral OTLP
+address for everything else.**
 
 ## Decision
 
@@ -51,6 +30,30 @@ own Application, present when metrics are and sync-waved ahead of the collector.
 `alloy-receiver.fullnameOverride`, and the module publishes a single
 `otlp_endpoint = otlp.<namespace>.svc.cluster.local:4317`. No per-backend endpoint is
 published.
+
+## Context
+
+Nothing in the Grafana stack collects anything. Mimir, Loki and Tempo all wait to be written
+to, so something has to scrape, tail and receive. Three questions came with that.
+
+**What collects?** Grafana's `k8s-monitoring` chart is the supported path: Alloy, plus
+`kube-state-metrics`, `node-exporter` and Kubernetes scrape presets, with destinations pointed
+at Mimir, Loki and Tempo. Its reputation on a small cluster is that it deploys Alloy five ways
+— `alloy-metrics`, `alloy-logs`, `alloy-singleton`, `alloy-receiver`, `alloy-profiles` — which
+on two nodes reads as too much machinery for a lab that may not even want logs. That objection
+suggested splitting the collector by flag: `k8s-monitoring` only alongside Loki, and some
+lighter standalone agent when only metrics are on.
+
+**Push or pull?** [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) already made
+scraping the platform's mechanism for metrics: every workload declares itself through its own
+chart's `serviceMonitor.enabled`, and no scrape resource is written by hand. Meanwhile the
+Grafana stack's own idiom is OTLP push, and an earlier draft of this ADR led with it — which
+would have quietly demoted a platform-wide decision to a per-module preference.
+
+**What address do consumers get?** The obvious answer is one endpoint per backend — a
+remote-write URL, a log push URL, an OTLP URL — so a workload addresses a store directly. It is
+also how a consumer's configuration ends up naming the implementation, and how it ends up
+re-wired every time a signal is toggled.
 
 ## Rationale
 
@@ -87,6 +90,18 @@ published.
   and the signal is selected by gRPC method or HTTP path by the caller. Three names would
   encode a distinction that lives one layer down, and the first person to assume `logs.`
   behaves differently would be reasonable and wrong.
+
+## Alternatives
+
+- **Push everything**, with an OTLP receiver as the only path. It removes the discovery mechanism
+  and makes every workload responsible for exporting, which
+  [ADR 004](../../../adr/004-scrape-config-via-prometheus-crds.md) declines.
+- **`k8s-monitoring` at its defaults**, which deploys Alloy five ways — `alloy-metrics`,
+  `alloy-logs`, `alloy-singleton`, `alloy-receiver`, `alloy-profiles`. On two nodes that is more
+  machinery than the lab it monitors.
+- **A separate address per signal.** It exposes the topology to every caller, so replacing a store
+  changes what its clients are configured with — the coupling
+  [REQ-09](../../../requirements.md) exists to prevent.
 
 ## Consequences
 

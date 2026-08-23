@@ -5,26 +5,7 @@ revised 2026-08-15 (the backend is chosen; this ADR was `proposed` until it was)
 revised 2026-08-15 (no Terragrunt — [ADR 020](020-one-root-module.md); the backend is
 configured at `init` and there is one state per environment rather than per unit)
 
-## Context
-
-State was a local file under `.tfstate/`. That is adequate for one machine and one cluster, and
-neither is true any more: [ADR 011](011-environments-are-clusters.md) makes an environment a
-cluster of its own.
-
-Three backends were real, and each fails somewhere different.
-
-**A local file** needs nothing and works today, and it is the only option that lets a plan run
-with nothing else reachable. It also lives on one machine, so a second operator or a rebuilt
-laptop starts from nothing.
-
-**OpenTofu's `kubernetes` backend** — a Secret in the cluster the state describes — needs no
-credential beyond the kubeconfig already in use. It carries the weakest mechanics of the three:
-locking through a Lease, and an object size ceiling of roughly a megabyte.
-
-**OpenTofu's `pg` backend** stores state in a table in a PostgreSQL somewhere. Locking is a
-PostgreSQL advisory lock and state is a text column, so neither limitation above applies. It is
-the only option that needs a credential, and the only one that does not have to live in the
-cluster it describes.
+**State is one per environment, in a PostgreSQL chosen at `init` with `-backend-config`.**
 
 ## Decision
 
@@ -53,6 +34,15 @@ name and would keep them apart anyway.
 credential and the address arrive together as `PG_CONN_STR` in the operator's environment,
 beside `KUBECONFIG` and `ARGOCD_AUTH_TOKEN`, and are set per environment.
 
+## Context
+
+State was a local file under `.tfstate/`. That is adequate for one machine and one cluster, and
+neither is true any more: [ADR 011](011-environments-are-clusters.md) makes an environment a
+cluster of its own.
+
+Three backends were real, and each fails somewhere different — see
+[Alternatives](#alternatives).
+
 ## Rationale
 
 - **Per environment is not optional.** One state spanning clusters would let a plan in one
@@ -79,6 +69,24 @@ beside `KUBECONFIG` and `ARGOCD_AUTH_TOKEN`, and are set per environment.
   the first place and what makes this one defensible too
   ([ADR 007](007-modules-receive-credentials.md)). This reasoning does not transfer to a repo
   that keeps secrets in state, and should not be quoted as if it did.
+
+## Alternatives
+
+Three were real, and each fails somewhere different.
+
+| Backend | Needs | Fails at |
+| --- | --- | --- |
+| **A local file** | nothing; the only one that plans with nothing else reachable | one machine — a second operator or a rebuilt laptop starts from nothing |
+| **`kubernetes`** | only the kubeconfig already in use | the weakest mechanics of the three: locking through a Lease, and roughly a megabyte of object |
+| **`pg`** *(chosen)* | a reachable PostgreSQL and a credential | needs something outside the cluster to be up before a plan runs |
+
+`pg` locks with a PostgreSQL advisory lock and stores state in a text column, so neither of the
+`kubernetes` backend's limits applies. It is the only one that needs a credential, and the only one
+that does not have to live in the cluster it describes.
+
+The local file is what this repository used and outgrew. The `kubernetes` backend is the tempting
+one — it needs no new credential — and it stores the state describing a cluster *inside* that
+cluster, so recovering from losing the cluster means recovering from losing the state too.
 
 ## Consequences
 

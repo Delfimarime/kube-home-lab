@@ -2,6 +2,14 @@
 
 **Status:** accepted · **Scope:** module — `openid-connect-keycloak` · **Date:** 2026-08-22
 
+**The operator comes from upstream's own kustomization, read at a git tag — no chart and no
+vendored copy.**
+
+## Decision
+
+**Wave 0's `Application` reads upstream's kustomization directly, at a git tag.** No chart, no
+vendored copy, and the tag is the pin.
+
 ## Context
 
 [LOCAL-001](LOCAL-001-oidc-provider-keycloak.md) ships the Keycloak Operator and the
@@ -22,11 +30,6 @@ two channels, and neither is a chart:
 
 There is no official Helm chart and the project has declined to publish one. The community
 charts that exist are one-maintainer republications of those same manifests.
-
-## Decision
-
-**Wave 0's `Application` reads upstream's kustomization directly, at a git tag.** No chart, no
-vendored copy, and the tag is the pin.
 
 ## Rationale
 
@@ -52,6 +55,17 @@ vendored copy, and the tag is the pin.
   RBAC and the controller, and OpenTofu creates an `ApplicationSet` and nothing else. Its
   native/wrapped/custom preference is about *which chart* to use where a chart is the vehicle,
   and here none is.
+
+## Alternatives
+
+- **Adopt a community chart and pin it.** The module spec offered this. It puts the operator's
+  manifests behind a third party who may stop publishing, for a component whose upgrade path is
+  already dictated by upstream's release.
+- **Wrap upstream's manifests in a second locally-authored chart.** Satisfies
+  [ADR 010](../../../adr/010-resources-delivered-via-chart.md)'s letter, and the chart would
+  contain a copy of upstream's YAML that has to be re-copied at every bump — a vendored fork with
+  no upstream fixes.
+- **Vendor the manifests into this repository.** The same, without even a chart's structure.
 
 ## Consequences
 

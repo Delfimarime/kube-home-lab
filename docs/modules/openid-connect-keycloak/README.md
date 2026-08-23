@@ -1,6 +1,6 @@
 # Module: openid-connect-keycloak
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-01, REQ-09, REQ-10](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-oidc-provider-keycloak.md),
 [LOCAL-002](adr/LOCAL-002-the-operator-comes-from-upstream-manifests.md),
@@ -11,7 +11,8 @@
 [ADR 011](../../adr/011-environments-are-clusters.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
-[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 
@@ -38,6 +39,12 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | --- | --- | --- | --- |
 | 0 | `keycloak-operator` | upstream's kustomization, at a git tag | the CRDs and the controller |
 | 1 | `keycloak` | `keycloak-instance` — authored by this repo | the `Keycloak` resource and its route |
+
+**Charts this repository publishes are at `helm/<chart>/`, not in this module's directory** — here
+that is [`helm/keycloak-instance`](../../../helm/keycloak-instance) at version `0.1.0`. A module
+renders against a chart's published values schema, and the chart's `Chart.yaml` version is what
+moves when that schema does, so **it may have consumers other than this one**. Check before
+editing it.
 
 **An operator without an instance is not an identity provider**, which is why both ship here
 rather than the operator being a prerequisite. The waves exist because the `Keycloak` CRD has to
@@ -179,6 +186,17 @@ through `issuer_url` and never name it separately.
 **`gateway.section_name` names the ordinary TLS listener.** The mTLS listener exists for the
 OTLP ingest endpoint and a browser cannot present a client certificate
 ([certificate-management-cert-manager](../certificate-management-cert-manager/README.md)).
+
+**`keycloak.version` is the pin, and it is one number doing two jobs**: it selects the operator's
+manifests, and — by leaving `keycloak.image` unset — the server build those manifests expect.
+Setting `image` separates them, which is worth doing only to run a build the operator was not
+released against. This is the only place either is written; a value set at the root would not add
+a second opinion, it would replace this one silently.
+
+Plus two inputs no environment normally writes: `argocd.namespace`, where the `ApplicationSet`
+object goes, and `git_repository` — this repository and the revision Argo CD reads its charts at,
+which every module rendering one of them takes. This module always renders one, so it is always
+consulted.
 
 ## Outputs
 

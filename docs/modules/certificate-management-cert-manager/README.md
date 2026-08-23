@@ -1,6 +1,6 @@
 # Module: certificate-management-cert-manager
 
-**Status:** draft ·
+**Status:** implemented ·
 **Satisfies:** [REQ-08, REQ-09, REQ-14](../../requirements.md) ·
 **Decisions:** [LOCAL-001](adr/LOCAL-001-certificates-from-an-internal-ca.md),
 [LOCAL-002](adr/LOCAL-002-one-certificate-per-authority.md),
@@ -10,7 +10,8 @@
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
-[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 
@@ -38,6 +39,11 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | 0 | `cert-manager` | `cert-manager` (jetstack) | the controller, webhook, cainjector and CRDs |
 | 1 | `trust-manager` | `trust-manager` (jetstack) | the `Bundle` controller |
 | 2 | `cert-pki` | `cert-pki` — authored by this repo | the authorities, their certificates, the bundle, the grant |
+
+**Charts this repository publishes are at `helm/<chart>/`, not in this module's directory** — here
+that is [`helm/cert-pki`](../../../helm/cert-pki) at version `0.1.0`. A module renders against a
+chart's published values schema, and the chart's `Chart.yaml` version is what moves when that
+schema does, so **it may have consumers other than this one**. Check before editing it.
 
 **The waves are load-bearing**, for two different reasons. cert-manager's CRDs must exist before
 anything declares a `Certificate`. trust-manager issues its own webhook certificate *through*
@@ -194,9 +200,16 @@ issuer, which is the same fact as having no consumer inside this repository.
 **Almost none of it is written down per environment.** `domain` is the one value with no
 default, and everything else is derived from it: both authorities' common names, the wildcard, and
 each entry's `dns_names` and client subject. `namespace`, `default_certificate`, `authority`,
-`trust_bundle` and the three chart pins stay at their defaults; `argocd.namespace`,
+`trust_bundle` and the chart pins stay at their defaults; `argocd.namespace`,
 `gateway_namespace` and `metrics` come from root variables, because they describe the cluster
 rather than this module. The root module is a pass-through — it composes nothing.
+
+**The two chart pins are `cert_manager.chart_version` and `trust_manager.chart_version`**, and
+this is the only place either version is written. Setting one at the root would not add a second
+opinion, it would replace this one silently — so a pin is written here and set from a caller only
+to make *that* cluster run something other than what this module installs. `git_repository` is
+the last input, taken by every module that renders a chart out of this repository: which
+repository, and the revision Argo CD reads it at.
 
 ## Outputs
 

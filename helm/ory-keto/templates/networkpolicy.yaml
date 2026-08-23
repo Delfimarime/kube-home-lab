@@ -1,0 +1,81 @@
+{{/*
+The write path's entire protection: *nothing but the named callers can reach this port*.
+
+The store authenticates nobody — that is its documented design — so there is no second layer here
+and no credential to get wrong. **Reachability is the permission.** In a cluster with flat pod
+networking that means every pod can rewrite the permission graph until this object exists, and
+anything it admits can write a tuple granting itself whatever it likes.
+
+Absent when `writeAccessFrom` is empty, which leaves both ports open — the honest meaning of "not
+wired", and the right default for a policy that can only ever be correct with respect to callers
+this chart cannot guess.
+
+Three things here are easy to get wrong and silent when wrong, so each is spelled out below: the
+read port's rule, the AND, and policyTypes.
+*/}}
+{{- if .Values.writeAccessFrom }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ory-keto.fullname" . }}-write
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ory-keto.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{/*
+  The pods this policy governs: the store's, which the wrapped chart creates. A selector matching
+  nothing is not an error — it is a policy that applies to no pod, and therefore protects nothing.
+  */}}
+  podSelector:
+    matchLabels:
+      {{- include "ory-keto.storePodLabels" . | nindent 6 }}
+  {{/*
+  **Ingress only.** Adding Egress here would give these pods default-deny outbound, which takes out
+  PostgreSQL — and the store does not serve without it. The blast radius of that mistake is far
+  wider than the policy was written to have.
+  */}}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{/*
+    The write port, restricted to the workloads that write tuples.
+
+    **Each entry's namespaceSelector and podSelector are one list element, which is an AND**: pods
+    carrying those labels, in that namespace. Split across two elements they would be an OR —
+    every pod in the namespace, plus every pod carrying those labels anywhere in the cluster — and
+    that form passes any test which only checks the intended caller gets through.
+
+    Several entries are several elements under one `from`, which *is* an OR — and the right one:
+    each is a different workload allowed to write, not a further condition on the same one.
+    */}}
+    - from:
+        {{- range .Values.writeAccessFrom }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ required "every writeAccessFrom entry needs a namespace" .namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml (required "every writeAccessFrom entry needs labels" .labels) | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.ports.write }}
+    {{/*
+    The read port, re-opened.
+
+    **This rule is not redundant and deleting it is an outage.** A NetworkPolicy selecting a pod
+    switches that pod to default-deny for the directions it names, with no partial application — so
+    a policy restricting only the write port closes the read port along with it. Every application
+    in the cluster then times out asking an authorization question, against a store whose objects
+    are all green.
+
+    A rule with no `from` admits every source, which is what "unrestricted" has to be written as
+    once anything else here is restricted.
+    */}}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.ports.read }}
+{{- end }}

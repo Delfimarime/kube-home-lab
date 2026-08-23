@@ -41,10 +41,19 @@ caller to own (§5.2). It has no spec, because it designs nothing; a second exce
 argument that one made.
 [`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
-**2.2** A module directory holds its `.tf` files at the root and, where it authors a chart,
-`helm/<chart>/`. Nothing else, and no chart outside `helm/`.
-[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md),
-[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md)
+**2.2** A module directory holds `.tf` files and nothing else. **Charts live at `helm/<chart>/` at
+the repository root**, never inside a module — a chart is something this repository publishes, and
+a module consumes it by path.
+[`019`](docs/adr/019-the-tool-is-opentofu.md),
+[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md),
+[`027`](docs/adr/027-charts-are-first-class-artifacts.md)
+
+**2.2.1** A chart's `values.yaml` is its published interface and its `Chart.yaml` `version` is
+bumped when that interface changes. Its `ci/*-values.yaml` files describe the configurations the
+chart supports, not the way one module happens to call it — a configuration nobody renders is one
+nobody promised. **Two modules may consume one chart**, and doing so is a choice made against a
+versioned schema rather than an accident of layout.
+[`027`](docs/adr/027-charts-are-first-class-artifacts.md)
 
 **2.3** Each module renders exactly one Argo CD `ApplicationSet` — a `List` generator, one static
 entry per chart, even at one entry. No shared `ApplicationSet` module; no bare `Application`,
@@ -79,13 +88,17 @@ module, like its pinned version.
 
 ## 3. Module inputs
 
-**3.1** Every consumer module takes the same three optional inputs, one shape each, defaulting to
-`null` — meaning *not wired*, never *disabled by a flag*: `gateway`, `database`, `oidc`. Shapes in
-[contracts](docs/platform.md#contracts). **`gateway` describes one routable surface**; a module
-serving several on several ports takes `services` instead — one entry per surface, each with its
-own `port`, `hostname` and Gateway reference — because one hostname cannot name two surfaces and
-one listener cannot be the right answer for both an API and an admin console.
+**3.1** There are three contracts — `gateway`, `database`, `oidc` — and **a module that needs one
+takes it in the shared shape, defaulting to `null`**, meaning *not wired* and never *disabled by a
+flag*. It is the shape that is fixed, not the set: a module takes the contracts it uses and no
+others (§3.4), so most take one or two and `certificate-management-cert-manager` takes none.
+Shapes in [contracts](docs/platform.md#contracts).
 [`007`](docs/adr/007-modules-receive-credentials.md)
+
+**`gateway` describes one routable surface.** A module serving several on several ports takes
+`services` instead — one entry per surface, each with its own `port`, `hostname` and Gateway
+reference — because one hostname cannot name two surfaces and one listener cannot be the right
+answer for both an API and an admin console. `services` replaces `gateway`; nothing takes both.
 
 **3.2** `metrics` is a fourth input and **not** a contract. Two fields, taken by every module whose
 workload can emit a `ServiceMonitor`; a module with no metrics endpoint doesn't take it. `enabled`,
@@ -184,6 +197,16 @@ fifteen clients. Don't add a module input carrying a role list.
 
 **6.4** Exposed does not mean authorized. A route makes a hostname reachable and says nothing
 about who may use it. [`014`](docs/adr/014-exposed-does-not-mean-authorized.md)
+
+**6.5** A module with a port protected only by nothing else being able to reach it renders the
+`NetworkPolicy` that makes that true, in its own chart. The selector comes from an input that
+**already** names the caller, and a dedicated input only where nothing else does — never a second
+input holding a fact the module already has. **Re-open every port the policy
+does not restrict**: selecting a pod makes it default-deny, so restricting one port closes the
+others with it. `policyTypes` names `Ingress` only; adding `Egress` cuts JWKS, upstreams and
+PostgreSQL. A `namespaceSelector` and a `podSelector` go in **one** `from` element — two elements
+is an OR, and admits the whole namespace plus those labels cluster-wide.
+[`028`](docs/adr/028-a-module-renders-the-network-policy-it-depends-on.md)
 
 ## 7. Certificates
 

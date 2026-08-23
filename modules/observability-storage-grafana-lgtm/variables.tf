@@ -406,7 +406,7 @@ variable "prometheus_operator_crds" {
 # chart version — the chart's revision is git_repository.revision, like every other chart here.
 variable "mimir" {
   type = object({
-    image_tag = optional(string, "3.1.4")
+    image_tag = optional(string, "3.2.0")
   })
   description = "The metrics store's image."
   default     = {}

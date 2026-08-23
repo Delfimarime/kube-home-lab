@@ -1,44 +1,68 @@
 # Documentation
 
-Four layers, each answering a different question. Nothing is restated across them; a fact
-lives in exactly one and the others link to it.
+Five layers, each answering a different question and each owning a different *kind* of statement.
 
 | Layer | Answers | Where |
 | --- | --- | --- |
 | Requirements | What has to be true, regardless of implementation | [requirements.md](requirements.md) |
-| Specifications | How it is solved, and how you tell it worked | [platform.md](platform.md), [modules/](#specifications) |
 | Decisions | Why this way, what it cost, when to revisit | [adr/](#decisions), and each module's own `adr/` |
-| Agent guidance | The rules an implementer must not violate | [AGENTS.md](../AGENTS.md) |
+| Rules | What an implementer must not break | [CONSTITUTION.md](../CONSTITUTION.md) |
+| Specifications | How it is solved, and how you tell it worked | [platform.md](platform.md), [modules/](#specifications) |
+| Orientation | Where things are, and what is currently blocked | [AGENTS.md](../AGENTS.md) |
 
 ```
+CONSTITUTION.md                the rules, each citing the decision behind it
+AGENTS.md                      orientation and live state; holds no rules
 docs/
   requirements.md              REQ-NN, the problem, and the traceability matrix
-  platform.md                  the system: domain model, components, mechanisms, contracts
-  adr/NNNN-*.md                platform-wide decisions
+  platform.md                  the system: domain model, components, joints, contracts
+  adr/NNN-*.md                 platform-wide decisions
   modules/<module>/
     README.md                  the module spec
     adr/LOCAL-NNN-*.md         decisions scoped to that module
 ```
 
 Start at [requirements.md](requirements.md) if you are new. Start at a module's folder if you
-are about to change that module — its spec, its decisions and (later) its OpenTofu are all
-in the one place.
+are about to change that module — its spec, its decisions and its OpenTofu are all in the one
+place.
 
-There is deliberately no fifth "one page compiling all four" document. Such a page restates,
-which every file here is forbidden from doing, so it drifts by construction and then disagrees
-with the layer that is actually correct.
+## What may be repeated, and what may not
+
+**One fact legitimately appears in more than one layer, because the layers make different kinds
+of claim about it.** That one module renders one `ApplicationSet` is a *decision* in
+[ADR 005](adr/005-modules-are-applicationsets.md), an *imperative* in
+[§2.3](../CONSTITUTION.md#2-modules), and a *joint* in [platform.md](platform.md#domain-model) —
+three sentences that would each be missing something if the other two were deleted.
+
+What is bounded is which layer may hold which:
+
+| Layer | Holds | Never holds |
+| --- | --- | --- |
+| ADR | the reasoning — the only place a *why* is argued | rules; how a module is configured |
+| CONSTITUTION | one imperative sentence per rule, plus its citation | the argument for the rule; restated mechanism |
+| platform.md | the joints — what meets what, through which value | the rule itself; anything about one module alone |
+| spec | one module's design and its criteria | anything true of every module |
+
+**The rule that follows: reasoning appears exactly once.** A second file may state a decision's
+*consequence* imperatively or describe the *joint* it creates, and neither may re-argue it. When
+you find yourself explaining *why* outside an ADR, the text belongs in the ADR and the link
+belongs where you were writing.
+
+There is deliberately no sixth "one page compiling the rest" document. Such a page restates
+without owning anything, so it drifts by construction and then disagrees with the layer that is
+actually correct.
 
 ## Specifications
 
 | Spec | Covers |
 | --- | --- |
-| [platform](platform.md) | the domain model, the six mechanisms that span modules, the contracts, environments |
+| [platform](platform.md) | the domain model, the seven joints between modules, the contracts, environments |
 | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | the lab's certificate authorities, its wildcard, its client certificate, its trust bundle |
 | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | collecting metrics, logs and traces, storing them, and their tenants |
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
 | [object-storage-rustfs](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
 | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | the OIDC issuer |
-| [audit-management-auditum](modules/audit-management-auditum/README.md) | audit record API — blocked |
+| [resource-authorization-ory-keto](modules/resource-authorization-ory-keto/README.md) | whether a subject may act on a particular resource, asked per decision |
 
 ## Decisions
 
@@ -51,7 +75,7 @@ with the layer that is actually correct.
 | [006](adr/006-shared-gateway-input.md) | One `gateway` input shape | superseded by 7 |
 | [007](adr/007-modules-receive-credentials.md) | Module input contracts; providers publish addresses | accepted |
 | [008](adr/008-postgresql-is-external.md) | PostgreSQL is external to this project | accepted |
-| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted |
+| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted, the chart-location clause superseded by 027 |
 | [011](adr/011-environments-are-clusters.md) | An environment is a cluster | accepted, layering superseded by 20 |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and lives in PostgreSQL | accepted |
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
@@ -64,9 +88,12 @@ with the layer that is actually correct.
 | [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
 | [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
 | [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
-| [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
+| [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted, the chart's location superseded by 027 |
 | [024](adr/024-the-metrics-fact-is-derived.md) | The metrics fact is derived at the root, not declared | accepted |
 | [025](adr/025-a-workload-carries-its-tenant.md) | A workload carries its tenant in `opentelemetry.io/tenant` | accepted |
+| [026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) | Roles decide the operation, relationships decide the resource | accepted |
+| [027](adr/027-charts-are-first-class-artifacts.md) | Charts are first-class artifacts, published from the repository root | accepted |
+| [028](adr/028-a-module-renders-the-network-policy-it-depends-on.md) | A module renders the network policy its own guarantee depends on | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
@@ -87,6 +114,7 @@ with the layer that is actually correct.
 | [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 | [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
 | [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |
+| [resource-authorization LOCAL-001](modules/resource-authorization-ory-keto/adr/LOCAL-001-the-store-is-ory-keto.md) | The relationship store is Ory Keto | accepted |
 
 Which requirement each decision serves is in the
 [traceability matrix](requirements.md#traceability).
@@ -106,8 +134,8 @@ ADR, and none should need to.
 
 **A module ADR that wants to cite another module's is in the wrong place.** The citation is the
 smell, not the offence: a decision whose reversal reaches a second module is platform-scoped by
-[the scope test](../AGENTS.md#workflow-requirements--adrs--specs--code), so the fix is to lift
-it rather than to link across. `ADR 017` and `ADR 018` were both lifted for exactly this reason
+[the scope test](../CONSTITUTION.md#10-documentation) (§10.4), so the fix is to lift it rather
+than to link across. `ADR 017` and `ADR 018` were both lifted for exactly this reason
 — tenancy was written as a storage decision and reaches the console; the trust bundle was
 written as a certificate decision and reaches every consumer wired to `oidc`. Once lifted, the
 modules that needed them cite a platform ADR, which was always allowed.
@@ -147,11 +175,63 @@ constrains:
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` · **Date:** …
 ```
 
+### ADR shape
+
+**Four sections, in this order, and the order is the point.**
+
+| Section | Contains |
+| --- | --- |
+| *(lede)* | One sentence under the header, before any heading: what was decided |
+| `Decision` | What was chosen, stated so it can be checked against code |
+| `Context` | What was true that forced a choice. Not a history of the project — only what bears on this |
+| `Rationale` | Why this one. The argument, not the options |
+| `Alternatives` | Every serious option that was **not** chosen, and what each would have cost. "None" is an honest answer where it is true, and needs a sentence saying why |
+| `Consequences` | What it costs, what it forecloses, what to watch, and **what would make it worth revisiting** |
+
+**Decision comes first because the reader usually wants only that.** This follows the inverted
+pyramid — the most important material at the top, detail below — so someone checking *what was
+decided* stops after two paragraphs and someone asking *why* keeps reading. Context first, which
+these files used until 2026-08-23, made every reader spend half a page before learning the answer.
+
+**`Rationale` and `Alternatives` are different sections because they answer different questions**,
+and conflating them is how the second one goes missing. Rationale argues for what was chosen;
+Alternatives records what was not, and what it would have cost. The rejected options are the part
+that decays fastest and is worth most later — they are what tells a future reader whether the
+world has changed enough to reopen this. Where they have pros and cons worth tabulating, tabulate
+them.
+
+**Keep it near one page.** Where a decision needs more, the extra belongs in the spec it governs,
+or in a linked note — not in the record of the choice.
+
+**One file is deliberately not in this shape.** [ADR 006](adr/006-shared-gateway-input.md) is a
+tombstone: its decision was absorbed into ADR 007 and the file survives only to record where it
+went and why deleting it would delete the premise ADR 010 argues against. A superseded ADR whose
+reasoning still stands keeps the four sections; one that has become a pointer does not need them.
+
+### Status
+
+**A decision and a design do not have the same statuses, because they are not the same kind of
+claim.** An ADR records a choice, so its status says whether the choice still stands. A spec
+describes a design, so its status says how far that design has got.
+
+| Where | Value | Means |
+| --- | --- | --- |
+| ADR | `proposed` | written down but **not made**. No ADR currently holds it; ADR 012 did, until its backend was chosen |
+| ADR | `accepted` | the decision stands |
+| ADR | `superseded by <ref>` | another decision replaced it. The file stays; the reasoning is still the record of why the old answer looked right |
+| Spec | `draft` | written, and nothing implements it yet |
+| Spec | `implemented` | code exists and does what this describes |
+
+**`accepted` never appears on a spec.** A spec is not agreed to, it is built — and a spec left at
+`draft` while its module runs in a cluster is the drift this field exists to catch. Moving one to
+`implemented` is part of finishing the module, not a later tidy-up.
+
 ### Module specs
 
 **Every module spec has at least these sections, in this order.** A missing one is a gap, not
-a style choice. Extra sections are fine where a module earns one — Auditum has a *Blocking
-question* and a *Security note*, and both are the most important things on the page.
+a style choice. Extra sections are fine where a module earns one, and the bar is that the
+section carries something none of the standard ones can hold. No spec currently has one: the
+last that did was dropped with its module, and what it had to say was the reason it went.
 
 | Section | Contains |
 | --- | --- |
@@ -164,9 +244,9 @@ question* and a *Security note*, and both are the most important things on the p
 | Acceptance criteria | Gherkin, one `Feature`, IDed and tagged scenarios |
 | Open items | What is unresolved, and what it would cost to resolve |
 
-`Prerequisites` is the one optional section with a fixed name and position, because two modules
-already needed it and a third naming it something else would be the start of the drift this
-table exists to prevent. It is where the Secret examples live: a new `secret_name` without one
+`Prerequisites` is the one optional section with a fixed name and position. It was made optional
+when two modules needed it; every module has one now, and the fixed name is what stopped the
+sixth from inventing its own. It is where the Secret examples live: a new `secret_name` without one
 is an incomplete change.
 
 ### Scenario IDs and tags
@@ -182,21 +262,30 @@ different scenario. The tag says where the check can run:
 - `@plan` — assertable against `tofu plan -json`, no cluster needed
 - `@cluster` — needs the thing actually running
 
-### Status
-
-`draft` is being written and changes without ceremony. `proposed` means the decision is
-written down but **not made** — no ADR currently holds it; ADR 012 did, until its backend was
-chosen. `accepted` is agreed; changing it means changing its consequences too. `implemented` is
-matched by code. `superseded` links its replacement in the header.
-
-Every spec here is `draft` until its module is built and its `@cluster` criteria have run.
-
 ### Revising an ADR
 
-**Revise in place only while nothing implements it.** ADRs 5, 6 and 7 were, on 2026-08-09,
-because there is no code. Once a decision is implemented, changing it means a new ADR that
-supersedes the old one — and the old one stays, because reasoning that turned out wrong is
-worth keeping. ADR 006 is the worked example.
+**Changing what was decided means a new ADR that supersedes the old one**, once anything
+implements it. The old file stays, because reasoning that turned out wrong is the record of what
+the wrong answer looked like from the inside. [ADR 006](adr/006-shared-gateway-input.md) is the
+worked example. While nothing implements a decision it may be revised in place instead — ADRs
+005, 006 and 007 were, on 2026-08-09, when there was no code.
+
+**Three edits are not "changing what was decided", and need no supersession.** They were split
+out on 2026-08-23, after a cleanup made the distinction obvious by breaking the rule as it was
+then written:
+
+1. **Correcting a reference to something that no longer exists.** A decision naming a module that
+   has since been retired is stating something false about today; removing the name and keeping
+   the argument changes nothing about the choice. Do it in place — and where the reference was
+   *load-bearing*, replace it with what it was an example of rather than deleting the sentence.
+2. **Recording that the world moved.** A pre-1.0 dependency reaching 1.0, an upstream renumbering
+   its charts: the consequence is revised in place with a **dated note saying what it used to say
+   and why it changed**, because the old reading was correct when written and a reader who
+   remembers it deserves to find out what happened.
+3. **Restructuring.** Reordering sections or splitting a paragraph out under a heading is not an
+   edit to the decision at all.
+
+Everything else — a different choice, a different rule, a changed scope — is a new ADR.
 
 ## Making the criteria executable
 

@@ -1,0 +1,108 @@
+# Everything this chart adds on its own is in this file down to `keto:`. Below that key is the
+# dependency's own dialect, unchanged and not restated here — with the one exception documented
+# beside it.
+#
+# `values.schema.json` draws the same line and Helm checks it before rendering: the keys above
+# `keto` are described there in full, and that key itself is allowed through unconstrained.
+# Schemaing the dependency's dialect would be a copy of its values file that goes stale on the
+# first version bump, and the dependency already validates its own.
+
+# The permission model — the schema of the graph the store answers questions about, written in the
+# Ory Permission Language, which is a syntactic subset of TypeScript.
+#
+# **This is the schema and not the data.** A relation tuple saying who owns what is written at
+# runtime through the write API by whatever grants the access; this says what a relation *is* and
+# what it implies, and it is what turns "does a tuple exist" into an answer derived across the
+# graph.
+#
+# **The default grants nothing, and that is the point.** It declares one namespace to hold the
+# subjects an issuer mints and no object types, no relations and no permits — so every derived
+# question has no rule to answer it. A store shipped on this default is a working store that
+# authorizes nobody, which is the right thing to leave running until somebody has an application to
+# describe. Overriding it is one value.
+#
+# `configMapName` is a fixed name rather than one derived from the release because the wiring below
+# has to name it too, and values.yaml cannot template a release name. Two releases of this chart in
+# one namespace would collide on it — which is a configuration this chart does not support and the
+# store would not survive anyway, sharing one database.
+model:
+  configMapName: keto-permission-model
+  content: |
+    import { Namespace } from "@ory/permission-namespace-types"
+
+    // A subject the issuer minted. Deliberately the whole model: no objects to act on, so no
+    // relation to hold and nothing for a permit to derive.
+    class User implements Namespace {}
+
+# Who may reach the write port — one entry per workload, each pod labels matched inside the
+# namespace named beside them. A tuple is written by whatever grants access to a resource, which in
+# practice is the application that owns it, so this is normally a list of applications.
+#
+# **Empty renders no NetworkPolicy at all**, which leaves both ports open to every pod in the
+# cluster. That is the honest meaning of "not wired" and it is the default, because a policy is
+# only ever correct with respect to callers this chart cannot guess.
+#
+# Non-empty, the policy admits those selectors to the write port and **re-opens the read port to
+# everything**. The second rule is not redundant: a NetworkPolicy selecting a pod switches it to
+# default-deny, so restricting the write port alone would close the read port with it — and the
+# symptom is every application in the cluster timing out against a store that reconciles healthy.
+writeAccessFrom: []
+# writeAccessFrom:
+#   - namespace: apps
+#     labels:
+#       app.kubernetes.io/name: reports
+
+# The ports the policy names, which must be the ports the wrapped chart serves on. Numbers rather
+# than the Service's port names, because a NetworkPolicy resolving a name it does not find silently
+# matches nothing — and a rule matching nothing on the read port is the whole cluster locked out.
+ports:
+  read: 4466
+  write: 4467
+
+# How the policy finds the store's pods. This chart selects pods the *wrapped* chart creates and
+# labels, so this has to agree with what that chart does — a selector matching nothing is not an
+# error, it is a policy that applies to no pod and therefore protects nothing.
+#
+# `app.kubernetes.io/instance` is added by the template from the release name, so two releases in
+# one namespace do not select each other's pods. Setting `keto.nameOverride` without changing the
+# value here is refused at render time, because it is the one edit that silently unprotects the
+# write port.
+podSelector:
+  app.kubernetes.io/name: keto
+
+# Extra labels on the objects this chart adds, if an environment wants them for its own tooling.
+labels: {}
+
+# The dependency's values. **Three keys are set here and the rest belong to the module rendering
+# this chart** — these three exist only to wire the ConfigMap this chart creates, which is this
+# chart's business and not a caller's:
+#
+#   - `deployment.extraVolumes` and `.extraVolumeMounts` mount that ConfigMap;
+#   - `keto.config.namespaces.location` points the store at the mounted file.
+#
+# **Do not set those two lists from a caller.** Helm replaces lists rather than merging them, so a
+# module supplying its own `extraVolumes` drops the model mount — and the store then starts against
+# a path that does not exist. `templates/configmap.yaml` refuses to render when the mount has gone
+# missing, which turns that from a crash loop into a failed template.
+#
+# **The `keto.keto.config` nesting is upstream's, not a typo.** That chart keeps its application
+# configuration under a `keto:` key of its own, so from here the path to it runs through the
+# dependency name and then that key. `deployment` sits at the dependency's top level instead, which
+# is why the two lists below are one level shallower than the config.
+keto:
+  deployment:
+    extraVolumes:
+      - name: permission-model
+        configMap:
+          name: keto-permission-model
+    extraVolumeMounts:
+      - name: permission-model
+        mountPath: /etc/keto-model
+        readOnly: true
+        # A path of this chart's own, deliberately outside the /etc/config the wrapped chart
+        # already mounts its own configuration into. Nesting one mount inside another works and
+        # depends on the outer path staying where it is, which is a dependency's business to change.
+  keto:
+    config:
+      namespaces:
+        location: file:///etc/keto-model/permissions.ts

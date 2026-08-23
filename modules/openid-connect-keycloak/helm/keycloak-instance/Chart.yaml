@@ -1,9 +1,0 @@
-apiVersion: v2
-name: keycloak-instance
-description: The environment's Keycloak instance and the one path into it.
-type: application
-
-# The chart's own version. There is no appVersion: which Keycloak runs is the operator's to
-# decide, from the release its manifests were read at, and stating a second version here would be
-# a number nothing reads and everything could disagree with.
-version: 0.1.0

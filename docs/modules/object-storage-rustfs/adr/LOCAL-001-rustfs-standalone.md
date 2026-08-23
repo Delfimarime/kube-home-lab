@@ -2,31 +2,7 @@
 
 **Status:** accepted · **Scope:** module — `object-storage-rustfs` · **Date:** 2026-08-16
 
-## Context
-
-Something in this repository now needs an S3-compatible endpoint: the telemetry stores are
-configured against object storage, because that is the backend their own vendors support, and
-no environment here has an S3 endpoint of its own. See
-[`observability-storage-grafana-lgtm`](../../observability-storage-grafana-lgtm/README.md) for
-what wanted it and why.
-
-This decision is only about *what provides it*. That anything needs object storage at all is the
-consuming module's decision, and reversing this one — swapping the implementation — changes
-nothing outside this module, because a consumer receives an address, a region and a Secret name.
-
-The constraint is the usual one: two nodes, one operator, weeks of nobody looking. Nothing here
-scales out, and a storage system that only makes sense at four nodes with sixteen drives is a
-storage system this cluster cannot run.
-
-The candidates, and what each is actually for:
-
-| Candidate | Shape at this size | Why not |
-| --- | --- | --- |
-| **MinIO** | one pod, one volume | The obvious answer. AGPLv3 since 2021, and the community build has had console and management features removed over time — the product being installed today is not the one most documentation describes |
-| **Garage** | one pod, one volume | Designed for exactly this — small self-hosted clusters, stable 1.x. Narrower S3 API surface, and the parts that are missing are the ones a compactor tends to use |
-| **SeaweedFS** | master, volume server, filer, S3 gateway | Four components to get one endpoint. The topology is the product |
-| **Rook / Ceph** | a cluster of its own | An order of magnitude more machine than exists here |
-| **RustFS** | one pod, one volume | Apache-2.0, S3-compatible, small resident footprint, and API-compatible enough to migrate to or from MinIO. **Pre-1.0** |
+**The object store is RustFS, from its upstream chart, running standalone — one pod, one volume.**
 
 ## Decision
 
@@ -57,6 +33,32 @@ object, and it creates a `Gateway` of its own when not given one. So the chart c
 right port and can expose the wrong one by default. `extraManifests` renders the route this module
 actually wants, through the same chart, with no wrapper and no second pinned version.
 
+## Context
+
+Something in this repository now needs an S3-compatible endpoint: the telemetry stores are
+configured against object storage, because that is the backend their own vendors support, and
+no environment here has an S3 endpoint of its own. See
+[`observability-storage-grafana-lgtm`](../../observability-storage-grafana-lgtm/README.md) for
+what wanted it and why.
+
+This decision is only about *what provides it*. That anything needs object storage at all is the
+consuming module's decision, and reversing this one — swapping the implementation — changes
+nothing outside this module, because a consumer receives an address, a region and a Secret name.
+
+The constraint is the usual one: two nodes, one operator, weeks of nobody looking. Nothing here
+scales out, and a storage system that only makes sense at four nodes with sixteen drives is a
+storage system this cluster cannot run.
+
+The candidates, and what each is actually for:
+
+| Candidate | Shape at this size | Why not |
+| --- | --- | --- |
+| **MinIO** | one pod, one volume | The obvious answer. AGPLv3 since 2021, and the community build has had console and management features removed over time — the product being installed today is not the one most documentation describes |
+| **Garage** | one pod, one volume | Designed for exactly this — small self-hosted clusters, stable 1.x. Narrower S3 API surface, and the parts that are missing are the ones a compactor tends to use |
+| **SeaweedFS** | master, volume server, filer, S3 gateway | Four components to get one endpoint. The topology is the product |
+| **Rook / Ceph** | a cluster of its own | An order of magnitude more machine than exists here |
+| **RustFS** | one pod, one volume | Apache-2.0, S3-compatible, small resident footprint, and API-compatible enough to migrate to or from MinIO. **Pre-1.0** |
+
 ## Rationale
 
 - **One pod and one volume is the only shape that belongs here.** Every candidate above can be
@@ -77,13 +79,33 @@ actually wants, through the same chart, with no wrapper and no second pinned ver
   how the "nothing was stored and nobody noticed" failure gets diagnosed, and this module's
   buckets are created by hand, which makes that failure likely rather than theoretical.
 
+## Alternatives
+
+- **MinIO.** The obvious choice and the one most people reach for. Its community edition lost the
+  management console, and its licence and direction have moved in a way that makes a long-lived
+  home-lab dependency harder to reason about than it was.
+- **SeaweedFS or Ceph/Rook.** Both are real S3 implementations and both are shaped for many nodes
+  and many drives. A storage system that only makes sense at four nodes with sixteen drives is one
+  this cluster cannot run.
+- **A PVC per store, and no object store at all.** What this repository did before
+  [observability-storage LOCAL-006](../../observability-storage-grafana-lgtm/adr/LOCAL-006-stores-keep-their-data-in-an-object-store.md).
+  It removes a component and puts each store's durability on a single node's disk.
+
 ## Consequences
 
-- **Pre-1.0 software holds every stored signal.** The chart pins appVersion `1.0.0-beta.12`;
-  upstream reached `1.0.0-rc.2` on 2026-08-14, so the chart trails the product by two releases and
-  the version actually running is not the newest one. On-disk format stability between pre-1.0
-  releases is undocumented. Assume at least one upgrade requires emptying the buckets, and read
-  the release notes before moving the pin.
+- **Pre-1.0 software holds every stored signal.** The chart pins appVersion `1.0.0-rc.3`, which is
+  the newest upstream publishes. On-disk format stability between pre-1.0 releases is
+  undocumented. Assume at least one upgrade requires emptying the buckets, and read the release
+  notes before moving the pin.
+
+  *Revised 2026-08-23.* This originally read that the chart pinned `1.0.0-beta.12` while upstream
+  had reached `1.0.0-rc.2`, so the chart trailed the product by two releases — which was true when
+  written and was half the reason to stay put. Upstream has since published charts for every
+  release candidate and renumbered them: the chart carried its own `0.x` sequence through the
+  betas and now uses the same string as the appVersion. Chart and product no longer diverge, the
+  gap that argument rested on is closed, and the pin moved to `1.0.0-rc.3` with it. Rendering the
+  new chart against this module's values produced output identical to the old one but for the
+  version labels and the image tag, so nothing in the values schema moved underneath it.
 - **A pinned chart is a pinned appVersion**, and overriding the image tag to get a newer server
   is not on offer here. The chart's values are written against the version it ships; separating
   the two is how a values schema drifts out from under a module silently

@@ -3,6 +3,17 @@
 **Status:** accepted · **Scope:** module — `certificate-management-cert-manager` ·
 **Date:** 2026-08-15
 
+**Every certificate is issued by a self-signed authority this module provisions — no ACME, no
+public CA, no registered domain.**
+
+## Decision
+
+**Every certificate is issued by a self-signed authority provisioned by this module.** There is
+no ACME, no public CA, no registered domain and no egress requirement. `.lab.internal` stays.
+
+The chain per authority is: a self-signed `Issuer`, a CA `Certificate` it signs, and a
+`ClusterIssuer` backed by that CA's Secret. Leaf certificates reference the `ClusterIssuer`.
+
 ## Context
 
 Something has to issue the certificate the environment's Gateway serves, and something has to
@@ -26,14 +37,6 @@ The client certificates have no public option in any case. No public CA issues c
 certificates for a private mTLS listener, so an internal authority exists in this environment
 whichever way the server half is decided.
 
-## Decision
-
-**Every certificate is issued by a self-signed authority provisioned by this module.** There is
-no ACME, no public CA, no registered domain and no egress requirement. `.lab.internal` stays.
-
-The chain per authority is: a self-signed `Issuer`, a CA `Certificate` it signs, and a
-`ClusterIssuer` backed by that CA's Secret. Leaf certificates reference the `ClusterIssuer`.
-
 ## Rationale
 
 - **An internal CA exists either way.** The mTLS half cannot be public. Running one authority
@@ -52,6 +55,18 @@ The chain per authority is: a self-signed `Issuer`, a CA `Certificate` it signs,
   than being made by hand. A self-signed authority satisfies that exactly as well as a public
   one; what a public CA additionally buys is *third-party trust*, and the price of not having it
   is paid in trust distribution rather than in correctness.
+
+## Alternatives
+
+- **A publicly-trusted certificate over ACME DNS-01.** The only public option that works here —
+  HTTP-01 needs an inbound connection from the internet and nothing is reachable from outside the
+  LAN. It costs a registered domain, a public DNS zone and a credential to write to it, for names
+  nobody outside the LAN resolves.
+- **Certificates made by hand with `openssl`.** No component to run, and each one becomes a
+  resource nobody renews and nothing records — [REQ-08](../../../requirements.md)'s problem
+  arriving with a deadline attached.
+- **One authority for both jobs.** Fewer objects, and it means anything that can serve TLS can
+  also authenticate as a client — see [LOCAL-002](LOCAL-002-one-certificate-per-authority.md).
 
 ## Consequences
 

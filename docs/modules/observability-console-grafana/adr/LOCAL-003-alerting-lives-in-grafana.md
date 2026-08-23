@@ -3,6 +3,26 @@
 **Status:** accepted · **Scope:** module — `observability-console-grafana` ·
 **Date:** 2026-08-15 · supersedes [LOCAL-002](LOCAL-002-no-alerting.md)
 
+**Alerting is Grafana's Unified Alerting and nothing beside it, stored in the PostgreSQL this
+module already requires.**
+
+## Decision
+
+**Grafana's Unified Alerting, and nothing beside it.** Rules, contact points, notification
+policies and silences are authored in Grafana's UI and stored in the PostgreSQL this module
+already requires.
+
+**No Alertmanager is deployed.** Grafana embeds one; a second would be a second place a rule
+could be authored, and neither would be authoritative.
+
+**Nothing is provisioned.** No `alerting:` values, no rule files, no contact points in git. The
+capability is present and unconfigured — which is what LOCAL-002 delivered too, so the outcome
+on day one is unchanged. What changed is the stance: alerting stops being *declined* and becomes
+*available and unused*.
+
+**The storage module is unaffected.** It gains no `alertmanager_url`, no ruler storage
+configuration, and no rules. Mimir's ruler remains part of `-target=all` and remains unused.
+
 ## Context
 
 [LOCAL-002](LOCAL-002-no-alerting.md) declined alerting and said why: nothing here is on call,
@@ -39,23 +59,6 @@ configuration is not in git. **Alertmanager has no configuration API** — its A
 silences and receives alerts, and never writes its own config. "Not in git" would mean
 hand-editing a ConfigMap that Argo CD reverts on the next sync.
 
-## Decision
-
-**Grafana's Unified Alerting, and nothing beside it.** Rules, contact points, notification
-policies and silences are authored in Grafana's UI and stored in the PostgreSQL this module
-already requires.
-
-**No Alertmanager is deployed.** Grafana embeds one; a second would be a second place a rule
-could be authored, and neither would be authoritative.
-
-**Nothing is provisioned.** No `alerting:` values, no rule files, no contact points in git. The
-capability is present and unconfigured — which is what LOCAL-002 delivered too, so the outcome
-on day one is unchanged. What changed is the stance: alerting stops being *declined* and becomes
-*available and unused*.
-
-**The storage module is unaffected.** It gains no `alertmanager_url`, no ruler storage
-configuration, and no rules. Mimir's ruler remains part of `-target=all` and remains unused.
-
 ## Rationale
 
 - **PostgreSQL is the only non-git home that costs nothing new.** It is already mandatory, it
@@ -78,6 +81,16 @@ configuration, and no rules. Mimir's ruler remains part of `-target=all` and rem
 - **It does not close the git path.** Grafana exports Unified Alerting rules as provisioning
   YAML. If alerting ever becomes load-bearing enough to want reviewing, the export is the
   starting point rather than a rewrite.
+
+## Alternatives
+
+- **Mimir's Alertmanager**, the zero-pod reversal path [LOCAL-002](LOCAL-002-no-alerting.md)
+  wrote down. It now lands in the *other* module, so taking it would put alerting in the storage
+  module and its viewing surface here — and it alerts on metrics only, leaving logs uncovered.
+- **Both**, each authoring rules in its own place. Two places a rule could exist and no way to see
+  them together, which is the failure a single query surface exists to prevent
+  ([REQ-03](../../../requirements.md)).
+- **Continue to ship none.** Still defensible on cost and no longer on need.
 
 ## Consequences
 

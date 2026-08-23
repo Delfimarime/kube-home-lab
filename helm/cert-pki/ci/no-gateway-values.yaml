@@ -1,0 +1,27 @@
+# Same, without a Gateway: asserts zero ReferenceGrant. The namespace is not stated anywhere here
+# either — every namespaced object takes the release namespace, which `helm template -n` supplies.
+authorities:
+  server:
+    commonName: lab.internal server CA
+    duration: 87600h
+  client:
+    commonName: lab.internal client CA
+    duration: 87600h
+
+certificates:
+  default:
+    server:
+      dnsNames:
+        - "*.lab.internal"
+      duration: 8760h
+    client:
+      commonName: default.lab.internal
+      duration: 8760h
+      renewBefore: 720h
+
+trustBundle:
+  name: cert-ca-bundle
+  authorities:
+    - server
+
+gateway: null

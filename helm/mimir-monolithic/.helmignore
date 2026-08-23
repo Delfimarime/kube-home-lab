@@ -1,0 +1,18 @@
+# What is not part of the packaged chart. Argo CD reads this chart out of a git checkout rather
+# than out of a package, so nothing here changes what is deployed — but `helm package` and
+# `helm lint` both honour it, and a chart that stays packageable is one that can be published
+# without first being tidied.
+#
+# `ci/` is the notable entry: those files exist to prove this chart renders, and shipping the
+# arguments to a test alongside the thing tested is how somebody ends up installing one by mistake.
+ci/
+
+.DS_Store
+.git/
+.gitignore
+.idea/
+.project
+.vscode/
+*.swp
+*.tmproj
+*~

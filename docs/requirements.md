@@ -1,6 +1,12 @@
 # Requirements
 
-**Status:** accepted · **Date:** 2026-08-09
+**Date:** 2026-08-09
+
+This file carries no `Status`. The statuses defined in
+[docs/README.md](README.md#status) belong to decisions and to designs, and a requirement is
+neither — it is not agreed to and it is not built. What it has instead is a row in the
+[traceability matrix](#traceability): a requirement nothing decides, specifies or verifies is the
+thing to notice, and the matrix is where that shows.
 
 What has to be true of this platform. Not how — the how is [the specs](platform.md), and the
 why-this-way is [the ADRs](README.md#decisions).
@@ -26,7 +32,6 @@ nobody remembers what any of them does — or which of them is different, and wh
 | REQ-03 | Whatever observability is switched on is queried from one place. | Two query UIs is one more than a single operator will keep in their head. |
 | REQ-05 | No credential is written into declared configuration — not into git, not into OpenTofu state, not into the Helm values rendered inside an `Application`. | Anything in a `values.yaml` ends up rendered into an object in etcd in plaintext, readable by anyone who can read that object. |
 | REQ-06 | A workload is unreachable from outside its cluster unless it has been deliberately exposed. | Exposure should be an act, not the default that nobody noticed. |
-| REQ-07 | Applications have somewhere to write audit records that survives a restart and can be queried. | *Blocked — see [the open questions](#open-questions).* |
 | REQ-08 | Every resource this repo provisions is reconciled from a declared source. Nothing it provisions is applied by hand; nothing drifts silently. | The point of the whole exercise is that a cluster matches something readable. |
 | REQ-09 | Replacing the product behind a capability does not change what consumes it. | Every choice below was made once, on partial information, and at least one will turn out wrong. |
 | REQ-10 | Standing resource cost stays proportionate to a tiny k3s cluster, per environment. An environment does not pay for capability it does not ship. | RAM is the real budget, spent all day, every day, and now spent once per environment. |
@@ -40,6 +45,16 @@ nobody remembers what any of them does — or which of them is different, and wh
 survive a cluster rebuild, and nothing currently in scope delivers that — see
 [the open questions](#open-questions). The number is not reused, for the same reason the ADR
 sequence keeps its gaps: it usefully marks something that was once here.
+
+**REQ-07 was dropped on 2026-08-23**, along with the spec that would have satisfied it. It
+required applications to have somewhere durable to write audit records, and it never resolved
+into one requirement: *application* audit trails and *Kubernetes API* audit logs are different
+systems, the open question asking which one it meant stood unanswered from the day it was
+written, and no application in any environment here writes an audit record to anything. A
+requirement nothing consumes and nobody can state the subject of is a placeholder, and it was
+costing a spec, a blocked module and an open question to keep. If an application later needs an
+audit trail, this is a new requirement written against that application, decided with what is
+then known — not this one revived. The number is retired like REQ-04's.
 
 **REQ-02's boundary.** Independence is about what an environment ships, not about how good the
 result is. A signal that is absent costs cross-signal navigation — a metric with no traces
@@ -109,15 +124,14 @@ scenario that verifies neither a requirement nor a decision its spec cites shoul
 | REQ-01 one identity | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [ADR 007](adr/007-modules-receive-credentials.md), [ADR 011](adr/011-environments-are-clusters.md), [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | OIDC-01, OIDC-02, OIDC-03, CON-08, CON-13 |
 | REQ-02 independent signals | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-007](modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | OBS-30, OBS-17, OBS-19, OBS-22, CON-05 |
 | REQ-03 one query surface | [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-02, CON-03, CON-04 |
-| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-02, OIDC-06, AUD-02, OBJ-02, OBS-28, CON-14, CON-16 |
-| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, OBS-21, CON-06, OIDC-07, AUD-04, OBJ-13, OBJ-16 |
-| REQ-07 audit records | [ADR 008](adr/008-postgresql-is-external.md), [ADR 010](adr/010-resources-delivered-via-chart.md) | [audit-management-auditum](modules/audit-management-auditum/README.md) | AUD-01, AUD-03, AUD-05 |
-| REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-01, CON-15 |
-| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md), [object-storage-rustfs LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08, OBJ-03 |
+| REQ-05 no plaintext credential | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-02, OIDC-06, OBJ-02, OBS-28, CON-14, CON-16, AUTHZ-02, AUTHZ-03 |
+| REQ-06 closed by default | [ADR 007](adr/007-modules-receive-credentials.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md) | [platform](platform.md) | PLAT-03, PLAT-04, OBS-18, OBS-20, OBS-21, CON-06, OIDC-07, OBJ-13, OBJ-16, AUTHZ-06 |
+| REQ-08 declared state | [ADR 005](adr/005-modules-are-applicationsets.md), [ADR 010](adr/010-resources-delivered-via-chart.md), [ADR 022](adr/022-secrets-are-rendered-empty.md) | [platform](platform.md) | PLAT-01, CON-15, AUTHZ-01, AUTHZ-10 |
+| REQ-09 swappable implementations | [ADR 004](adr/004-scrape-config-via-prometheus-crds.md), [ADR 007](adr/007-modules-receive-credentials.md), [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md), [object-storage-rustfs LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md), [resource-authorization-ory-keto LOCAL-001](modules/resource-authorization-ory-keto/adr/LOCAL-001-the-store-is-ory-keto.md) | [platform](platform.md) | OIDC-01, OBS-06, OBS-08, OBJ-03 |
 | REQ-10 fits a tiny cluster | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md), [observability-storage-grafana-lgtm LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md), [observability-storage-grafana-lgtm LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md), [object-storage-rustfs LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md), [ADR 011](adr/011-environments-are-clusters.md) | [platform](platform.md) | OIDC-04, OBS-09, OBJ-01 |
 | REQ-11 recoverable decisions | every ADR | this repository | — |
 | REQ-12 environments don't interfere | [ADR 011](adr/011-environments-are-clusters.md), [ADR 012](adr/012-state-is-per-environment.md) | [platform](platform.md) | PLAT-05 |
-| REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [observability-console-grafana LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | [platform](platform.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | CON-07 |
+| REQ-13 permissions come from the issuer | [ADR 013](adr/013-roles-are-carried-in-the-token.md), [ADR 026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md), [ADR 028](adr/028-a-module-renders-the-network-policy-it-depends-on.md), [observability-console-grafana LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md), [resource-authorization-ory-keto LOCAL-001](modules/resource-authorization-ory-keto/adr/LOCAL-001-the-store-is-ory-keto.md) | [platform](platform.md), [observability-console-grafana](modules/observability-console-grafana/README.md), [resource-authorization-ory-keto](modules/resource-authorization-ory-keto/README.md) | CON-07, AUTHZ-09, AUTHZ-11 |
 | REQ-14 certificates are issued, not made | [certificate-management-cert-manager LOCAL-001](modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md), [certificate-management-cert-manager LOCAL-002](modules/certificate-management-cert-manager/adr/LOCAL-002-one-certificate-per-authority.md), [ADR 014](adr/014-exposed-does-not-mean-authorized.md), [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md) | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | CERT-01, CERT-04, CERT-05, CERT-07, OBS-23 |
 | REQ-15 no writer starves the others | [ADR 017](adr/017-stores-are-multi-tenant.md), [ADR 025](adr/025-a-workload-carries-its-tenant.md), [observability-storage-grafana-lgtm LOCAL-007](modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md), [observability-storage-grafana-lgtm LOCAL-008](modules/observability-storage-grafana-lgtm/adr/LOCAL-008-a-scraped-workload-names-its-own-tenant.md) | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md), [observability-console-grafana](modules/observability-console-grafana/README.md) | OBS-24, OBS-25, OBS-26, OBS-35, OBS-36 |
 
@@ -128,10 +142,6 @@ It is listed anyway, because it is the requirement that justifies the ADRs exist
 
 Each is owned by the ADR or spec that would resolve it.
 
-- **What is REQ-07 actually about?** Application audit trails, or Kubernetes API audit logs?
-  These are different systems and only one of them is Auditum. Until this is answered, REQ-07
-  is not one requirement but two candidates wearing one name — see
-  [audit-management-auditum](modules/audit-management-auditum/README.md#blocking-question).
 - **Nothing stores secrets. Something now creates them, empty, when nobody else has.** A module
   given no name for a credential renders the Secret itself, keys present and values blank, and
   Argo CD leaves the contents alone ([ADR 022](adr/022-secrets-are-rendered-empty.md)) — so a

@@ -15,6 +15,10 @@ already runs:
 - **Argo CD** — its own, not shared. Everything here is applied by Argo CD, not `kubectl apply`
 - **Gateway API (Traefik)** — ingress is a `HTTPRoute`, never an `Ingress`
 - **PostgreSQL** — reachable, described in that environment's var file
+- **`NetworkPolicy` enforcement** — k3s does this by default, through an embedded controller, and
+  `--disable-network-policy` turns it off. The relationship store depends on it, and where nothing
+  enforces, its policy reconciles healthy and does nothing
+  ([ADR 028](docs/adr/028-a-module-renders-the-network-policy-it-depends-on.md))
 
 If any of those is missing, this repo does nothing useful for that environment.
 
@@ -29,7 +33,7 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |
-| `audit-management-auditum` | an audit record API |
+| `resource-authorization-ory-keto` | whether a subject may act on a particular resource, for the applications that ask |
 
 ## Rationale
 
@@ -58,7 +62,7 @@ restated between layers.
 | --- | --- |
 | [CONSTITUTION.md](CONSTITUTION.md) | the rules, each citing the decision behind it |
 | [docs/requirements.md](docs/requirements.md) | what the platform has to do, and which decision satisfies each |
-| [docs/platform.md](docs/platform.md) | the system: the domain model, the mechanisms that span modules, the contracts |
+| [docs/platform.md](docs/platform.md) | the system: the domain model, the joints between modules, the contracts |
 | [docs/modules/](docs/README.md#specifications) | one folder per module: its spec and its own ADRs |
 | [docs/adr/](docs/README.md#decisions) | platform-wide decisions — why, what it cost, when to revisit |
 | [AGENTS.md](AGENTS.md) | orientation for coding agents, and what is currently blocked |
@@ -71,17 +75,21 @@ One OpenTofu root module composes the cluster; each module it calls provisions A
 resources — one `ApplicationSet` per module. Argo CD does the installing and the reconciling:
 OpenTofu never talks to a workload, and never creates a bare Kubernetes object.
 
-Specs come first. Five of the six specified modules are built; `audit-management-auditum` is
-blocked on an open question and deliberately has no OpenTofu.
+Specs come first, and every specified module is built.
 
 ```
 main.tf                        required_version, required_providers, provider, backend
 variables.tf                   everything true of the cluster being addressed
-<capability>.tf                one module block per capability this cluster ships
+locals.tf                      what the root derives before passing it down
+module_<capability>.tf         the module blocks for one capability — usually one, two
+                               where a capability ships as a pair (module_observability.tf
+                               holds the storage and the console)
 outputs.tf
+helm/<chart>/                  a chart this repo publishes — its values.yaml is the interface
+                               a module renders against, and more than one module may
 modules/<capability>-<impl>/
-  *.tf                         the OpenTofu that renders this module's ApplicationSet
-  helm/<chart>/                a chart this repo authors, when no upstream one fits
+  *.tf                         the OpenTofu that renders this module's ApplicationSet; the
+                               charts it points at live in helm/, not here
 modules/secret-template/       imported by the modules that need a credential; renders
                                nothing itself
 docs/                          requirements, specs, decisions
@@ -132,7 +140,51 @@ must already exist; the schema is created on first `init`. **Which PostgreSQL is
 unspecified**: not necessarily the one this environment's workloads use, and not necessarily in
 the cluster.
 
-Both of these run offline — no PostgreSQL, no Argo CD — and are worth having before either:
+### Checking it
+
+Every check runs offline — no PostgreSQL, no Argo CD, no cluster:
+
+```sh
+make            # list the targets
+make ci         # everything the pipeline runs
+make lint       # the fast half: formatting, validation, tflint, helm lint
+make docs       # the documentation, against itself and against the code
+make helm-docs  # regenerate each chart's README from its values.yaml comments
+make hooks      # point git at .githooks, once per clone
+```
+
+**The Makefile is the local twin of [`.github/workflows/ci.yml`](.github/workflows/ci.yml)**, and
+CI calls these same targets rather than restating the commands — so "it passed locally" means
+what it says. There is no `plan` and no `apply` in CI: the Argo CD this repo drives is on a home
+network no runner can reach, so a pull request is the only gate.
+
+`make trivy` scans what Helm *renders*, not the chart sources. These charts take their real
+values from OpenTofu, so their defaults render almost nothing and each chart's `ci/` values files
+are the only description of what actually gets deployed.
+
+**`make hooks` installs one hook, and it only generates.** `.githooks/pre-commit` regenerates a
+chart's README when that chart is staged, and stages the README with it — so an edited comment
+never reaches CI with a stale README beside it. It gates nothing: `--no-verify` skips it and a
+fresh clone does not have it at all, so the thing that has to be true is checked by
+`make helm-docs-check` in CI instead. Only the READMEs of charts the commit touches are staged;
+another chart regenerated along the way is left as an ordinary unstaged change.
+
+`make docs` checks the mechanical half of a documentation review — that links and anchors
+resolve, that every index agrees with what is on disk, that a spec does not say `draft` while its
+module runs, and that no code file cites a document. It is a check rather than a convention
+because the documentation here is the deliverable, and the drift it catches is invisible to a
+reviewer reading one file at a time.
+
+`make helm-docs` renders each chart's `README.md` from the comments in its `values.yaml`, and
+`make ci` runs `make helm-docs-check`, which regenerates into a temporary directory and fails if
+what is committed differs. A chart's `values.yaml` is its published interface and its comments are
+the only description of it, so the README is generated *from* them rather than written beside
+them — a hand-written one would be a second copy of the same prose, free to disagree with the
+schema it claims to describe. Neither target fails when `helm-docs` is missing: like `tflint` it
+is skipped locally and installed in CI, so the check is one a runner always applies and a laptop
+applies when it can.
+
+Underneath, the same two commands by hand:
 
 ```sh
 tofu init -backend=false && tofu validate          # the composition

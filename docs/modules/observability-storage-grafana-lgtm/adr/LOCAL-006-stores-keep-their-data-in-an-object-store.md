@@ -5,6 +5,32 @@
 revised 2026-08-16 (the bucket and the endpoint moved to the component —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
+**The three stores keep their data in S3-compatible object storage, one bucket each, and no store
+owns a volume.**
+
+## Decision
+
+Mimir, Loki and Tempo are configured against **S3-compatible object storage**, one bucket each.
+No store owns a PersistentVolumeClaim any more.
+
+The endpoint arrives as an **ordinary module input**, `object_storage`, wired at the root from
+whichever module provides it — see
+[`object-storage-rustfs`](../../object-storage-rustfs/README.md) for the one that does today. It
+carries an address, a region, and a Secret name plus its two keys, so the credential passes by
+reference and never by value
+([ADR 007](../../../adr/007-modules-receive-credentials.md)). **The bucket is not among them**:
+a bucket belongs to exactly one store, so it is named in that store's own block and nowhere else,
+and a component may carry an `object_storage` of its own that replaces this one outright — both
+[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)'s subject rather than this one's.
+
+**It is not one of the shared contracts and does not become one.** `gateway`, `database` and
+`oidc` are the three, and a fourth is added when a second module needs it, not in anticipation.
+Until then this is an input like any other, and the root wires it like any other
+([ADR 020](../../../adr/020-one-root-module.md)).
+
+**It is required, not optional.** There is no filesystem fallback and no `null` meaning "use a
+volume instead".
+
 ## Context
 
 All three stores were specified on filesystem backends, one PVC each:
@@ -33,29 +59,6 @@ The decision that is *not* being re-examined: the stores stay single-binary, one
 Nothing about the topology in [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) or
 [LOCAL-002](LOCAL-002-mimir-monolithic-chart.md) changes. Only where the bytes land.
 
-## Decision
-
-Mimir, Loki and Tempo are configured against **S3-compatible object storage**, one bucket each.
-No store owns a PersistentVolumeClaim any more.
-
-The endpoint arrives as an **ordinary module input**, `object_storage`, wired at the root from
-whichever module provides it — see
-[`object-storage-rustfs`](../../object-storage-rustfs/README.md) for the one that does today. It
-carries an address, a region, and a Secret name plus its two keys, so the credential passes by
-reference and never by value
-([ADR 007](../../../adr/007-modules-receive-credentials.md)). **The bucket is not among them**:
-a bucket belongs to exactly one store, so it is named in that store's own block and nowhere else,
-and a component may carry an `object_storage` of its own that replaces this one outright — both
-[LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md)'s subject rather than this one's.
-
-**It is not one of the shared contracts and does not become one.** `gateway`, `database` and
-`oidc` are the three, and a fourth is added when a second module needs it, not in anticipation.
-Until then this is an input like any other, and the root wires it like any other
-([ADR 020](../../../adr/020-one-root-module.md)).
-
-**It is required, not optional.** There is no filesystem fallback and no `null` meaning "use a
-volume instead".
-
 ## Rationale
 
 - **The alternative to a supported backend is not "a simpler backend", it is an unsupported
@@ -77,6 +80,15 @@ volume instead".
 - **It removes the one PVC per store that pinned each store to a node.** It does not remove the
   pin — the object store's own volume is pinned exactly as they were — but it moves three pins
   into one, and the thing that survives a store's pod being rescheduled is now its data.
+
+## Alternatives
+
+- **A PVC per store**, which is what all three had. One node's disk holds every signal, resizing
+  is a manual operation per store, and the volume is the thing that does not survive the node.
+- **One shared PVC.** Cheaper in objects and it makes three stores contend for one disk with no
+  per-signal ceiling — the failure [REQ-15](../../../requirements.md) names.
+- **A managed S3 endpoint.** No component to run, and every signal leaves the environment for a
+  network this repository does not assume exists.
 
 ## Consequences
 

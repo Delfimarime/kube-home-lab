@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "secret-template values",
+  "description": "The published interface of this chart: the name of one Secret, the keys it carries, and nothing that could put a value in it. Helm checks these values on lint, template and install, so a caller learns about a wrong shape when it renders rather than when a pod fails to start.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "keys"
+  ],
+  "properties": {
+    "name": {
+      "description": "The Secret's name. Required, because a Secret with no name is an object nothing can reference; a lower-case DNS subdomain, because that is what the API server accepts.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253,
+      "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+    },
+    "keys": {
+      "description": "The key names the workload looks for. At least one, because a Secret with the right name and no keys fails at pod start; distinct, because a repeated key renders once and hides the copy. Every item is a name and only a name - this array is the whole of what a caller may say about the Secret's contents.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^[A-Za-z0-9._-]+$"
+      }
+    },
+    "type": {
+      "description": "The Secret's type. Every value this chart writes is the empty string, so a type demanding populated keys is accepted here and rejected by the API server; Opaque is the type that matches what this chart renders.",
+      "type": "string",
+      "minLength": 1
+    },
+    "labels": {
+      "description": "Extra labels on the Secret, for an environment's own tooling. Label values are strings, and a number or a boolean written here reaches the API server as the wrong type.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

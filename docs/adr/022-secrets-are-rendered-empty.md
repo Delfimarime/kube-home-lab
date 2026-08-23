@@ -2,25 +2,7 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-16
 
-## Context
-
-Every `secret_name` in this repository names an object that nothing creates.
-[ADR 007](007-modules-receive-credentials.md) settled that a credential passes by reference, and
-[REQ-05](../requirements.md) forbids its value reaching git, state or a rendered `Application`.
-Neither says who makes the object, and the answer has been "a person, by hand, per environment,
-and again after every rebuild" — recorded as an open question rather than as a design.
-
-What that costs is only visible at a rebuild. Every Application syncs correctly, every workload
-comes up, and nothing works: each pod is waiting on a Secret whose name is written down in a
-spec nobody has open. The failure is per-workload, at pod start, and it reads as a broken module
-rather than as a missing credential.
-
-It also leaves [REQ-08](../requirements.md) with an exception nobody chose. Everything this repo
-provisions is reconciled from a declared source, except the one class of object that decides
-whether any of it functions.
-
-The obstacle was always taken to be REQ-05 — and it is real, but it is narrower than it looked.
-REQ-05 governs a credential's **value**. An empty Secret has none.
+**A module renders the Secret it needs, empty, unless it is given the name of one.**
 
 ## Decision
 
@@ -61,6 +43,26 @@ and a key and never a value.
 - **The effective name is an output**, in both modes, so what to fill in is discoverable without
   knowing which mode is in play.
 
+## Context
+
+Every `secret_name` in this repository names an object that nothing creates.
+[ADR 007](007-modules-receive-credentials.md) settled that a credential passes by reference, and
+[REQ-05](../requirements.md) forbids its value reaching git, state or a rendered `Application`.
+Neither says who makes the object, and the answer has been "a person, by hand, per environment,
+and again after every rebuild" — recorded as an open question rather than as a design.
+
+What that costs is only visible at a rebuild. Every Application syncs correctly, every workload
+comes up, and nothing works: each pod is waiting on a Secret whose name is written down in a
+spec nobody has open. The failure is per-workload, at pod start, and it reads as a broken module
+rather than as a missing credential.
+
+It also leaves [REQ-08](../requirements.md) with an exception nobody chose. Everything this repo
+provisions is reconciled from a declared source, except the one class of object that decides
+whether any of it functions.
+
+The obstacle was always taken to be REQ-05 — and it is real, but it is narrower than it looked.
+REQ-05 governs a credential's **value**. An empty Secret has none.
+
 ## Rationale
 
 - **REQ-05 is about values, and this decision never handles one.** What is declared is the shape
@@ -95,6 +97,19 @@ and a key and never a value.
 - **Two modes, and no flag** ([§4.4](../../CONSTITUTION.md)). Naming a Secret and asking for one
   are the same input in two states, so there is no second knob that can disagree with the first —
   and no configuration in which a module both renders a placeholder and points somewhere else.
+
+## Alternatives
+
+- **Leave every Secret to be created by hand**, which is what this repository did. Each rebuild
+  recreates nothing; every Application syncs, every workload comes up, and each pod waits on a
+  Secret whose name is written down in a spec nobody has open. The failure reads as a broken module
+  rather than a missing credential.
+- **Render the Secret with its values**, from a variable. Simplest to operate and it puts the value
+  in state, in git or in a rendered `Application` — all three forbidden by
+  [REQ-05](../requirements.md).
+- **Adopt an external secrets operator.** It solves this properly and is a component, a CRD set and
+  a backing store to run per environment — and it needs somewhere to fetch from, which is the
+  secret manager [§5.1](../../CONSTITUTION.md#5-secrets) says does not exist here.
 
 ## Consequences
 
