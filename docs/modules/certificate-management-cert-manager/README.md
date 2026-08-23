@@ -39,6 +39,11 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | 1 | `trust-manager` | `trust-manager` (jetstack) | the `Bundle` controller |
 | 2 | `cert-pki` | `cert-pki` — authored by this repo | the authorities, their certificates, the bundle, the grant |
 
+**Charts this repository publishes are at `helm/<chart>/`, not in this module's directory** — here
+that is [`helm/cert-pki`](../../../helm/cert-pki) at version `0.1.0`. A module renders against a
+chart's published values schema, and the chart's `Chart.yaml` version is what moves when that
+schema does, so **it may have consumers other than this one**. Check before editing it.
+
 **The waves are load-bearing**, for two different reasons. cert-manager's CRDs must exist before
 anything declares a `Certificate`. trust-manager issues its own webhook certificate *through*
 cert-manager, so it cannot start first. `ServerSideApply=true` is set on all three:

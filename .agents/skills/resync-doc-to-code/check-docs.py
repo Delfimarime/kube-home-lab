@@ -212,6 +212,35 @@ def check_spec_status():
             report(spec, "status is 'implemented' but there is no modules/%s/" % module)
 
 
+def check_charts_are_at_the_root():
+    """A chart is something this repository publishes, so it lives in helm/ and not inside the
+    one module that happens to render it today."""
+    base = os.path.join(ROOT, "modules")
+    for where, _, names in os.walk(base):
+        if "Chart.yaml" in names and "/charts/" not in where.replace(os.sep, "/"):
+            report(os.path.join(where, "Chart.yaml"),
+                   "a chart under modules/ — charts belong at helm/<chart>/")
+    charts = os.path.join(ROOT, "helm")
+    if not os.path.isdir(charts):
+        return
+    for name in sorted(os.listdir(charts)):
+        chart = os.path.join(charts, name)
+        if not os.path.isdir(chart):
+            continue
+        if not os.path.exists(os.path.join(chart, "Chart.yaml")):
+            report(chart, "directory in helm/ with no Chart.yaml")
+        elif not glob_ci(chart):
+            report(chart, "no ci/*.yaml — helm-lint and helm-template loop over them under "
+                          "`set -e`, so this fails the build rather than being skipped")
+
+
+def glob_ci(chart):
+    folder = os.path.join(chart, "ci")
+    if not os.path.isdir(folder):
+        return []
+    return [n for n in os.listdir(folder) if n.endswith((".yaml", ".yml"))]
+
+
 def check_module_has_spec():
     """Code with no spec is §10.2 in reverse."""
     base = os.path.join(ROOT, "modules")
@@ -257,9 +286,11 @@ def check_adr_shape():
         if found != ADR_SECTIONS:
             report(path, "sections are %s — expected %s"
                    % (" → ".join(found) or "none", " → ".join(ADR_SECTIONS)))
-        preamble = read(path).split("\n## ")[0].splitlines()
-        lede = [l for l in preamble
-                if l.startswith("**") and l.rstrip().endswith("**") and "Status:" not in l]
+        # The lede is a paragraph, not a line: it wraps like everything else here.
+        paragraphs = read(path).split("\n## ")[0].split("\n\n")
+        lede = [p for p in paragraphs
+                if p.strip().startswith("**") and p.strip().endswith("**")
+                and "Status:" not in p]
         if not lede:
             report(path, "no lede — one bold sentence under the header saying what was decided")
 
@@ -331,6 +362,7 @@ def main():
     check_module_is_mentioned()
     check_spec_status()
     check_module_has_spec()
+    check_charts_are_at_the_root()
     check_scenario_ids()
     check_code_cites_no_document()
 

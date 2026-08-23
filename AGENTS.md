@@ -42,9 +42,11 @@ module_<capability>.tf         the module blocks for one capability — usually 
                                where a capability ships as a pair (module_observability.tf
                                holds the storage and the console)
 outputs.tf
+helm/<chart>/                  a chart this repo publishes: its values.yaml is the interface,
+                               its Chart.yaml version is bumped when that interface changes
 modules/<capability>-<impl>/
-  *.tf                         the OpenTofu that renders this module's ApplicationSet
-  helm/<chart>/                a chart this repo authors, when no upstream one fits
+  *.tf                         the OpenTofu that renders this module's ApplicationSet, and
+                               nothing else — the charts it points at are in helm/
 modules/secret-template/       the one directory here that is not a capability: other
                                modules import it, it renders nothing, and it returns the
                                element that puts an empty Secret in their ApplicationSet
@@ -72,6 +74,15 @@ docs/                          requirements, specs, decisions
 
 Live state, not rules. Each of these is a reason to stop and ask rather than proceed.
 
+- **Charts moved to a root `helm/` on 2026-08-23, and the first `tofu apply` after that has an
+  ordering hazard.** Every generated `Application`'s `source.path` changed
+  ([ADR 028](docs/adr/028-charts-are-first-class-artifacts.md)). **The chart must exist at the
+  revision Argo CD tracks before the `ApplicationSet` points at the new path** — push, then
+  `tofu apply`. The other order leaves every `Application` in `ComparisonError` until the push
+  lands. This entry can go once that apply has happened in every environment.
+- **A chart's version is now a promise nobody has yet kept.** All five read `0.1.0` and none has
+  been bumped. The first change to a chart's values schema is the one that establishes whether
+  §2.2.1 is real; nothing enforces it.
 - **Audit record management is out of scope, and the requirement behind it is retired.** REQ-07
   and the `audit-management-auditum` spec were both dropped on 2026-08-23: nothing here writes an
   audit record, and the requirement never resolved into a single subject — application audit

@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05
 
-**PostgreSQL is not provisioned here — a module needing one receives `database` and names an instance the environment already runs.**
+**PostgreSQL is not provisioned here — a module needing one receives `database` and names an
+instance the environment already runs.**
 
 ## Decision
 

@@ -5,7 +5,8 @@
 revised 2026-08-16 (the features follow a component's presence, not a flag —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
-**Scraping is the default path and only traces are pushed; one collector, and one neutral OTLP address for everything else.**
+**Scraping is the default path and only traces are pushed; one collector, and one neutral OTLP
+address for everything else.**
 
 ## Decision
 

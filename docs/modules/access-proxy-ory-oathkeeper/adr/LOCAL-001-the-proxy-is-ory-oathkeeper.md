@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** module — `access-proxy-ory-oathkeeper` · **Date:** 2026-08-23
 
-**The access proxy is Ory Oathkeeper, and it protects whatever set of services it is given rather than a named one.**
+**The access proxy is Ory Oathkeeper, and it protects whatever set of services it is given rather
+than a named one.**
 
 ## Decision
 

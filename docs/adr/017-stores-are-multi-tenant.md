@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
-**The three telemetry stores run multi-tenant, and the tenant comes from the caller's `X-Scope-OrgID` with nothing validating it.**
+**The three telemetry stores run multi-tenant, and the tenant comes from the caller's
+`X-Scope-OrgID` with nothing validating it.**
 
 ## Decision
 

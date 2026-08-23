@@ -76,7 +76,7 @@ actually correct.
 | [006](adr/006-shared-gateway-input.md) | One `gateway` input shape | superseded by 7 |
 | [007](adr/007-modules-receive-credentials.md) | Module input contracts; providers publish addresses | accepted |
 | [008](adr/008-postgresql-is-external.md) | PostgreSQL is external to this project | accepted |
-| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted |
+| [010](adr/010-resources-delivered-via-chart.md) | Resources are chart-delivered; OpenTofu creates no bare manifests | accepted, the chart-location clause superseded by 28 |
 | [011](adr/011-environments-are-clusters.md) | An environment is a cluster | accepted, layering superseded by 20 |
 | [012](adr/012-state-is-per-environment.md) | State is per environment, and lives in PostgreSQL | accepted |
 | [013](adr/013-roles-are-carried-in-the-token.md) | Roles are `<SLUG>_<ROLE>`, carried in the token | accepted |
@@ -89,11 +89,12 @@ actually correct.
 | [020](adr/020-one-root-module.md) | There is one root module, and no Terragrunt | accepted |
 | [021](adr/021-code-does-not-cite-documentation.md) | Code does not cite documentation | accepted |
 | [022](adr/022-secrets-are-rendered-empty.md) | A module renders the Secret it needs, empty, unless it is given one | accepted |
-| [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
+| [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted, the chart's location superseded by 28 |
 | [024](adr/024-the-metrics-fact-is-derived.md) | The metrics fact is derived at the root, not declared | accepted |
 | [025](adr/025-a-workload-carries-its-tenant.md) | A workload carries its tenant in `opentelemetry.io/tenant` | accepted |
 | [026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) | Roles decide the operation, relationships decide the resource | accepted |
 | [027](adr/027-a-machine-caller-is-authorized-by-scope.md) | A machine caller is authorized by scope, not by a role | accepted |
+| [028](adr/028-charts-are-first-class-artifacts.md) | Charts are first-class artifacts, published from the repository root | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 

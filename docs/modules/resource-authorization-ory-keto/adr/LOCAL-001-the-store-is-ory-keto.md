@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** module — `resource-authorization-ory-keto` · **Date:** 2026-08-23
 
-**The relationship store is Ory Keto, its read API open in-cluster and its write API reachable only through an access proxy.**
+**The relationship store is Ory Keto, its read API open in-cluster and its write API reachable
+only through an access proxy.**
 
 ## Decision
 

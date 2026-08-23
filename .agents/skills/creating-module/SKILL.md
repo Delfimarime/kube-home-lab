@@ -109,19 +109,24 @@ Then run `make docs`, which checks the mechanical half of this
 Only now, and only against the spec as written. If implementing reveals the spec is wrong, change
 the spec first — that is the order, not a formality.
 
-**In `modules/<capability>-<implementation>/`**, `.tf` files at the root and every chart at
-`helm/<chart-name>/` — the chart's own directory, never `helm/` itself
-([§2.2](../../../CONSTITUTION.md#2-modules), [§2.3](../../../CONSTITUTION.md#2-modules)).
-`certificate-management-cert-manager` was the one module that flattened it, and it was moved on
-2026-08-23 rather than the rule being loosened. The file names the existing modules use, which are
-convention rather than rule: `main.tf`, `variables.tf`, `locals.tf`, `outputs.tf`,
-`res_argocd_application_set_<capability>.tf`, and `module_credentials.tf` where it imports
-`secret-template`.
+**In `modules/<capability>-<implementation>/`**, `.tf` files and nothing else
+([§2.2](../../../CONSTITUTION.md#2-modules), [§2.3](../../../CONSTITUTION.md#2-modules)). The file
+names the existing modules use, which are convention rather than rule: `main.tf`, `variables.tf`,
+`locals.tf`, `outputs.tf`, `res_argocd_application_set_<capability>.tf`, and
+`module_credentials.tf` where it imports `secret-template`.
 
-**If it authors a chart, it needs `helm/<chart>/ci/*-values.yaml`.** This is not optional and not
-documented anywhere else: `make helm-lint` and `make helm-template` loop over `ci/*.yaml` under
-`set -e`, so a chart with no values file there fails the build rather than being skipped. One
-file per configuration worth rendering — the minimal one, and each optional surface switched on.
+**A chart goes in `helm/<chart-name>/` at the repository root, not in the module.** It is
+something this repository publishes, so check first whether an existing one already does the
+job — that is now allowed, and it is the point ([§2.2.1](../../../CONSTITUTION.md#2-modules)).
+
+**A new chart needs `helm/<chart>/ci/*-values.yaml`.** This is not optional and not documented
+anywhere else: `make helm-lint` and `make helm-template` loop over `ci/*.yaml` under `set -e`, so
+a chart with no values file there fails the build rather than being skipped. **One file per
+configuration the chart supports** — not per way this module calls it — because a configuration
+nobody renders is one nobody promised ([§2.2.1](../../../CONSTITUTION.md#2-modules)).
+
+**Changing an existing chart's values schema is a `Chart.yaml` version bump**, and the chart may
+have consumers other than yours. `grep` the `chart_path` locals before you edit one.
 
 **At the root**, four or five files:
 

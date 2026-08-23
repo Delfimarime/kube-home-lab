@@ -1,10 +1,11 @@
 locals {
   release = "cert-pki"
 
-  # Where this module's chart sits inside this repository. A constant rather than an input: the
-  # only correct value is this one, and a caller able to change it could only ever point an
-  # Application at a path that does not exist.
-  chart_path = "modules/certificate-management-cert-manager/helm/cert-pki"
+  # The chart this module renders, published from this repository's own `helm/` tree rather than
+  # owned by this module — so its values schema is the chart's and a second consumer is allowed.
+  # A constant rather than an input: the only correct value is this one, and a caller able to
+  # change it could only ever point an Application at a path that does not exist.
+  chart_path = "helm/cert-pki"
 
   # `default` is issued from var.domain and is not in var.certificates — the variable refuses that
   # key. Everything downstream reads this map, so the wildcard is an ordinary entry from here on.

@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** module — `observability-console-grafana` ·
 **Date:** 2026-08-15 · supersedes [LOCAL-002](LOCAL-002-no-alerting.md)
 
-**Alerting is Grafana's Unified Alerting and nothing beside it, stored in the PostgreSQL this module already requires.**
+**Alerting is Grafana's Unified Alerting and nothing beside it, stored in the PostgreSQL this
+module already requires.**
 
 ## Decision
 

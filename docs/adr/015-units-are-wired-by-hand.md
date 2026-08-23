@@ -14,7 +14,8 @@
 > Kept for the record of why reading another unit's state was rejected, which is still the
 > reason not to reintroduce a second state.
 
-**No unit reads another unit's state, and a value two units share is declared once in the environment. **Superseded by [ADR 020](020-one-root-module.md).****
+**No unit reads another unit's state, and a value two units share is declared once in the
+environment. **Superseded by [ADR 020](020-one-root-module.md).****
 
 ## Decision
 

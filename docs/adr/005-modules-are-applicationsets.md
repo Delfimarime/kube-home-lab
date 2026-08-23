@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-05 · revised 2026-08-09
 
-**Every module renders its own `ApplicationSet` with a `List` generator — one entry per chart, even at one.**
+**Every module renders its own `ApplicationSet` with a `List` generator — one entry per chart,
+even at one.**
 
 ## Decision
 

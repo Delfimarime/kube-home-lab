@@ -53,6 +53,13 @@ One Argo CD `ApplicationSet` ([ADR 005](../../adr/005-modules-are-applicationset
 | 1 | `tempo` | `tempo` — the monolithic chart, not `tempo-distributed` | `components.traces` is set |
 | 2 | `k8s-monitoring` | `k8s-monitoring-routed` — authored here, wrapping `k8s-monitoring` | always |
 
+**Charts this repository publishes are at `helm/<chart>/`, not in this module's directory** — here
+[`helm/mimir-monolithic`](../../../helm/mimir-monolithic) and
+[`helm/k8s-monitoring-routed`](../../../helm/k8s-monitoring-routed), both at version `0.1.0`. A
+module renders against a chart's published values schema, and the chart's `Chart.yaml` version is
+what moves when that schema does, so **it may have consumers other than this one**. Check before
+editing it.
+
 **A component's presence is what ships it** ([LOCAL-007](adr/LOCAL-007-a-signal-is-its-own-configuration.md)).
 There is no `enable_metrics_support` and no sibling of it: the block that says where metrics land
 and how long they are kept is the same block whose absence means they are not collected. At

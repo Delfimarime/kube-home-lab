@@ -7,7 +7,8 @@
 Written while the storage components and Grafana were one module, and numbered `LOCAL-004`
 there. Both the number and the folder changed when that module split; the argument did not.
 
-**Ship no alerting: Mimir's Alertmanager is never started and Grafana's Unified Alerting is left unprovisioned. **Superseded by [LOCAL-003](LOCAL-003-alerting-lives-in-grafana.md).****
+**Ship no alerting: Mimir's Alertmanager is never started and Grafana's Unified Alerting is left
+unprovisioned. **Superseded by [LOCAL-003](LOCAL-003-alerting-lives-in-grafana.md).****
 
 ## Decision
 

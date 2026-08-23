@@ -1,9 +1,10 @@
 locals {
-  # Where this module's own charts sit inside this repository. Constants rather than inputs: the
-  # only correct value is this one, and a caller able to change it could only ever point an
-  # Application at a path that does not exist.
-  chart_path_metrics_store = "modules/observability-storage-grafana-lgtm/helm/mimir-monolithic"
-  chart_path_collector     = "modules/observability-storage-grafana-lgtm/helm/k8s-monitoring-routed"
+  # The charts this module renders, published from this repository's own `helm/` tree rather than
+  # owned by this module — so their values schemas are the charts' and a second consumer is
+  # allowed. Constants rather than inputs: the only correct value is this one, and a caller able to
+  # change it could only ever point an Application at a path that does not exist.
+  chart_path_metrics_store = "helm/mimir-monolithic"
+  chart_path_collector     = "helm/k8s-monitoring-routed"
 
   # Each Application's name is also its Helm release name, so the objects a chart renders are named
   # after the thing an operator is looking for. That is what makes `rollout restart statefulset/loki`

@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-16 ·
 supersedes the root-variable half of [ADR 016](016-metrics-is-the-fourth-input.md)
 
-**The metrics fact is derived at the root from whether a metrics store ships, rather than declared in a variable.**
+**The metrics fact is derived at the root from whether a metrics store ships, rather than declared
+in a variable.**
 
 ## Decision
 

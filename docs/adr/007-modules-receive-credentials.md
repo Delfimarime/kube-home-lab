@@ -5,7 +5,8 @@ revised 2026-08-09 (absorbed [ADR 006](006-shared-gateway-input.md)) ·
 revised 2026-08-16 (`secret_name` is optional — [ADR 022](022-secrets-are-rendered-empty.md);
 `gateway` covers one routable surface, and a module with several takes `services`)
 
-**A provider publishes only its address; a consumer receives a fully-formed reference, in one of three fixed shapes.**
+**A provider publishes only its address; a consumer receives a fully-formed reference, in one of
+three fixed shapes.**
 
 ## Decision
 

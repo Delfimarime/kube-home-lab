@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-13
 
-**What a person may do comes from the token — roles named `<SLUG>_<ROLE>` at `resource_access.<slug>.roles`, and absence is a denial.**
+**What a person may do comes from the token — roles named `<SLUG>_<ROLE>` at
+`resource_access.<slug>.roles`, and absence is a denial.**
 
 ## Decision
 

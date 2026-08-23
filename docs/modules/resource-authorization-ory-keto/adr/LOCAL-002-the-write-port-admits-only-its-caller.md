@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** module — `resource-authorization-ory-keto` · **Date:** 2026-08-23
 
-**The write port admits only the pod selector its caller names; the read port is left unrestricted.**
+**The write port admits only the pod selector its caller names; the read port is left
+unrestricted.**
 
 ## Decision
 

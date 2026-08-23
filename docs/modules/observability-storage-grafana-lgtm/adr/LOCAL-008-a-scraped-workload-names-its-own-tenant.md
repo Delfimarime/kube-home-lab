@@ -5,7 +5,8 @@
 refines [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) and
 [ADR 017](../../../adr/017-stores-are-multi-tenant.md)
 
-**A scraped workload names its own tenant in an `opentelemetry.io/tenant` label, and the collector routes the write on it.**
+**A scraped workload names its own tenant in an `opentelemetry.io/tenant` label, and the collector
+routes the write on it.**
 
 ## Decision
 

@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15 ·
 revised 2026-08-15 (certificate material is now provisioned; the decision is unchanged)
 
-**Exposing a workload does not oblige this repository to authorize it; where the workload cannot, that job is the Gateway's.**
+**Exposing a workload does not oblige this repository to authorize it; where the workload cannot,
+that job is the Gateway's.**
 
 ## Decision
 

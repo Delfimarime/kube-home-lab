@@ -82,9 +82,11 @@ module_<capability>.tf         the module blocks for one capability — usually 
                                where a capability ships as a pair (module_observability.tf
                                holds the storage and the console)
 outputs.tf
+helm/<chart>/                  a chart this repo publishes — its values.yaml is the interface
+                               a module renders against, and more than one module may
 modules/<capability>-<impl>/
-  *.tf                         the OpenTofu that renders this module's ApplicationSet
-  helm/<chart>/                a chart this repo authors, when no upstream one fits
+  *.tf                         the OpenTofu that renders this module's ApplicationSet; the
+                               charts it points at live in helm/, not here
 modules/secret-template/       imported by the modules that need a credential; renders
                                nothing itself
 docs/                          requirements, specs, decisions

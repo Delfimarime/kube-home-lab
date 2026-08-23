@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-15
 
-**Storage splits from the console: this module keeps the collector and the three stores, and Grafana becomes its own module.**
+**Storage splits from the console: this module keeps the collector and the three stores, and
+Grafana becomes its own module.**
 
 ## Decision
 

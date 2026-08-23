@@ -41,10 +41,19 @@ caller to own (§5.2). It has no spec, because it designs nothing; a second exce
 argument that one made.
 [`022`](docs/adr/022-secrets-are-rendered-empty.md)
 
-**2.2** A module directory holds its `.tf` files at the root and, where it authors a chart,
-`helm/<chart>/`. Nothing else, and no chart outside `helm/`.
-[`010`](docs/adr/010-resources-delivered-via-chart.md), [`019`](docs/adr/019-the-tool-is-opentofu.md),
-[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md)
+**2.2** A module directory holds `.tf` files and nothing else. **Charts live at `helm/<chart>/` at
+the repository root**, never inside a module — a chart is something this repository publishes, and
+a module consumes it by path.
+[`019`](docs/adr/019-the-tool-is-opentofu.md),
+[`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md),
+[`028`](docs/adr/028-charts-are-first-class-artifacts.md)
+
+**2.2.1** A chart's `values.yaml` is its published interface and its `Chart.yaml` `version` is
+bumped when that interface changes. Its `ci/*-values.yaml` files describe the configurations the
+chart supports, not the way one module happens to call it — a configuration nobody renders is one
+nobody promised. **Two modules may consume one chart**, and doing so is a choice made against a
+versioned schema rather than an accident of layout.
+[`028`](docs/adr/028-charts-are-first-class-artifacts.md)
 
 **2.3** Each module renders exactly one Argo CD `ApplicationSet` — a `List` generator, one static
 entry per chart, even at one entry. No shared `ApplicationSet` module; no bare `Application`,

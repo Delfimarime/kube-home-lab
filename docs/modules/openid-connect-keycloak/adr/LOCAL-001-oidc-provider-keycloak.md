@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** module — `openid-connect-keycloak` · **Date:** 2026-08-15 ·
 replaces the Zitadel decision this module previously carried
 
-**The OIDC provider is Keycloak, deployed by its operator, and this module ships both the operator and the environment's instance.**
+**The OIDC provider is Keycloak, deployed by its operator, and this module ships both the operator
+and the environment's instance.**
 
 ## Decision
 

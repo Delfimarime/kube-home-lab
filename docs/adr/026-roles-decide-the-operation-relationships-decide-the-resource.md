@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-23
 
-**Roles decide whether a person may perform an operation; relationships decide whether they may perform it on a particular resource.**
+**Roles decide whether a person may perform an operation; relationships decide whether they may
+perform it on a particular resource.**
 
 ## Decision
 

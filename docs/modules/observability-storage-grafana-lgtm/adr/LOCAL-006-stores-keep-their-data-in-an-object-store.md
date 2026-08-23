@@ -5,7 +5,8 @@
 revised 2026-08-16 (the bucket and the endpoint moved to the component —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
-**The three stores keep their data in S3-compatible object storage, one bucket each, and no store owns a volume.**
+**The three stores keep their data in S3-compatible object storage, one bucket each, and no store
+owns a volume.**
 
 ## Decision
 

@@ -5,7 +5,8 @@
 revised 2026-08-16 (the login form is derived, not an input; the admin credential is a Secret an
 operator fills)
 
-**Grafana maps `GRAFANA_ADMIN` and `GRAFANA_VIEWER` from the token and admits nobody carrying neither.**
+**Grafana maps `GRAFANA_ADMIN` and `GRAFANA_VIEWER` from the token and admits nobody carrying
+neither.**
 
 ## Decision
 

@@ -5,7 +5,8 @@
 revised 2026-08-16 (a component is named by its own block, not by a flag —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
-**The stack is Grafana's — Mimir, Loki and Tempo, one chart per component, each independently present or absent.**
+**The stack is Grafana's — Mimir, Loki and Tempo, one chart per component, each independently
+present or absent.**
 
 ## Decision
 

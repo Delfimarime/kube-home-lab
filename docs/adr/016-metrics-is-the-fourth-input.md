@@ -12,7 +12,8 @@ revised 2026-08-16
 > environment. And it does not carry one field: `tenant` is the second, and is the label this ADR
 > left room for ([ADR 025](025-a-workload-carries-its-tenant.md)).
 
-**`metrics` is a fourth cross-module input, carrying whether the cluster has the scrape CRDs and a collector reading them.**
+**`metrics` is a fourth cross-module input, carrying whether the cluster has the scrape CRDs and a
+collector reading them.**
 
 ## Decision
 

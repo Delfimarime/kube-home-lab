@@ -4,7 +4,8 @@
 **Date:** 2026-08-12 · revised 2026-08-15 (multitenancy is on; the override surface conforms) ·
 revised 2026-08-16 (blocks go to object storage)
 
-**Mimir runs as a single process from a chart this repository authors, because no monolithic chart exists upstream.**
+**Mimir runs as a single process from a chart this repository authors, because no monolithic chart
+exists upstream.**
 
 ## Decision
 

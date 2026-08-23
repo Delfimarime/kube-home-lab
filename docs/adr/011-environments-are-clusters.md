@@ -13,7 +13,8 @@ revised 2026-08-15 (the layering half is superseded by
 > [ADR 020](020-one-root-module.md) shows to be false for a provider that reads its address from
 > the environment.
 
-**An environment is a Kubernetes cluster with its own Argo CD, and it ships a module by having a `module` block for it.**
+**An environment is a Kubernetes cluster with its own Argo CD, and it ships a module by having a
+`module` block for it.**
 
 ## Decision
 

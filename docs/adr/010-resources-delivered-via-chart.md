@@ -1,8 +1,10 @@
 # 010. Resources are delivered via chart, not OpenTofu-created manifests
 
-**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 · revised 2026-08-15
+**Status:** accepted · **Scope:** platform · **Date:** 2026-08-09 · revised 2026-08-15 ·
+the chart-location clause superseded by [ADR 028](028-charts-are-first-class-artifacts.md)
 
-**Every in-cluster resource is owned by a generated `Application`, and OpenTofu creates no bare Kubernetes object.**
+**Every in-cluster resource is owned by a generated `Application`, and OpenTofu creates no bare
+Kubernetes object.**
 
 ## Decision
 

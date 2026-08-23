@@ -7,7 +7,8 @@ revised 2026-08-12 (metrics implementation changed; the decision did not)
 > declares scraping through its own chart's `serviceMonitor.enabled` rather than writing a
 > vendor-specific scrape resource. Reversing it changes every module.
 
-**Workloads declare scraping through their own chart, and the collector reads the Prometheus operator's CRDs.**
+**Workloads declare scraping through their own chart, and the collector reads the Prometheus
+operator's CRDs.**
 
 ## Decision
 

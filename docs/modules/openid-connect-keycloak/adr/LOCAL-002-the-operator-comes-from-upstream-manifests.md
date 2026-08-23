@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** module — `openid-connect-keycloak` · **Date:** 2026-08-22
 
-**The operator comes from upstream's own kustomization, read at a git tag — no chart and no vendored copy.**
+**The operator comes from upstream's own kustomization, read at a git tag — no chart and no
+vendored copy.**
 
 ## Decision
 

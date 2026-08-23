@@ -3,7 +3,8 @@
 **Status:** accepted · **Scope:** module — `certificate-management-cert-manager` ·
 **Date:** 2026-08-15
 
-**Every certificate is issued by a self-signed authority this module provisions — no ACME, no public CA, no registered domain.**
+**Every certificate is issued by a self-signed authority this module provisions — no ACME, no
+public CA, no registered domain.**
 
 ## Decision
 

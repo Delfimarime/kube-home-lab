@@ -2,7 +2,8 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
-**One trust bundle, distributed to every namespace by a controller, rather than a mount per workload.**
+**One trust bundle, distributed to every namespace by a controller, rather than a mount per
+workload.**
 
 ## Decision
 
