@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ory-keto values",
+  "description": "The published interface of this chart, which is everything above the `keto` key and nothing below it. Helm checks these values on lint, template and install. What sits under `keto` is the wrapped chart's dialect and is validated by that chart's own schema - restating it here would be a fork of a values file rather than a wrapper around a chart, and it would go stale on the first dependency bump.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "ports",
+    "podSelector"
+  ],
+  "properties": {
+    "model": {
+      "description": "The permission model: the schema of the graph the store answers questions about, written in the Ory Permission Language. It is required because a store with no model answers every derived question with no - a configuration that renders and that nobody would want deployed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configMapName",
+        "content"
+      ],
+      "properties": {
+        "configMapName": {
+          "description": "The ConfigMap this chart creates and the wrapped chart mounts. A fixed name rather than one derived from the release, because values.yaml has to name it too in the volume that mounts it, and a values file cannot template a release name.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+        },
+        "content": {
+          "description": "The model itself, as the text of a file. A syntactic subset of TypeScript, which is why the mounted file is named .ts and parsed as one. Non-empty, and the chart's default is a model declaring one subject namespace and nothing else - a store that authorizes nobody, which is the right thing to leave running until there is an application to describe. A caller wanting no model at all wants that default, not an empty string: an empty file is a parse error at boot rather than a store with nothing to say.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "writeAccessFrom": {
+      "description": "Who may reach the write port - one entry per workload, matched as pod labels inside the namespace named beside them. A tuple is written by whatever grants access to a resource, which in practice is the application that owns it. An empty list renders no NetworkPolicy at all, which leaves both ports open to every pod in the cluster; that is the honest meaning of not-wired and it is the default, because a policy is only correct with respect to callers this chart cannot guess. Each entry's namespace and labels go into one from element, which is an AND; several entries are several elements, which is an OR - and the right one, since each is a different workload rather than a further condition on the same one.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "namespace",
+          "labels"
+        ],
+        "properties": {
+          "namespace": {
+            "description": "The caller's namespace, matched by the kubernetes.io/metadata.name label Kubernetes applies to every namespace - so nothing has to be labelled by hand for this to resolve.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+          },
+          "labels": {
+            "description": "The caller's pod labels. Never empty: a namespace with no labels admits every pod in it, which is a wider door than naming a namespace was meant to open.",
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "ports": {
+      "description": "The ports the policy names, which must be the ports the wrapped chart serves on. Numbers rather than the Service's port names, because a NetworkPolicy resolving a name it cannot find matches nothing - and a rule matching nothing on the read port locks out the whole cluster.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read",
+        "write"
+      ],
+      "properties": {
+        "read": {
+          "description": "The read API's port. Open to the cluster by design: every authorization decision an application makes is a call to it, and requiring a token there would mean a client registration per application.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "write": {
+          "description": "The write API's port, and the one the policy restricts. Distinct from the read port on purpose - it is what lets the trust boundary and the network boundary be the same shape.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "podSelector": {
+      "description": "How the policy finds the store's pods - labels the wrapped chart writes, not this one. The release's instance label is added by the template so two releases in one namespace cannot select each other's pods. Setting keto.nameOverride without moving this is refused at render time, because it is the one edit whose failure is silent and open.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "labels": {
+      "description": "Extra labels on the objects this chart adds, for an environment's own tooling. Label values are strings, and a number or a boolean written here reaches the API server as the wrong type.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "keto": {
+      "description": "The wrapped chart's values, unconstrained on purpose. They belong to that chart's schema and not to this one. Three keys are set in this chart's values.yaml - the two volume lists and namespaces.location - because they wire the ConfigMap this chart creates; everything else is written by the module rendering this chart.",
+      "type": "object"
+    },
+    "global": {
+      "description": "Helm's own well-known key, reachable by every chart in the release. Nothing here reads it; it is declared so that a caller using it is not refused by a schema that closed the door on a Helm feature.",
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+# The configuration an environment actually runs: the write port admitted to the applications that
+# create tuples, the read port left open to the cluster.
+#
+# Two entries rather than one, because that is the shape the moment a second application grants
+# access to anything it owns — and because one entry would not show that several become several
+# `from` elements rather than one with extra conditions.
+#
+# Rendering this is the claim that both ingress rules appear — the restriction *and* the re-open.
+# The second is the one a reader deletes as redundant, and this file is where its absence would
+# show up as a diff rather than as every application in the cluster timing out.
+model:
+  configMapName: keto-permission-model
+  content: |
+    import { Namespace, SubjectSet, Context } from "@ory/permission-namespace-types"
+
+    class User implements Namespace {}
+
+    class Group implements Namespace {
+      related: { members: User[] }
+    }
+
+    class Document implements Namespace {
+      related: {
+        owners: (User | SubjectSet<Group, "members">)[]
+        viewers: (User | SubjectSet<Group, "members">)[]
+      }
+      permits = {
+        edit: (ctx: Context): boolean => this.related.owners.includes(ctx.subject),
+        view: (ctx: Context): boolean =>
+          this.related.viewers.includes(ctx.subject) || this.permits.edit(ctx),
+      }
+    }
+
+writeAccessFrom:
+  - namespace: apps
+    labels:
+      app.kubernetes.io/name: reports
+  - namespace: apps
+    labels:
+      app.kubernetes.io/name: catalogue
+
+keto:
+  keto:
+    config:
+      dsn: memory
