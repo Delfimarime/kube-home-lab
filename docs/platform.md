@@ -22,9 +22,9 @@ repeats it.
 
 ## Intent
 
-Provision workload-facing platform services — observability, identity, certificates and the
-object storage behind them — onto existing k3s clusters, in a way that is still understandable
-after six months of not being touched.
+Provision workload-facing platform services — observability, identity, authorization, certificates
+and the object storage behind them — onto existing k3s clusters, in a way that is still
+understandable after six months of not being touched.
 
 The measure of success is not uptime. It is that a person returning to this repo can tell what
 runs, why it was chosen, and what happens if they change it.
@@ -141,6 +141,8 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | [`object-storage-rustfs`](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint the stores write into |
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
+| [`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) | answers whether a subject may act on a particular resource |
+| [`access-proxy-ory-oathkeeper`](modules/access-proxy-ory-oathkeeper/README.md) | authenticates a request before it reaches a workload that cannot |
 
 **What each one provides and consumes is in its own spec**, and only there. This table names
 the parts; the [mechanisms](#mechanisms) below describe how they meet.

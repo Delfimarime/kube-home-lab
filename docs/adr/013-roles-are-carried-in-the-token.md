@@ -81,8 +81,8 @@ puts roles somewhere else, `oidc.groups_claim` overrides the path.
 - **How the claim is evaluated is per-product and not specified here.** Grafana reads it with a
   JMESPath expression and no `$.` prefix; another consumer may want a different form of the same
   path. The claim's *shape* is the contract; parsing it is the module's business.
-- **A consumer with no role model ignores this ADR**, and says so in its own spec. Auditum has
-  no authentication at all, so nothing here applies to it.
+- **A consumer with no role model ignores this ADR**, and says so in its own spec. A workload
+  that authenticates nobody has nothing here to apply.
 - Adding a third role later is a values change in one consumer, not a change to this decision,
   as long as it keeps the shape.
 - **`<slug>` and `oidc.client_id` are two inputs holding one value, and nothing compares them.**

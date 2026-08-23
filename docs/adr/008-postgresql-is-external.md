@@ -4,9 +4,9 @@
 
 ## Context
 
-Keycloak needs PostgreSQL. Auditum supports SQLite or PostgreSQL, and PostgreSQL is the
-choice there because it allows more than one replica and therefore a meaningful rolling
-update.
+Keycloak needs PostgreSQL, and a second consumer was in scope when this was written — a workload
+supporting SQLite or PostgreSQL, where PostgreSQL was the choice because it allows more than one
+replica and therefore a meaningful rolling update.
 
 Provisioning it here was considered — CloudNativePG with one small cluster per consumer,
 which would have brought backup and point-in-time recovery for the two datasets whose loss

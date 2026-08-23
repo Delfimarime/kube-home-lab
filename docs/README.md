@@ -38,6 +38,8 @@ with the layer that is actually correct.
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
 | [object-storage-rustfs](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
 | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | the OIDC issuer |
+| [resource-authorization-ory-keto](modules/resource-authorization-ory-keto/README.md) | whether a subject may act on a particular resource, asked per decision |
+| [access-proxy-ory-oathkeeper](modules/access-proxy-ory-oathkeeper/README.md) | authenticating a request before it reaches a workload that cannot |
 
 ## Decisions
 
@@ -66,6 +68,8 @@ with the layer that is actually correct.
 | [023](adr/023-a-modules-opentofu-is-at-its-root.md) | A module's OpenTofu is at its root, not under `tofu/` | accepted |
 | [024](adr/024-the-metrics-fact-is-derived.md) | The metrics fact is derived at the root, not declared | accepted |
 | [025](adr/025-a-workload-carries-its-tenant.md) | A workload carries its tenant in `opentelemetry.io/tenant` | accepted |
+| [026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) | Roles decide the operation, relationships decide the resource | accepted |
+| [027](adr/027-a-machine-caller-is-authorized-by-scope.md) | A machine caller is authorized by scope, not by a role | accepted |
 
 **Module-scoped** — reversing one changes nothing outside its module.
 
@@ -86,6 +90,9 @@ with the layer that is actually correct.
 | [observability-console LOCAL-001](modules/observability-console-grafana/adr/LOCAL-001-two-grafana-roles-strict.md) | Applying the role convention to Grafana | accepted |
 | [observability-console LOCAL-002](modules/observability-console-grafana/adr/LOCAL-002-no-alerting.md) | No alerting | superseded by its LOCAL-003 |
 | [observability-console LOCAL-003](modules/observability-console-grafana/adr/LOCAL-003-alerting-lives-in-grafana.md) | Alerting lives in Grafana, and in its database | accepted |
+| [resource-authorization LOCAL-001](modules/resource-authorization-ory-keto/adr/LOCAL-001-the-store-is-ory-keto.md) | The relationship store is Ory Keto | accepted |
+| [resource-authorization LOCAL-002](modules/resource-authorization-ory-keto/adr/LOCAL-002-the-write-port-admits-only-its-caller.md) | The write port admits only the caller it is told to admit | accepted |
+| [access-proxy LOCAL-001](modules/access-proxy-ory-oathkeeper/adr/LOCAL-001-the-proxy-is-ory-oathkeeper.md) | The access proxy is Ory Oathkeeper, and it protects a set it is told | accepted |
 
 Which requirement each decision serves is in the
 [traceability matrix](requirements.md#traceability).

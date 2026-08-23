@@ -78,23 +78,28 @@ misleads.
 
 ## Retiring — the registration set, in reverse
 
-Removing a module or a requirement touches the same files as adding one, plus two things that are
-easy to miss.
+Removing a module or a requirement touches the same files as adding one, plus several things that
+are easy to miss.
 
 1. **`git rm -r docs/modules/<module>` leaves empty directories behind**, because git tracks
    files and not folders. Remove them.
-2. **Grep for what the thing *did*, not only for its name.** The description that survives a
-   removal is the one that never named the product — a module for audit trails leaves the word
-   "audit" behind in a scope line and a domain model. Search for the capability, the product, the
-   requirement ID and the scenario prefix, separately.
-3. **Requirements:** drop the row and the matrix row, and drop its scenario IDs from any *other*
+2. **Grep for what the thing *did*, not only for its name, and do it case-insensitively.** The
+   description that survives a removal is the one that never named the product — a module for
+   audit trails leaves the word "audit" behind in a scope line and a domain model. Search for the
+   capability, the product, the requirement ID and the scenario prefix, separately. The last
+   removal here left the product name in four ADRs and a case-sensitive `grep` found none of
+   them, because every one of them was a capitalised sentence opener.
+3. **An ADR that names it in *Context* or *Rationale* is history and the argument stays** — but
+   the name goes, replaced by what it was an example of. An ADR that names it in *Consequences*,
+   in the present tense, is stating something now false and is the one that actually misleads.
+4. **Requirements:** drop the row and the matrix row, and drop its scenario IDs from any *other*
    requirement's `Verified by` list.
-4. **Retire the number, do not reuse it** — as [REQ-04 and REQ-07
+5. **Retire the number, do not reuse it** — as [REQ-04 and REQ-07
    were](../../../docs/requirements.md), with a paragraph saying what it required and why it went.
    A future reader finding a gap should find the reason, not a different requirement.
-5. **`AGENTS.md`** gets the live-state entry: what was dropped, when, and that it is not to be
+6. **`AGENTS.md`** gets the live-state entry: what was dropped, when, and that it is not to be
    reinstated without a new requirement.
-6. **The ADRs stay.** A decision behind something that was removed is still the record of why it
+7. **The ADRs stay.** A decision behind something that was removed is still the record of why it
    looked right, and the numbers stay retired too.
 
 Then `make docs`, which will now fail on anything still pointing at what is gone.

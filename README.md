@@ -29,6 +29,8 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |
+| `resource-authorization-ory-keto` | whether a subject may act on a particular resource, for the applications that ask |
+| `access-proxy-ory-oathkeeper` | authenticates a request before it reaches a workload that cannot |
 
 ## Rationale
 

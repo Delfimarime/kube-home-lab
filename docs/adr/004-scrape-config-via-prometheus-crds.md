@@ -46,8 +46,9 @@ the one thing every module touches.
 
 - An extra CRD bundle in the cluster, installed by the observability module as its own
   Application, and a per-environment prerequisite for anything that declares scraping.
-- Workloads with no chart — Auditum — still need a scrape resource written by hand. That is
-  one small `ServiceMonitor`, emitted by the module that owns the workload.
+- A workload with no chart of its own still needs a scrape resource written by hand. That is
+  one small `ServiceMonitor`, emitted by the module that owns the workload. Nothing here is in
+  that position today; the module that first introduces such a workload inherits the obligation.
 - Whether a conversion step exists between the CRDs and the collector is an implementation
   detail of the observability module, not a platform concern. It was present once; it is not
   now.
