@@ -64,9 +64,16 @@ symptom is every application in the cluster timing out against a store that reco
 
 ### Migrations
 
-The store does not serve until its schema exists, and the chart runs the migration as a job before
-the deployment becomes ready. **A version bump is a migration**, not only an image change, and a
-rollback is not symmetric: a schema that has moved forward does not move back because the pin did.
+The store keeps its tuples in a schema it creates itself, and **upstream ships with migrations
+switched off** — against an empty database that means a pod which starts and fails every call on a
+table that is not there. This module switches them on, as an **init container** running
+`keto migrate up` rather than the chart's default hook Job: as an init container the ordering is a
+property of the pod, so the store cannot come up before its schema exists, where a Job's ordering
+depends on Argo CD's translation of a Helm hook. Migrations are idempotent, so the re-run on every
+restart is a no-op once the schema is current.
+
+**A version bump is a migration**, not only an image change, and a rollback is not symmetric: a
+schema that has moved forward does not move back because the pin did.
 
 ### The model
 

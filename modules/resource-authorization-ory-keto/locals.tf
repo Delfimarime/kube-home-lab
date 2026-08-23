@@ -185,6 +185,20 @@ locals {
 
       # The store's own configuration. `dsn` is deliberately absent — see above.
       keto = {
+        # **Off by default upstream, and the store does not serve without it.** Keto keeps its
+        # tuples in a schema it creates itself; against an empty database with migrations disabled
+        # the pod starts and every call fails on a table that is not there.
+        #
+        # `initContainer` rather than the default `job`: a Job is a Helm hook, which Argo CD has to
+        # translate into a sync hook and manage as a separate resource, and the ordering then
+        # depends on that translation. As an init container the ordering is a property of the pod —
+        # the store cannot come up before its schema exists. Migrations are idempotent, so the
+        # re-run on every restart is a no-op once the schema is current.
+        automigration = {
+          enabled = true
+          type    = "initContainer"
+        }
+
         config = {
           serve = {
             read  = { port = local.container_port_read }
