@@ -12,7 +12,7 @@ rules are not repeated here.
 | --- | --- |
 | The rules, and what breaks if you ignore one | [CONSTITUTION.md](CONSTITUTION.md) |
 | What has to be true, and why | [docs/requirements.md](docs/requirements.md) |
-| The domain model, contracts, and behaviour spanning modules | [docs/platform.md](docs/platform.md#mechanisms) |
+| The domain model, contracts, and where modules meet | [docs/platform.md](docs/platform.md#joints) |
 | A specific module | `docs/modules/<module>/README.md` and its `adr/` |
 | Why a platform-wide choice was made | [docs/adr/](docs/README.md#decisions) |
 | Doc conventions, ID schemes, statuses | [docs/README.md](docs/README.md#conventions) |

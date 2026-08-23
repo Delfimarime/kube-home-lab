@@ -2,6 +2,18 @@
 
 **Status:** accepted · **Scope:** module — `access-proxy-ory-oathkeeper` · **Date:** 2026-08-23
 
+**The access proxy is Ory Oathkeeper, and it protects whatever set of services it is given rather than a named one.**
+
+## Decision
+
+**The access proxy is Ory Oathkeeper**, and **it takes the set of services it protects as an
+input** rather than naming one.
+
+Each protected surface is one access rule: an upstream address, a URL and method match, and its
+own JWT authenticator carrying that surface's issuer, audience and required scopes. The module
+renders the rules as part of its own deployment, so the routing policy ships with the proxy rather
+than being applied to it afterwards.
+
 ## Context
 
 [ADR 027](../../../adr/027-a-machine-caller-is-authorized-by-scope.md) says a machine caller is
@@ -14,16 +26,6 @@ proxy routes to the workload.
 
 This is the first component here whose whole job is security. Everything else authorizes access to
 itself.
-
-## Decision
-
-**The access proxy is Ory Oathkeeper**, and **it takes the set of services it protects as an
-input** rather than naming one.
-
-Each protected surface is one access rule: an upstream address, a URL and method match, and its
-own JWT authenticator carrying that surface's issuer, audience and required scopes. The module
-renders the rules as part of its own deployment, so the routing policy ships with the proxy rather
-than being applied to it afterwards.
 
 ## Rationale
 
@@ -45,6 +47,18 @@ than being applied to it afterwards.
 - **It is actively maintained.** Verified on 2026-08-23: v26.2.0 in March 2026, and v25.4.0 moved
   it into Ory's monorepo. This was checked because an unmaintained proxy in the authorization path
   is a worse liability than an unmaintained anything else here.
+
+## Alternatives
+
+- **Put the check in the workload.** Not available: the first workload that needs this
+  authenticates nobody at all, which is why it needs a proxy rather than a configuration flag.
+- **Name the upstream in this module.** Simpler to write and it makes protecting a second service
+  a change to this module rather than to the composition — which is the coupling
+  [§4.2](../../../../CONSTITUTION.md#4-composition) exists to avoid.
+- **Use the Gateway itself.** Traefik can do forward authentication, and it is a per-environment
+  prerequisite this repository never provisions
+  ([§1.1](../../../../CONSTITUTION.md#1-boundaries)) — so the boundary would live in something
+  outside this repository's control, described nowhere it can be reviewed.
 
 ## Consequences
 

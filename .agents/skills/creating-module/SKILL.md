@@ -54,6 +54,10 @@ is a decision and belongs in an ADR**, not here.
 Every module has at least one: which product, and why that one. Use
 [writing-adr](../writing-adr/SKILL.md) — it holds the scope test, the numbering and the shape.
 
+**Write the `Alternatives` section while you still remember them.** It is the section a later
+reader needs most and the one that is impossible to reconstruct afterwards: what else was on the
+table, and what each would have cost. `make docs` fails without it.
+
 What matters at this phase is only that the decisions exist **before** the spec is written, since
 the spec's header cites them.
 
@@ -105,9 +109,11 @@ Then run `make docs`, which checks the mechanical half of this
 Only now, and only against the spec as written. If implementing reveals the spec is wrong, change
 the spec first — that is the order, not a formality.
 
-**In `modules/<capability>-<implementation>/`**, `.tf` files at the root and charts only under
-`helm/` ([§2.2](../../../CONSTITUTION.md#2-modules),
-[§2.3](../../../CONSTITUTION.md#2-modules)). The file names the existing modules use, which are
+**In `modules/<capability>-<implementation>/`**, `.tf` files at the root and every chart at
+`helm/<chart-name>/` — the chart's own directory, never `helm/` itself
+([§2.2](../../../CONSTITUTION.md#2-modules), [§2.3](../../../CONSTITUTION.md#2-modules)).
+`certificate-management-cert-manager` was the one module that flattened it, and it was moved on
+2026-08-23 rather than the rule being loosened. The file names the existing modules use, which are
 convention rather than rule: `main.tf`, `variables.tf`, `locals.tf`, `outputs.tf`,
 `res_argocd_application_set_<capability>.tf`, and `module_credentials.tf` where it imports
 `secret-template`.

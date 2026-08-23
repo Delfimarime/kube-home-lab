@@ -3,21 +3,7 @@
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-16 ·
 supersedes the one-field half of [ADR 016](016-metrics-is-the-fourth-input.md)
 
-## Context
-
-[ADR 017](017-stores-are-multi-tenant.md) says a caller names its tenant. A workload that pushes
-telemetry does so per request, in `X-Scope-OrgID`. A workload that is *scraped* has no request to put
-it in, so everything collected in the cluster was stored under one name — the environment's
-`default_tenant` — and a module had no way to say its workload belonged to a different tenant.
-
-[ADR 004](004-scrape-config-via-prometheus-crds.md) rules out the obvious workaround. A module
-declares scraping through its chart's `serviceMonitor.enabled` and nothing else, and a
-`ServiceMonitor` has no field naming a tenant: its own metadata labels are read by whoever selects
-the CR and never reach a series.
-
-[ADR 016](016-metrics-is-the-fourth-input.md) left the room for this on purpose. It made `metrics` an
-object rather than a bare boolean *"so that whatever scraping needs next — an interval, a label — has
-somewhere to go without renaming the input a second time"*, while stating it carries one field.
+**A workload carries its tenant in an `opentelemetry.io/tenant` label on its Service and its pods.**
 
 ## Decision
 
@@ -45,6 +31,22 @@ store is shipped ([ADR 024](024-the-metrics-fact-is-derived.md)); `metrics.tenan
 `tenant` where one is written and `observability.default_tenant` otherwise, and the root validates it
 against `observability.tenants` because that is the only place the tenant list exists.
 
+## Context
+
+[ADR 017](017-stores-are-multi-tenant.md) says a caller names its tenant. A workload that pushes
+telemetry does so per request, in `X-Scope-OrgID`. A workload that is *scraped* has no request to put
+it in, so everything collected in the cluster was stored under one name — the environment's
+`default_tenant` — and a module had no way to say its workload belonged to a different tenant.
+
+[ADR 004](004-scrape-config-via-prometheus-crds.md) rules out the obvious workaround. A module
+declares scraping through its chart's `serviceMonitor.enabled` and nothing else, and a
+`ServiceMonitor` has no field naming a tenant: its own metadata labels are read by whoever selects
+the CR and never reach a series.
+
+[ADR 016](016-metrics-is-the-fourth-input.md) left the room for this on purpose. It made `metrics` an
+object rather than a bare boolean *"so that whatever scraping needs next — an interval, a label — has
+somewhere to go without renaming the input a second time"*, while stating it carries one field.
+
 ## Rationale
 
 - **A label is the only place a collector can look.** It is not a design preference: discovery reads
@@ -63,6 +65,18 @@ against `observability.tenants` because that is the only place the tenant list e
   tenant list; the storage module knows the list and never sees the workloads. Only the root sees
   both. A tenant that is not in the map does not fail anywhere downstream — the telemetry lands in
   `unattributed` — so the check has to happen at the one place it can.
+
+## Alternatives
+
+- **Put the tenant on the `ServiceMonitor`.** The obvious move, and
+  [ADR 004](004-scrape-config-via-prometheus-crds.md) rules it out: a module declares scraping
+  through its chart's `serviceMonitor.enabled` and nothing else, and a `ServiceMonitor`'s own
+  metadata labels are read by whoever selects the CR and never reach a series.
+- **One collector per tenant**, each with its own fixed header. It works and it is a collector per
+  tenant on a two-node cluster.
+- **Leave everything scraped under `default_tenant`.** What happened before, and it makes per-tenant
+  limits and retention meaningless for anything that is scraped rather than pushed — which is most
+  of what runs here.
 
 ## Consequences
 

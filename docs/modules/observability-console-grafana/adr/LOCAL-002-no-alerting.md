@@ -7,6 +7,16 @@
 Written while the storage components and Grafana were one module, and numbered `LOCAL-004`
 there. Both the number and the folder changed when that module split; the argument did not.
 
+**Ship no alerting: Mimir's Alertmanager is never started and Grafana's Unified Alerting is left unprovisioned. **Superseded by [LOCAL-003](LOCAL-003-alerting-lives-in-grafana.md).****
+
+## Decision
+
+**Ship no alerting.** Mimir's Alertmanager is never started; the ruler runs as part of
+`-target=all` but is given no rules. Grafana's Unified Alerting is left unprovisioned — no alert
+rules, no contact points, no notification policies.
+
+This module delivers observability. It does not deliver notification.
+
 ## Context
 
 Alerting is not a component this module has to install. It is already present twice over, in
@@ -37,14 +47,6 @@ A fourth option — `ruler_storage.backend: filesystem`, which *is* writable and
 edit rules through the ruler API — was ruled out immediately: the rules would then live only on
 a PVC, reconciled from nothing, which violates [REQ-08](../../../requirements.md) outright.
 
-## Decision
-
-**Ship no alerting.** Mimir's Alertmanager is never started; the ruler runs as part of
-`-target=all` but is given no rules. Grafana's Unified Alerting is left unprovisioned — no alert
-rules, no contact points, no notification policies.
-
-This module delivers observability. It does not deliver notification.
-
 ## Rationale
 
 - Nothing here is on call. Two machines, one operator, and stretches of weeks where nobody
@@ -61,6 +63,17 @@ This module delivers observability. It does not deliver notification.
   answers once there has been one incident, and no honest answer before.
 - Declining is cheap to reverse and cheap to defer. Choosing wrongly between the two now would
   be neither.
+
+## Alternatives
+
+- **Mimir's Alertmanager**, joined to the same process with `-target=all,alertmanager`. Free in
+  pod count, and it puts rules in a ConfigMap of rule files.
+- **Grafana's Unified Alerting**, which evaluates against any datasource and routes notifications
+  itself. Also free in pod count, and its rules live in Grafana's database.
+
+Neither is free in maintenance, so the decision could not be settled on resource cost — the axis
+most decisions here are settled on. It was deferred instead, and
+[LOCAL-003](LOCAL-003-alerting-lives-in-grafana.md) later chose the second.
 
 ## Consequences
 

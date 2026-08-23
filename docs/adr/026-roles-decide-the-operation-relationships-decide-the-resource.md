@@ -2,22 +2,7 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-23
 
-## Context
-
-[ADR 013](013-roles-are-carried-in-the-token.md) settled how a person's permissions arrive:
-`<SLUG>_<ROLE>` at `resource_access.<slug>.roles`, mapped by each consumer to its own native
-roles, and a principal carrying none is refused. That answers one question completely — *may this
-person use this service, and at what level* — and it is the right answer to it.
-
-It cannot answer a second one. **May this person act on this particular object?** A token cannot
-carry that: the claim would grow with the data rather than with the person, and a grant made after
-the token was issued would not be in it. Every product that needs per-object decisions therefore
-keeps its own table of them — which is precisely the failure
-[REQ-13](../requirements.md) names, arriving one layer below where ADR 013 stopped it.
-
-Applications deployed into these environments need that second answer. Nothing here provides it,
-so each of them would answer it privately, in its own schema, with its own vocabulary and its own
-idea of what absence means.
+**Roles decide whether a person may perform an operation; relationships decide whether they may perform it on a particular resource.**
 
 ## Decision
 
@@ -41,6 +26,23 @@ Three rules follow:
    only subject identifiers minted by the environment's issuer. Who someone *is* stays
    [REQ-01](../requirements.md)'s question.
 
+## Context
+
+[ADR 013](013-roles-are-carried-in-the-token.md) settled how a person's permissions arrive:
+`<SLUG>_<ROLE>` at `resource_access.<slug>.roles`, mapped by each consumer to its own native
+roles, and a principal carrying none is refused. That answers one question completely — *may this
+person use this service, and at what level* — and it is the right answer to it.
+
+It cannot answer a second one. **May this person act on this particular object?** A token cannot
+carry that: the claim would grow with the data rather than with the person, and a grant made after
+the token was issued would not be in it. Every product that needs per-object decisions therefore
+keeps its own table of them — which is precisely the failure
+[REQ-13](../requirements.md) names, arriving one layer below where ADR 013 stopped it.
+
+Applications deployed into these environments need that second answer. Nothing here provides it,
+so each of them would answer it privately, in its own schema, with its own vocabulary and its own
+idea of what absence means.
+
 ## Rationale
 
 - **A token has a size and a lifetime; per-object grants have neither.** This is the whole reason
@@ -59,6 +61,18 @@ Three rules follow:
   the model written into it, and that is stated where the store is chosen.
 - **A consumer that needs only coarse access ignores this entirely** and is unchanged. Most of
   what runs here is in that category and stays there.
+
+## Alternatives
+
+- **Extend the token.** Put per-object grants in a claim. A token has a size and a lifetime and
+  per-object grants have neither: the claim grows with the data rather than with the person, and a
+  grant made after the token was issued is not in it.
+- **Let each application keep its own permission table.** What happens if nothing here provides an
+  answer — and it is precisely the failure [REQ-13](../requirements.md) names, arriving one layer
+  below where [ADR 013](013-roles-are-carried-in-the-token.md) stopped it.
+- **Push it into the issuer**, modelling resources as clients or groups. Keycloak can express a
+  surprising amount of this and it makes the identity provider aware of every object in every
+  application, which is [ADR 007](007-modules-receive-credentials.md)'s rule 2 inverted.
 
 ## Consequences
 

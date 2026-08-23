@@ -33,6 +33,7 @@ deterministic — a link resolves or it does not:
 | Spec status ↔ `modules/<name>/` | `draft` while the module runs, `implemented` while it does not, or a status that is neither |
 | Every built module has a spec | code with no spec, which is [§10.2](../../../CONSTITUTION.md#10-documentation) in reverse |
 | Scenario IDs are unique, and every cited one exists | an ID reused for a second scenario, or a matrix row citing one that is gone |
+| Every ADR has a lede and the five sections in order | a decision written in the old Context-first shape, or with no `Alternatives` |
 | No code file cites a document | [§10.3](../../../CONSTITUTION.md#10-documentation) |
 
 **Run it first.** It is free and it narrows what is left to read.
@@ -68,6 +69,11 @@ out what breaks if they change it. When the world moves — a pre-1.0 dependency
 upstream renumbers — revise the consequence **in place with a dated note saying what it used to
 say and why it changed**, rather than deleting it. The old reasoning is the record of why the old
 answer looked right.
+
+**ADR alternatives.** `make docs` checks that the section *exists*; only a reader can tell whether
+it is still true. This is the section that decays fastest and matters most: an option rejected on
+a fact that has since changed — a project that was unmaintained and now is not, a chart that did
+not exist and now does — is a decision worth reopening, and nothing else in the file will say so.
 
 **Prerequisites.** Every credential input has its `kubectl patch` and its restart
 ([§5.2](../../../CONSTITUTION.md#5-secrets)).

@@ -2,6 +2,20 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15
 
+**One trust bundle, distributed to every namespace by a controller, rather than a mount per workload.**
+
+## Decision
+
+**One bundle, distributed to every namespace by a controller.** A single resource names the
+source and every namespace receives the same ConfigMap.
+[`certificate-management-cert-manager`](../modules/certificate-management-cert-manager/README.md)
+provisions it; every consumer mounts it.
+
+**The bundle carries the server authority only, and includes the public roots.**
+
+This is platform-scoped because reversing it changes every module wired to `oidc`, not the
+module that publishes the bundle.
+
 ## Context
 
 [REQ-14](../requirements.md) is satisfied by certificates from an authority this repo owns
@@ -29,18 +43,6 @@ consuming namespace somehow. Three ways were real:
   second address that must agree with the first, and because it is not a property every issuer
   has.
 
-## Decision
-
-**One bundle, distributed to every namespace by a controller.** A single resource names the
-source and every namespace receives the same ConfigMap.
-[`certificate-management-cert-manager`](../modules/certificate-management-cert-manager/README.md)
-provisions it; every consumer mounts it.
-
-**The bundle carries the server authority only, and includes the public roots.**
-
-This is platform-scoped because reversing it changes every module wired to `oidc`, not the
-module that publishes the bundle.
-
 ## Rationale
 
 - **A per-namespace prerequisite is one that gets forgotten in the namespace that needed it.**
@@ -64,6 +66,19 @@ module that publishes the bundle.
   trusts is not certificate management, so distribution is the other half of one capability —
   one more entry in that module's `List` generator, which is what
   [ADR 005](005-modules-are-applicationsets.md) exists for.
+
+## Alternatives
+
+- **A mount per workload**, each module referencing the authority's Secret. Kubernetes Secrets do
+  not cross namespaces, so this means copying the authority into every namespace that needs it —
+  by hand, again after every rotation, and with no single place that says which copies exist.
+- **Use publicly-trusted certificates** and need no bundle at all. That is
+  [cert-manager LOCAL-001](../modules/certificate-management-cert-manager/adr/LOCAL-001-certificates-from-an-internal-ca.md)'s
+  question rather than this one, and it was answered there.
+- **Distribute the client authority in the same bundle.** Rejected: the bundle is what workloads
+  trust *for outbound calls*, and the client authority is what a listener validates callers
+  against. Merging them would make every workload trust the client CA for purposes it was never
+  issued for.
 
 ## Consequences
 

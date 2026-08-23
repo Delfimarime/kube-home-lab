@@ -3,6 +3,12 @@
 **Status:** superseded by [ADR 007](007-modules-receive-credentials.md) ·
 **Scope:** platform · **Date:** 2026-08-05 · revised 2026-08-09 · superseded 2026-08-09
 
+**One `gateway` input shape for every consumer module — since absorbed into
+[ADR 007](007-modules-receive-credentials.md), which now defines all three contracts together.**
+
+**This file is a tombstone and deliberately not in the usual four-section shape.** It records
+where a decision went and why it is worth keeping; the decision itself lives in ADR 007.
+
 This ADR defined the `gateway` input shape: one object type, `null` by default, identical
 across every consumer module.
 

@@ -59,7 +59,7 @@ restated between layers.
 | --- | --- |
 | [CONSTITUTION.md](CONSTITUTION.md) | the rules, each citing the decision behind it |
 | [docs/requirements.md](docs/requirements.md) | what the platform has to do, and which decision satisfies each |
-| [docs/platform.md](docs/platform.md) | the system: the domain model, the mechanisms that span modules, the contracts |
+| [docs/platform.md](docs/platform.md) | the system: the domain model, the joints between modules, the contracts |
 | [docs/modules/](docs/README.md#specifications) | one folder per module: its spec and its own ADRs |
 | [docs/adr/](docs/README.md#decisions) | platform-wide decisions — why, what it cost, when to revisit |
 | [AGENTS.md](AGENTS.md) | orientation for coding agents, and what is currently blocked |

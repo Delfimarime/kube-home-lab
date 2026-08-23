@@ -3,6 +3,28 @@
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` ·
 **Date:** 2026-08-15
 
+**Storage splits from the console: this module keeps the collector and the three stores, and Grafana becomes its own module.**
+
+## Decision
+
+**Two modules.** This one keeps the collector and the three stores. Grafana becomes
+`observability-console-grafana`, which takes `database`, `oidc` and its own `gateway`. This
+module loses `database` and `oidc` entirely.
+
+**The console is told addresses, not flags.** `metrics_url`, `logs_url` and `traces_url` are
+outputs here and nullable inputs there. Which datasources exist and which correlation links are
+wired is derived from which of the three is non-null.
+
+**`var.gateway` means the OTLP receiver's route**, since nothing else here is exposed. No new
+input: the contract's shape already carries everything a route needs, and a second variable of
+the same shape would be two ways to say one thing.
+
+**The route is OTLP/HTTP on 4318, one rule per enabled signal** — `/v1/metrics`, `/v1/logs`,
+`/v1/traces` — rendered by `k8s-monitoring-routed`, a chart local to this module that declares
+`k8s-monitoring` as a Helm dependency and adds the template. That is the **wrapped** case of
+[ADR 010](../../../adr/010-resources-delivered-via-chart.md), used here for the first time in
+this repository.
+
 ## Context
 
 `observability-grafana-lgtm` rendered six Applications covering three jobs: collecting
@@ -36,26 +58,6 @@ Four shapes were real:
 A fifth question came with the second shape: what the console is told. Three booleans mirroring
 the flags, or three addresses.
 
-## Decision
-
-**Two modules.** This one keeps the collector and the three stores. Grafana becomes
-`observability-console-grafana`, which takes `database`, `oidc` and its own `gateway`. This
-module loses `database` and `oidc` entirely.
-
-**The console is told addresses, not flags.** `metrics_url`, `logs_url` and `traces_url` are
-outputs here and nullable inputs there. Which datasources exist and which correlation links are
-wired is derived from which of the three is non-null.
-
-**`var.gateway` means the OTLP receiver's route**, since nothing else here is exposed. No new
-input: the contract's shape already carries everything a route needs, and a second variable of
-the same shape would be two ways to say one thing.
-
-**The route is OTLP/HTTP on 4318, one rule per enabled signal** — `/v1/metrics`, `/v1/logs`,
-`/v1/traces` — rendered by `k8s-monitoring-routed`, a chart local to this module that declares
-`k8s-monitoring` as a Helm dependency and adds the template. That is the **wrapped** case of
-[ADR 010](../../../adr/010-resources-delivered-via-chart.md), used here for the first time in
-this repository.
-
 ## Rationale
 
 - **The split is the dependency graph, not a filing decision.** Everything Grafana needs to run,
@@ -87,6 +89,18 @@ this repository.
 - **No fourth input naming which signals to expose.** `gateway` being set is already the
   deliberate act [REQ-06](../../../requirements.md) asks for, and the flags already say which
   stores exist. A knob is turned once something hurts.
+
+## Alternatives
+
+- **Keep one module** rendering all six Applications. A cluster that wants only to *ingest*
+  telemetry is then told it needs PostgreSQL, an issuer, a route and a person holding a
+  role — none of which the three stores require.
+- **Split three ways**, separating the collector from the stores as well. The collector's
+  configuration is a set of destinations pointing at those stores, so the two would be wired to
+  each other and applied together at every change.
+- **Pass the console a set of flags** rather than addresses. It makes the console's datasource
+  list a restatement of what the storage module ships, and the two disagree the first time one
+  changes.
 
 ## Consequences
 

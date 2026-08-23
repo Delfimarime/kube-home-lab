@@ -79,13 +79,17 @@ module, like its pinned version.
 
 ## 3. Module inputs
 
-**3.1** Every consumer module takes the same three optional inputs, one shape each, defaulting to
-`null` — meaning *not wired*, never *disabled by a flag*: `gateway`, `database`, `oidc`. Shapes in
-[contracts](docs/platform.md#contracts). **`gateway` describes one routable surface**; a module
-serving several on several ports takes `services` instead — one entry per surface, each with its
-own `port`, `hostname` and Gateway reference — because one hostname cannot name two surfaces and
-one listener cannot be the right answer for both an API and an admin console.
+**3.1** There are three contracts — `gateway`, `database`, `oidc` — and **a module that needs one
+takes it in the shared shape, defaulting to `null`**, meaning *not wired* and never *disabled by a
+flag*. It is the shape that is fixed, not the set: a module takes the contracts it uses and no
+others (§3.4), so most take one or two and `certificate-management-cert-manager` takes none.
+Shapes in [contracts](docs/platform.md#contracts).
 [`007`](docs/adr/007-modules-receive-credentials.md)
+
+**`gateway` describes one routable surface.** A module serving several on several ports takes
+`services` instead — one entry per surface, each with its own `port`, `hostname` and Gateway
+reference — because one hostname cannot name two surfaces and one listener cannot be the right
+answer for both an API and an admin console. `services` replaces `gateway`; nothing takes both.
 
 **3.2** `metrics` is a fourth input and **not** a contract. Two fields, taken by every module whose
 workload can emit a `ServiceMonitor`; a module with no metrics endpoint doesn't take it. `enabled`,

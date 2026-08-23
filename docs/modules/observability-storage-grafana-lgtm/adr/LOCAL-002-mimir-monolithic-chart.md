@@ -4,6 +4,28 @@
 **Date:** 2026-08-12 · revised 2026-08-15 (multitenancy is on; the override surface conforms) ·
 revised 2026-08-16 (blocks go to object storage)
 
+**Mimir runs as a single process from a chart this repository authors, because no monolithic chart exists upstream.**
+
+## Decision
+
+Run Mimir as a single process from a chart authored in this repository, at
+`modules/observability-storage-grafana-lgtm/helm/mimir-monolithic/`:
+
+- `-target=all` — one binary, one StatefulSet, one pod
+- `common.storage.backend: s3`, one bucket, no PVC —
+  [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)
+- `-auth.multitenancy-enabled=true`, so every read and write carries `X-Scope-OrgID`
+  ([ADR 017](../../../adr/017-stores-are-multi-tenant.md))
+- a runtime overrides file for per-tenant limits and retention, **shaped to match Loki's and
+  Tempo's** rather than expressing the same idea a third way — this is the chart this repo
+  controls, so it is the one that conforms
+- ruler and Alertmanager unused — nothing in this module alerts, and the console module owns
+  that decision
+
+The custom-chart case is the one
+[ADR 010](../../../adr/010-resources-delivered-via-chart.md) already allows: a chart authored
+here, at `helm/<chart-name>/` inside the module that owns it, because no upstream one fits.
+
 ## Context
 
 The metrics half of [LOCAL-001](LOCAL-001-grafana-lgtm-stack.md) is the part that does not fit
@@ -31,26 +53,6 @@ Worth noting where Grafana itself landed on this: `grafana/otel-lgtm`, their own
 single-container LGTM image, ships **Prometheus rather than Mimir**. The minimal build of the
 stack does not use the M.
 
-## Decision
-
-Run Mimir as a single process from a chart authored in this repository, at
-`modules/observability-storage-grafana-lgtm/helm/mimir-monolithic/`:
-
-- `-target=all` — one binary, one StatefulSet, one pod
-- `common.storage.backend: s3`, one bucket, no PVC —
-  [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)
-- `-auth.multitenancy-enabled=true`, so every read and write carries `X-Scope-OrgID`
-  ([ADR 017](../../../adr/017-stores-are-multi-tenant.md))
-- a runtime overrides file for per-tenant limits and retention, **shaped to match Loki's and
-  Tempo's** rather than expressing the same idea a third way — this is the chart this repo
-  controls, so it is the one that conforms
-- ruler and Alertmanager unused — nothing in this module alerts, and the console module owns
-  that decision
-
-The custom-chart case is the one
-[ADR 010](../../../adr/010-resources-delivered-via-chart.md) already allows: a chart authored
-here, at `helm/<chart-name>/` inside the module that owns it, because no upstream one fits.
-
 ## Rationale
 
 - One pod is the only shape of Mimir that belongs on a two-node k3s. The alternatives were
@@ -73,6 +75,19 @@ here, at `helm/<chart-name>/` inside the module that owns it, because no upstrea
   `var.tenants` has one shape across three stores instead of three shapes behind one input.
 - The chart is small — a StatefulSet, a Service, a ConfigMap and a PVC — because everything
   that makes `mimir-distributed` large is topology this deployment does not have.
+
+## Alternatives
+
+- **`mimir-distributed`, the only official chart.** It deploys distributor, ingester, querier,
+  query-frontend, store-gateway and compactor, plus caches and a gateway — ten to twelve pods
+  before anything is scraped.
+- **`mimir-distributed` with replicas forced to one.** Still every component as its own
+  Deployment, still the microservices topology, now with none of the availability that shape
+  exists to provide.
+- **A community monolithic chart.** None found that was maintained and pinnable; authoring a small
+  one here was judged cheaper than depending on one that stops being updated.
+- **Prometheus instead of Mimir.** Removes the object-storage dependency and gives up the
+  multitenancy [ADR 017](../../../adr/017-stores-are-multi-tenant.md) requires.
 
 ## Consequences
 

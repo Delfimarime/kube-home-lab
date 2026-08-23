@@ -5,29 +5,7 @@
 revised 2026-08-16 (a component is named by its own block, not by a flag —
 [LOCAL-007](LOCAL-007-a-signal-is-its-own-configuration.md))
 
-## Context
-
-[REQ-02](../../../requirements.md) requires metrics, logs and traces to be independently
-present or absent, [REQ-03](../../../requirements.md) requires whichever are on to share one
-query surface, and [REQ-10](../../../requirements.md) caps all of it at what a tiny k3s cluster
-can carry, per environment.
-
-Three signals in one place is the easy half. The hard half is what happens *between* them. A
-trace is only useful if you can reach the logs of the span that failed; a suspicious point on a
-graph is only useful if you can open the request that produced it; and a service graph — what
-calls what, and how often it fails — is not a property of any one signal at all. Every
-observability stack can store three signals. They differ in whether the links between them are
-a product feature or an integration project.
-
-The Grafana stack's links are a product feature. Tempo's metrics-generator derives service-graph
-series from spans; Grafana's Loki, Tempo and Prometheus-compatible datasources reference each
-other by UID, so trace-to-logs, logs-to-trace and exemplars are datasource configuration rather
-than code. Grafana is also where the three would be read regardless, so nothing is being adopted
-merely to make the links work.
-
-What it costs is memory, and memory is the budget [REQ-10](../../../requirements.md) actually
-constrains — spent all day, every day, and now spent once per environment
-([ADR 011](../../../adr/011-environments-are-clusters.md)).
+**The stack is Grafana's — Mimir, Loki and Tempo, one chart per component, each independently present or absent.**
 
 ## Decision
 
@@ -52,6 +30,30 @@ Every component runs as a single process. No operator and no distributed topolog
 the module — where the bytes land is [LOCAL-006](LOCAL-006-stores-keep-their-data-in-an-object-store.md)'s
 subject, and it does not change the topology chosen here.
 
+## Context
+
+[REQ-02](../../../requirements.md) requires metrics, logs and traces to be independently
+present or absent, [REQ-03](../../../requirements.md) requires whichever are on to share one
+query surface, and [REQ-10](../../../requirements.md) caps all of it at what a tiny k3s cluster
+can carry, per environment.
+
+Three signals in one place is the easy half. The hard half is what happens *between* them. A
+trace is only useful if you can reach the logs of the span that failed; a suspicious point on a
+graph is only useful if you can open the request that produced it; and a service graph — what
+calls what, and how often it fails — is not a property of any one signal at all. Every
+observability stack can store three signals. They differ in whether the links between them are
+a product feature or an integration project.
+
+The Grafana stack's links are a product feature. Tempo's metrics-generator derives service-graph
+series from spans; Grafana's Loki, Tempo and Prometheus-compatible datasources reference each
+other by UID, so trace-to-logs, logs-to-trace and exemplars are datasource configuration rather
+than code. Grafana is also where the three would be read regardless, so nothing is being adopted
+merely to make the links work.
+
+What it costs is memory, and memory is the budget [REQ-10](../../../requirements.md) actually
+constrains — spent all day, every day, and now spent once per environment
+([ADR 011](../../../adr/011-environments-are-clusters.md)).
+
 ## Rationale
 
 - **Correlation is the purchase.** Exemplars, trace-to-logs, logs-to-trace and the service
@@ -71,6 +73,19 @@ subject, and it does not change the topology chosen here.
   the only irreplaceable state in the module onto the node-pinned volume that is its weakest
   point, so the fallback is removed rather than merely discouraged. It also leaves Grafana owning
   no volume at all.
+
+## Alternatives
+
+- **Prometheus, Elasticsearch and Jaeger**, one best-of-breed per signal. Three query surfaces,
+  three storage models, and cross-signal navigation left as an exercise —
+  [REQ-03](../../../requirements.md) asks for one place, and correlation between signals is the
+  hard half of this problem.
+- **The `grafana/lgtm-distributed` umbrella.** One chart for the whole stack, and it deploys the
+  microservices topology of each component, which is the shape
+  [REQ-10](../../../requirements.md) rules out here.
+- **A managed backend.** Removes the storage problem and puts every signal outside the
+  environment, which [REQ-12](../../../requirements.md) and the LAN-only posture both argue
+  against.
 
 ## Consequences
 

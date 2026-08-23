@@ -224,6 +224,46 @@ def check_module_has_spec():
             report(os.path.join(base, name), "module has no spec in docs/modules/")
 
 
+# ---------------------------------------------------------------- adr shape
+
+ADR_SECTIONS = ["Decision", "Context", "Rationale", "Alternatives", "Consequences"]
+
+# ADR 006 is a tombstone: its decision moved into 007 and the file survives to record where it
+# went. A pointer does not need the four sections, and docs/README.md says so.
+ADR_SHAPE_EXEMPT = {"006-shared-gateway-input.md"}
+
+
+def adr_files():
+    base = os.path.join(ROOT, "docs", "adr")
+    if os.path.isdir(base):
+        for name in sorted(os.listdir(base)):
+            if name.endswith(".md"):
+                yield os.path.join(base, name)
+    for module in module_dirs():
+        folder = os.path.join(ROOT, "docs", "modules", module, "adr")
+        if os.path.isdir(folder):
+            for name in sorted(os.listdir(folder)):
+                if name.endswith(".md"):
+                    yield os.path.join(folder, name)
+
+
+def check_adr_shape():
+    """Decision first, then Context, Rationale, Alternatives, Consequences — and a lede above
+    them. The order is the inverted pyramid: a reader after *what* stops before *why*."""
+    for path in adr_files():
+        if os.path.basename(path) in ADR_SHAPE_EXEMPT:
+            continue
+        found = [text for level, text in headings(path) if level == 2]
+        if found != ADR_SECTIONS:
+            report(path, "sections are %s — expected %s"
+                   % (" → ".join(found) or "none", " → ".join(ADR_SECTIONS)))
+        preamble = read(path).split("\n## ")[0].splitlines()
+        lede = [l for l in preamble
+                if l.startswith("**") and l.rstrip().endswith("**") and "Status:" not in l]
+        if not lede:
+            report(path, "no lede — one bold sentence under the header saying what was decided")
+
+
 # ------------------------------------------------------------- scenario ids
 
 SCENARIO = re.compile(r"Scenario(?: Outline)?:\s*\[([A-Z]{2,8}-\d{2})\]")
@@ -287,6 +327,7 @@ def main():
         check_duplicate_headings(path)
     check_spec_index()
     check_adr_index()
+    check_adr_shape()
     check_module_is_mentioned()
     check_spec_status()
     check_module_has_spec()

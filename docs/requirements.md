@@ -1,6 +1,12 @@
 # Requirements
 
-**Status:** accepted · **Date:** 2026-08-09
+**Date:** 2026-08-09
+
+This file carries no `Status`. The statuses defined in
+[docs/README.md](README.md#status) belong to decisions and to designs, and a requirement is
+neither — it is not agreed to and it is not built. What it has instead is a row in the
+[traceability matrix](#traceability): a requirement nothing decides, specifies or verifies is the
+thing to notice, and the matrix is where that shows.
 
 What has to be true of this platform. Not how — the how is [the specs](platform.md), and the
 why-this-way is [the ADRs](README.md#decisions).

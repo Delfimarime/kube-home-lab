@@ -4,6 +4,20 @@
 supersedes the layering half of [ADR 011](011-environments-are-clusters.md) and all of
 [ADR 015](015-units-are-wired-by-hand.md)
 
+**There is one root module and no Terragrunt — the environment is the shell, not the tree.**
+
+## Decision
+
+**No Terragrunt.** A root module at the repository root composes the cluster: one `module` block
+per capability, `source = "./modules/<capability>-<impl>"`.
+
+**The environment is the shell, not the tree.** `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` select
+the cluster, `-backend-config` selects its state, `-var-file` supplies its values. There is no
+per-environment directory, no `env.hcl` and no unit.
+
+**Modules are wired by reference.** A value one module publishes and another consumes is
+`module.<a>.<output>` in the root module — resolved at plan time, in one graph.
+
 ## Context
 
 [ADR 011](011-environments-are-clusters.md) put Terragrunt between the operator and OpenTofu:
@@ -27,18 +41,6 @@ introduced and plain OpenTofu does not have.
 
 The third — one state per unit, so a plan touches one module — is real, and is the cost below.
 
-## Decision
-
-**No Terragrunt.** A root module at the repository root composes the cluster: one `module` block
-per capability, `source = "./modules/<capability>-<impl>"`.
-
-**The environment is the shell, not the tree.** `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` select
-the cluster, `-backend-config` selects its state, `-var-file` supplies its values. There is no
-per-environment directory, no `env.hcl` and no unit.
-
-**Modules are wired by reference.** A value one module publishes and another consumes is
-`module.<a>.<output>` in the root module — resolved at plan time, in one graph.
-
 ## Rationale
 
 - **It removes a layer without removing a capability.** Four scaffolding files, a generated
@@ -56,6 +58,18 @@ per-environment directory, no `env.hcl` and no unit.
   read.
 - **The scale never justified the machinery.** One cluster, five modules, one operator. The
   layering was sized for a fleet.
+
+## Alternatives
+
+- **Keep Terragrunt**, as [ADR 011](011-environments-are-clusters.md) had it: `root.hcl`,
+  `_envcommon/<module>.hcl`, `env.hcl`, and a `terragrunt.hcl` per unit. Four files of scaffolding
+  for one cluster and one module, plus semantics of its own — an `include` merges inputs shallowly,
+  per top-level key, so a unit overriding one field of an object silently drops the rest.
+- **OpenTofu workspaces.** Rejected in ADR 011 partly for offering no per-environment provider —
+  which stopped being true once the provider took its address from the shell. They remain a viable
+  way to hold a second cluster's state and are simply not needed once the shell selects everything.
+- **A directory per environment** without Terragrunt. Keeps the tree and loses the generation, so
+  every environment's copy of the composition drifts independently.
 
 ## Consequences
 

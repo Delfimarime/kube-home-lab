@@ -2,6 +2,16 @@
 
 **Status:** accepted · **Scope:** module — `resource-authorization-ory-keto` · **Date:** 2026-08-23
 
+**The write port admits only the pod selector its caller names; the read port is left unrestricted.**
+
+## Decision
+
+**This module renders a `NetworkPolicy` restricting its write port to a pod selector its caller
+supplies**, and leaves the read port unrestricted.
+
+The module does not know what it is admitting. It takes a selector as an input, renders it, and
+publishes nothing about it; which workload that selector names is the composing root's business.
+
 ## Context
 
 The store this module runs has no authentication of its own
@@ -15,14 +25,6 @@ in the store to stop it. In a cluster with flat pod networking, "another path" m
 So the proxy's guarantee is conditional on a statement about the network — *nothing else can reach
 this port* — and nothing in this repository makes that statement true. Kubernetes has a mechanism
 for it, and no module here has ever rendered one.
-
-## Decision
-
-**This module renders a `NetworkPolicy` restricting its write port to a pod selector its caller
-supplies**, and leaves the read port unrestricted.
-
-The module does not know what it is admitting. It takes a selector as an input, renders it, and
-publishes nothing about it; which workload that selector names is the composing root's business.
 
 ## Rationale
 
@@ -40,6 +42,18 @@ publishes nothing about it; which workload that selector names is the composing 
   might ever ask an authorization question, which is every application in the cluster and the ones
   not written yet. The cost of leaving it open is stated in
   [LOCAL-001](LOCAL-001-the-store-is-ory-keto.md) and was accepted there.
+
+## Alternatives
+
+- **Rely on the proxy alone.** What this decision exists to reject: everything reaching the write
+  port *through* the proxy is authenticated, and nothing stops a pod reaching it directly.
+- **Name the access proxy in this module** rather than taking a selector. Reversing it would then
+  change that module too, which by [§10.4](../../../../CONSTITUTION.md#10-documentation) makes it
+  a platform decision wearing a module's number.
+- **Restrict the read port as well.** It means naming every workload that might ever ask an
+  authorization question — every application in the cluster, including the ones not written yet.
+- **A service mesh** authenticating pod to pod. It would make the guarantee independent of the
+  CNI, and it is a control plane and a sidecar per pod on a two-node cluster.
 
 ## Consequences
 

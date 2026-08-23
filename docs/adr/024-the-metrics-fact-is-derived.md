@@ -3,29 +3,7 @@
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-16 ·
 supersedes the root-variable half of [ADR 016](016-metrics-is-the-fourth-input.md)
 
-## Context
-
-[ADR 016](016-metrics-is-the-fourth-input.md) made `metrics.enabled` a root variable: an
-environment states in its var file that the Prometheus-operator CRDs exist and a collector is
-reading them, and every module with a `/metrics` endpoint reads it before declaring a
-`ServiceMonitor`. That ADR listed the cost in its own consequences — *"it is a root variable
-passed to each module that reads it, so it can disagree with the environment"* — and called
-itself the decision most likely to be revisited.
-
-Nothing about it needed to be guessed. The CRD bundle ships from
-[`observability-storage-grafana-lgtm`](../modules/observability-storage-grafana-lgtm/README.md)
-and only when that module ships a metrics store; the collector that reads what a `ServiceMonitor`
-declares ships from the same place. Both halves of what the flag asserts are true exactly when
-`observability.components.metrics` is set
-([LOCAL-007](../modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md)),
-and false in every other case — including the logs-only environment, which runs the collector and
-has no CRDs.
-
-So the environment was being asked to state a fact the root module could already read off the one
-input that makes it true. That is the arrangement
-[LOCAL-007](../modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md)
-removed one module earlier, and the one the console module refused when it took three store
-addresses instead of three booleans.
+**The metrics fact is derived at the root from whether a metrics store ships, rather than declared in a variable.**
 
 ## Decision
 
@@ -50,6 +28,30 @@ a metrics store, cert-manager can sync before the CRDs exist. Argo CD retries an
 this is a brake for an operator who would rather not watch that happen, not a repair for a broken
 state. Set for the first apply, then unset.
 
+## Context
+
+[ADR 016](016-metrics-is-the-fourth-input.md) made `metrics.enabled` a root variable: an
+environment states in its var file that the Prometheus-operator CRDs exist and a collector is
+reading them, and every module with a `/metrics` endpoint reads it before declaring a
+`ServiceMonitor`. That ADR listed the cost in its own consequences — *"it is a root variable
+passed to each module that reads it, so it can disagree with the environment"* — and called
+itself the decision most likely to be revisited.
+
+Nothing about it needed to be guessed. The CRD bundle ships from
+[`observability-storage-grafana-lgtm`](../modules/observability-storage-grafana-lgtm/README.md)
+and only when that module ships a metrics store; the collector that reads what a `ServiceMonitor`
+declares ships from the same place. Both halves of what the flag asserts are true exactly when
+`observability.components.metrics` is set
+([LOCAL-007](../modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md)),
+and false in every other case — including the logs-only environment, which runs the collector and
+has no CRDs.
+
+So the environment was being asked to state a fact the root module could already read off the one
+input that makes it true. That is the arrangement
+[LOCAL-007](../modules/observability-storage-grafana-lgtm/adr/LOCAL-007-a-signal-is-its-own-configuration.md)
+removed one module earlier, and the one the console module refused when it took three store
+addresses instead of three booleans.
+
 ## Rationale
 
 - **The disagreeing pair is gone by construction.** A flag claiming scraping where the CRDs are
@@ -69,6 +71,16 @@ state. Set for the first apply, then unset.
   unverifiable, and being unverifiable is what made it worth removing. The rejected alternative
   in ADR 016 — an unconditional CRD module — is what to reach for if that environment ever
   exists, and it is a larger change than putting the flag back.
+
+## Alternatives
+
+- **Keep the root variable**, as [ADR 016](016-metrics-is-the-fourth-input.md) had it. Its own
+  consequences named the cost — *"it is a root variable passed to each module that reads it, so it
+  can disagree with the environment"* — and called itself the decision most likely to be revisited.
+- **Have each module detect the CRDs.** A module is applied standalone against an Argo CD API and
+  cannot see the cluster's CRDs at plan time.
+- **Derive it from a different signal** — the CRD Application's health, say. That is a runtime fact
+  read at plan time, which is the coupling [ADR 020](020-one-root-module.md) removed.
 
 ## Consequences
 

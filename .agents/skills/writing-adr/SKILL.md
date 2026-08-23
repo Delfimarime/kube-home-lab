@@ -61,14 +61,29 @@ which is the failure the gaps exist to prevent. The same applies to any number r
 
 ## 3. Write
 
-Four sections, in this order — every ADR here has exactly these:
+A one-line lede, then five sections, in this order. `make docs` fails on any other shape.
 
 ```
-## Context      what was true, and what forced a choice
-## Decision     what was chosen, stated so it can be checked
-## Rationale    why this one, and what the alternatives cost
-## Consequences what it costs, what it forecloses, what to watch
+**<one sentence: what was decided>**      the lede, above every heading
+
+## Decision      what was chosen, stated so it can be checked against code
+## Context       what was true that forced a choice
+## Rationale     why this one — the argument, not the options
+## Alternatives  what was NOT chosen, and what each would have cost
+## Consequences  what it costs, what it forecloses, what to watch, when to revisit
 ```
+
+**Decision comes first because most readers want only that.** The inverted pyramid: someone
+checking *what* stops after two paragraphs, someone asking *why* keeps reading. These files put
+Context first until 2026-08-23, which made every reader spend half a page before the answer.
+
+**`Rationale` and `Alternatives` are separate, and the second is the one that gets skipped.**
+Rationale argues for what was chosen; Alternatives records what was not and what it would have
+cost. The rejected options are what tells a future reader whether the world has changed enough to
+reopen this — and **"none" is an honest answer where it is true**, needing one sentence saying
+why. Where the options have pros and cons worth tabulating, tabulate them.
+
+**Keep it near one page.** Where a decision needs more, the extra belongs in the spec it governs.
 
 **The header states the scope**, so a file read on its own still says what it constrains:
 
@@ -104,10 +119,19 @@ for a product choice with a candidates table.
 
 ## Revising versus superseding
 
-**Revise in place only while nothing implements it.** Once code exists, changing a decision means
-a *new* ADR that supersedes the old one, and **the old file stays** — reasoning that turned out
-wrong is the most useful thing in the folder, because it records what the wrong answer looked
-like from the inside.
+**Changing what was decided means a new ADR that supersedes the old one**, once anything
+implements it, and **the old file stays** — reasoning that turned out wrong is the most useful
+thing in the folder, because it records what the wrong answer looked like from the inside. While
+nothing implements a decision it may be revised in place instead.
+
+**Three edits are not "changing what was decided"** and need no supersession — the full statement
+is in [docs/README.md](../../../docs/README.md#revising-an-adr):
+
+1. **correcting a reference to something that no longer exists** — keep the argument, replace the
+   name with what it was an example of;
+2. **recording that the world moved** — revise in place with a **dated note** saying what it used
+   to say and why;
+3. **restructuring** — reordering sections is not an edit to the decision at all.
 
 [ADR 006](../../../docs/adr/006-shared-gateway-input.md) is the worked example of being
 superseded; ADRs 005, 006 and 007 were all revised in place on 2026-08-09, when there was no

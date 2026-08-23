@@ -1,38 +1,62 @@
 # Documentation
 
-Four layers, each answering a different question. Nothing is restated across them; a fact
-lives in exactly one and the others link to it.
+Five layers, each answering a different question and each owning a different *kind* of statement.
 
 | Layer | Answers | Where |
 | --- | --- | --- |
 | Requirements | What has to be true, regardless of implementation | [requirements.md](requirements.md) |
-| Specifications | How it is solved, and how you tell it worked | [platform.md](platform.md), [modules/](#specifications) |
 | Decisions | Why this way, what it cost, when to revisit | [adr/](#decisions), and each module's own `adr/` |
-| Agent guidance | The rules an implementer must not violate | [AGENTS.md](../AGENTS.md) |
+| Rules | What an implementer must not break | [CONSTITUTION.md](../CONSTITUTION.md) |
+| Specifications | How it is solved, and how you tell it worked | [platform.md](platform.md), [modules/](#specifications) |
+| Orientation | Where things are, and what is currently blocked | [AGENTS.md](../AGENTS.md) |
 
 ```
+CONSTITUTION.md                the rules, each citing the decision behind it
+AGENTS.md                      orientation and live state; holds no rules
 docs/
   requirements.md              REQ-NN, the problem, and the traceability matrix
-  platform.md                  the system: domain model, components, mechanisms, contracts
-  adr/NNNN-*.md                platform-wide decisions
+  platform.md                  the system: domain model, components, joints, contracts
+  adr/NNN-*.md                 platform-wide decisions
   modules/<module>/
     README.md                  the module spec
     adr/LOCAL-NNN-*.md         decisions scoped to that module
 ```
 
 Start at [requirements.md](requirements.md) if you are new. Start at a module's folder if you
-are about to change that module — its spec, its decisions and (later) its OpenTofu are all
-in the one place.
+are about to change that module — its spec, its decisions and its OpenTofu are all in the one
+place.
 
-There is deliberately no fifth "one page compiling all four" document. Such a page restates,
-which every file here is forbidden from doing, so it drifts by construction and then disagrees
-with the layer that is actually correct.
+## What may be repeated, and what may not
+
+**One fact legitimately appears in more than one layer, because the layers make different kinds
+of claim about it.** That one module renders one `ApplicationSet` is a *decision* in
+[ADR 005](adr/005-modules-are-applicationsets.md), an *imperative* in
+[§2.3](../CONSTITUTION.md#2-modules), and a *joint* in [platform.md](platform.md#domain-model) —
+three sentences that would each be missing something if the other two were deleted.
+
+What is bounded is which layer may hold which:
+
+| Layer | Holds | Never holds |
+| --- | --- | --- |
+| ADR | the reasoning — the only place a *why* is argued | rules; how a module is configured |
+| CONSTITUTION | one imperative sentence per rule, plus its citation | the argument for the rule; restated mechanism |
+| platform.md | the joints — what meets what, through which value | the rule itself; anything about one module alone |
+| spec | one module's design and its criteria | anything true of every module |
+
+**The rule that follows: reasoning appears exactly once.** A second file may state a decision's
+*consequence* imperatively or describe the *joint* it creates, and neither may re-argue it. When
+you find yourself explaining *why* outside an ADR, the text belongs in the ADR and the link
+belongs where you were writing.
+
+There is deliberately no sixth "one page compiling the rest" document. Such a page restates
+without owning anything, so it drifts by construction and then disagrees with the layer that is
+actually correct.
 
 ## Specifications
 
 | Spec | Covers |
 | --- | --- |
-| [platform](platform.md) | the domain model, the six mechanisms that span modules, the contracts, environments |
+| [platform](platform.md) | the domain model, the seven joints between modules, the contracts, environments |
 | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | the lab's certificate authorities, its wildcard, its client certificate, its trust bundle |
 | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | collecting metrics, logs and traces, storing them, and their tenants |
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
@@ -153,6 +177,39 @@ constrains:
 **Status:** accepted · **Scope:** module — `observability-storage-grafana-lgtm` · **Date:** …
 ```
 
+### ADR shape
+
+**Four sections, in this order, and the order is the point.**
+
+| Section | Contains |
+| --- | --- |
+| *(lede)* | One sentence under the header, before any heading: what was decided |
+| `Decision` | What was chosen, stated so it can be checked against code |
+| `Context` | What was true that forced a choice. Not a history of the project — only what bears on this |
+| `Rationale` | Why this one. The argument, not the options |
+| `Alternatives` | Every serious option that was **not** chosen, and what each would have cost. "None" is an honest answer where it is true, and needs a sentence saying why |
+| `Consequences` | What it costs, what it forecloses, what to watch, and **what would make it worth revisiting** |
+
+**Decision comes first because the reader usually wants only that.** This follows the inverted
+pyramid — the most important material at the top, detail below — so someone checking *what was
+decided* stops after two paragraphs and someone asking *why* keeps reading. Context first, which
+these files used until 2026-08-23, made every reader spend half a page before learning the answer.
+
+**`Rationale` and `Alternatives` are different sections because they answer different questions**,
+and conflating them is how the second one goes missing. Rationale argues for what was chosen;
+Alternatives records what was not, and what it would have cost. The rejected options are the part
+that decays fastest and is worth most later — they are what tells a future reader whether the
+world has changed enough to reopen this. Where they have pros and cons worth tabulating, tabulate
+them.
+
+**Keep it near one page.** Where a decision needs more, the extra belongs in the spec it governs,
+or in a linked note — not in the record of the choice.
+
+**One file is deliberately not in this shape.** [ADR 006](adr/006-shared-gateway-input.md) is a
+tombstone: its decision was absorbed into ADR 007 and the file survives only to record where it
+went and why deleting it would delete the premise ADR 010 argues against. A superseded ADR whose
+reasoning still stands keeps the four sections; one that has become a pointer does not need them.
+
 ### Status
 
 **A decision and a design do not have the same statuses, because they are not the same kind of
@@ -209,10 +266,28 @@ different scenario. The tag says where the check can run:
 
 ### Revising an ADR
 
-**Revise in place only while nothing implements it.** ADRs 5, 6 and 7 were, on 2026-08-09,
-because there is no code. Once a decision is implemented, changing it means a new ADR that
-supersedes the old one — and the old one stays, because reasoning that turned out wrong is
-worth keeping. ADR 006 is the worked example.
+**Changing what was decided means a new ADR that supersedes the old one**, once anything
+implements it. The old file stays, because reasoning that turned out wrong is the record of what
+the wrong answer looked like from the inside. [ADR 006](adr/006-shared-gateway-input.md) is the
+worked example. While nothing implements a decision it may be revised in place instead — ADRs
+005, 006 and 007 were, on 2026-08-09, when there was no code.
+
+**Three edits are not "changing what was decided", and need no supersession.** They were split
+out on 2026-08-23, after a cleanup made the distinction obvious by breaking the rule as it was
+then written:
+
+1. **Correcting a reference to something that no longer exists.** A decision naming a module that
+   has since been retired is stating something false about today; removing the name and keeping
+   the argument changes nothing about the choice. Do it in place — and where the reference was
+   *load-bearing*, replace it with what it was an example of rather than deleting the sentence.
+2. **Recording that the world moved.** A pre-1.0 dependency reaching 1.0, an upstream renumbering
+   its charts: the consequence is revised in place with a **dated note saying what it used to say
+   and why it changed**, because the old reading was correct when written and a reader who
+   remembers it deserves to find out what happened.
+3. **Restructuring.** Reordering sections or splitting a paragraph out under a heading is not an
+   edit to the decision at all.
+
+Everything else — a different choice, a different rule, a changed scope — is a new ADR.
 
 ## Making the criteria executable
 

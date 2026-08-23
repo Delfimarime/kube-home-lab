@@ -7,6 +7,16 @@ revised 2026-08-12 (metrics implementation changed; the decision did not)
 > declares scraping through its own chart's `serviceMonitor.enabled` rather than writing a
 > vendor-specific scrape resource. Reversing it changes every module.
 
+**Workloads declare scraping through their own chart, and the collector reads the Prometheus operator's CRDs.**
+
+## Decision
+
+**Workloads declare scraping through their own chart's `serviceMonitor.enabled` switch.** No
+module writes a vendor-specific scrape resource, and no module hand-writes scrape config.
+
+The observability module installs the Prometheus operator CRD bundle, and whatever collector
+it ships must consume those CRDs — natively if it can, through a conversion layer if it cannot.
+
 ## Context
 
 Something has to turn "scrape this service" into the collector's configuration. Without a
@@ -18,14 +28,6 @@ own scrape CRDs; some read the Prometheus operator's `ServiceMonitor`, `PodMonit
 `Probe`; some do both, with a conversion layer between. What they have in common is that
 **the Prometheus CRDs are never bundled** — whichever stack is chosen, the CRD bundle is a
 separate install.
-
-## Decision
-
-**Workloads declare scraping through their own chart's `serviceMonitor.enabled` switch.** No
-module writes a vendor-specific scrape resource, and no module hand-writes scrape config.
-
-The observability module installs the Prometheus operator CRD bundle, and whatever collector
-it ships must consume those CRDs — natively if it can, through a conversion layer if it cannot.
 
 ## Rationale
 
@@ -41,6 +43,18 @@ Stating it in the Prometheus dialect rather than a vendor's is what makes it sur
 metrics stack is the piece most likely to be swapped, and every other module's scrape
 declaration should be indifferent to that — which is [REQ-09](../requirements.md) applied to
 the one thing every module touches.
+
+## Alternatives
+
+- **Each stack's own scrape CRDs.** Every metrics stack ships some equivalent, and using one ties
+  every module's chart values to the collector in the cluster — so swapping the stack means editing
+  every workload that declares scraping, which is [REQ-09](../requirements.md) failing at the widest
+  possible blast radius.
+- **Hand-written scrape config in the collector.** One file edited and reloaded per new service,
+  living nowhere near the workload it describes. It is the mechanism the CRDs exist to replace.
+- **A conversion layer as the primary mechanism** rather than a fallback for a collector that
+  cannot read the CRDs natively. That is a component whose entire job is translating between two
+  CRD sets, and it becomes a thing to debug at exactly the moment scraping stops working.
 
 ## Consequences
 

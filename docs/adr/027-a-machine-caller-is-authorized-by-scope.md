@@ -2,6 +2,22 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-23
 
+**A machine caller is authorized by OAuth2 scope and audience rather than by a role.**
+
+## Decision
+
+**A machine caller is authorized by OAuth2 scope and audience. Roles are for people.**
+
+Granting a pipeline access to a protected surface means two things in the issuer, and nothing
+anywhere else:
+
+1. a **client scope** on its client, named for what it may do — `keto:write`;
+2. an **audience** naming the service it is calling, so a token minted for one service is not
+   accepted by another.
+
+The proxy checks both, per route. [ADR 013](013-roles-are-carried-in-the-token.md) is unchanged
+and continues to govern every human principal.
+
 ## Context
 
 [ADR 013](013-roles-are-carried-in-the-token.md) is written about people. Its own words are *"what
@@ -24,20 +40,6 @@ claim** such as `resource_access.<slug>.roles`. Reaching a role would mean addin
 that calls out to a second service written for the purpose, to answer a question the issuer has
 already answered.
 
-## Decision
-
-**A machine caller is authorized by OAuth2 scope and audience. Roles are for people.**
-
-Granting a pipeline access to a protected surface means two things in the issuer, and nothing
-anywhere else:
-
-1. a **client scope** on its client, named for what it may do — `keto:write`;
-2. an **audience** naming the service it is calling, so a token minted for one service is not
-   accepted by another.
-
-The proxy checks both, per route. [ADR 013](013-roles-are-carried-in-the-token.md) is unchanged
-and continues to govern every human principal.
-
 ## Rationale
 
 - **The proxy can check a scope and cannot check a role.** This is the reason that actually
@@ -54,6 +56,19 @@ and continues to govern every human principal.
   audience says which service a token was minted for. For a credential that will sit in a
   pipeline's configuration and be used unattended, narrowing *where it is accepted* is worth more
   than narrowing what it is called.
+
+## Alternatives
+
+- **Give the machine caller a role**, `resource_access.<slug>.roles`, exactly as a person carries
+  one. A service account can hold roles, so this was available and would have kept one vocabulary
+  across the platform. It costs a component: the proxy's `jwt` authenticator cannot match a nested
+  claim, so reaching a role means a `remote_json` authorizer calling a service written to answer a
+  question the issuer has already answered.
+- **A preshared key** rather than a token at all. No issuer involvement, and a credential that is
+  copied rather than minted, never expires, and is revoked by editing every place it was pasted.
+- **mTLS on the route**, authenticating the caller by client certificate. The material exists
+  ([REQ-14](../requirements.md)) and it authenticates a *machine* rather than a *grant* — so it says
+  which pipeline is calling and nothing about what that pipeline may do.
 
 ## Consequences
 

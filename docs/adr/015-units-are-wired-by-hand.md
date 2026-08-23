@@ -14,6 +14,15 @@
 > Kept for the record of why reading another unit's state was rejected, which is still the
 > reason not to reintroduce a second state.
 
+**No unit reads another unit's state, and a value two units share is declared once in the environment. **Superseded by [ADR 020](020-one-root-module.md).****
+
+## Decision
+
+**No unit reads another unit's state.** There are no `dependency` blocks.
+
+**A value two units share is declared once in the environment**, in `env.hcl` or in
+`_envcommon/<module>.hcl`, and both units read it from there.
+
 ## Context
 
 [ADR 007](007-modules-receive-credentials.md) says a provider publishes its address and a
@@ -25,13 +34,6 @@ issuer URL, a Gateway listener references two Secret names, and three modules re
 Terragrunt answers this with `dependency` blocks — a unit reads another unit's outputs from its
 state. The alternative is that the environment writes the value down once and both sides read it
 from there.
-
-## Decision
-
-**No unit reads another unit's state.** There are no `dependency` blocks.
-
-**A value two units share is declared once in the environment**, in `env.hcl` or in
-`_envcommon/<module>.hcl`, and both units read it from there.
 
 ## Rationale
 
@@ -53,6 +55,17 @@ from there.
 - **One operator, a handful of values, changed approximately never.** The same argument
   [ADR 007](007-modules-receive-credentials.md) makes for registering OIDC clients by hand
   applies here, for the same reason and at the same scale.
+
+## Alternatives
+
+- **Terragrunt `dependency` blocks**, a unit reading another unit's outputs from its state. It is
+  the tool's own answer and it makes every wiring a state read: an ordering constraint, a stale
+  value when the dependency has not been applied, and a plan that cannot run standalone.
+- **Reading remote state directly** with a `terraform_remote_state` data source. The same coupling
+  with none of the tool's sequencing help.
+
+**Both are moot.** [ADR 020](020-one-root-module.md) removed the units, so the values now cross in
+one graph at plan time and there is no state to read.
 
 ## Consequences
 

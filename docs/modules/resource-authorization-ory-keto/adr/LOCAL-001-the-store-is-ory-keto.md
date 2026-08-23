@@ -2,6 +2,14 @@
 
 **Status:** accepted · **Scope:** module — `resource-authorization-ory-keto` · **Date:** 2026-08-23
 
+**The relationship store is Ory Keto, its read API open in-cluster and its write API reachable only through an access proxy.**
+
+## Decision
+
+**The relationship store is Ory Keto**, one instance, storing its tuples in an external
+PostgreSQL, with its **read API reachable in-cluster without authentication** and its **write API
+reachable only through an access proxy**.
+
 ## Context
 
 [ADR 026](../../../adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) says
@@ -18,21 +26,6 @@ The constraints are the usual ones, plus one that is specific to this capability
   somewhere else and applied by a pipeline.
 - **The read path is the hot path.** Every authorization decision an application makes is a query
   to this store, and whatever that costs is paid on every request.
-
-The candidates were the two mature Zanzibar-derived stores.
-
-| Candidate | Shape | Where it lands |
-| --- | --- | --- |
-| **Ory Keto** | Go, relation tuples, Ory Permission Language, PostgreSQL. **Read and write APIs on separate ports.** No authentication of its own | chosen |
-| **OpenFGA** | Go, relation tuples, its own DSL, PostgreSQL. One API. Built-in authentication — preshared key or OIDC — and conditional relationships | rejected |
-| SpiceDB / Permify | The same idea again | not assessed; neither offers something the two above lack at this size |
-| A table in an application's own schema | No service to run | is the failure [REQ-13](../../../requirements.md) names, and what ADR 026 exists to prevent |
-
-## Decision
-
-**The relationship store is Ory Keto**, one instance, storing its tuples in an external
-PostgreSQL, with its **read API reachable in-cluster without authentication** and its **write API
-reachable only through an access proxy**.
 
 ## Rationale
 
@@ -52,13 +45,23 @@ reachable only through an access proxy**.
 - **Both candidates use external PostgreSQL**, so [ADR 008](../../../adr/008-postgresql-is-external.md)
   decided nothing between them.
 
-**What choosing this costs, stated plainly, because it is the whole of the argument against it:**
-Keto has **no authentication of its own, by design** — Ory's position is that it is an internal
-service and anything else belongs to a proxy. OpenFGA has authentication built into the server, so
-reaching it by any route without a valid credential gets you nothing. Here, the write path is
-protected by a proxy and a network policy, and **a proxy protects a route rather than a service**.
-That trade was made knowingly, and what it rests on is recorded in
-[LOCAL-002](LOCAL-002-the-write-port-admits-only-its-caller.md).
+## Alternatives
+
+The candidates were the two mature Zanzibar-derived stores.
+
+| Candidate | Shape | Where it lands |
+| --- | --- | --- |
+| **Ory Keto** | Go, relation tuples, Ory Permission Language, PostgreSQL. **Read and write APIs on separate ports.** No authentication of its own | chosen |
+| **OpenFGA** | Go, relation tuples, its own DSL, PostgreSQL. One API. Built-in authentication — preshared key or OIDC — and conditional relationships | rejected |
+| SpiceDB / Permify | The same idea again | not assessed; neither offers something the two above lack at this size |
+| A table in an application's own schema | No service to run | is the failure [REQ-13](../../../requirements.md) names, and what [ADR 026](../../../adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) exists to prevent |
+
+**What choosing Keto costs, and it is the whole of the argument against it:** it has **no
+authentication of its own, by design** — Ory's position is that it is an internal service and
+anything else belongs to a proxy. OpenFGA has authentication in the server, so reaching it by any
+route without a valid credential gets you nothing. Here the write path is protected by a proxy and
+a network policy, and **a proxy protects a route rather than a service**. That trade was made
+knowingly; what it rests on is [LOCAL-002](LOCAL-002-the-write-port-admits-only-its-caller.md).
 
 ## Consequences
 

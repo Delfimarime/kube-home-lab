@@ -3,6 +3,23 @@
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-15 ·
 revised 2026-08-15 (certificate material is now provisioned; the decision is unchanged)
 
+**Exposing a workload does not oblige this repository to authorize it; where the workload cannot, that job is the Gateway's.**
+
+## Decision
+
+**Exposing a workload does not oblige this repo to authorize it.** A module authorizes where
+its workload can natively do so. Where the workload cannot, authorization belongs to the
+Gateway — and this repo does not provision Gateways.
+
+**No environment configured by this repo adds authorization to an exposed endpoint today.** The
+OTLP ingest endpoint is open to anything that can reach it. That is a decision, taken for a
+home lab of two nodes and one operator, and not an omission.
+
+**Nothing here forbids it.** A Gateway that supports authentication may enforce it on the
+listener an endpoint attaches to, with no change to any module and no new input: `section_name`
+in the `gateway` contract ([ADR 007](007-modules-receive-credentials.md)) already names the
+listener, so pointing an endpoint at a protected one is a call-site edit.
+
 ## Context
 
 [REQ-06](../requirements.md) says a workload is unreachable from outside its cluster unless it
@@ -35,21 +52,6 @@ and client certificates for every mTLS listener. It is recorded in the rejected 
 below rather than left as an unexamined "we could add auth later", because it was examined and
 it was not small.
 
-## Decision
-
-**Exposing a workload does not oblige this repo to authorize it.** A module authorizes where
-its workload can natively do so. Where the workload cannot, authorization belongs to the
-Gateway — and this repo does not provision Gateways.
-
-**No environment configured by this repo adds authorization to an exposed endpoint today.** The
-OTLP ingest endpoint is open to anything that can reach it. That is a decision, taken for a
-home lab of two nodes and one operator, and not an omission.
-
-**Nothing here forbids it.** A Gateway that supports authentication may enforce it on the
-listener an endpoint attaches to, with no change to any module and no new input: `section_name`
-in the `gateway` contract ([ADR 007](007-modules-receive-credentials.md)) already names the
-listener, so pointing an endpoint at a protected one is a call-site edit.
-
 ## Rationale
 
 - **The endpoint is write-only, and that is the whole argument.** OTLP accepts telemetry and
@@ -80,6 +82,18 @@ listener, so pointing an endpoint at a protected one is a call-site edit.
 - **REQ-06 was never a claim about authorization**, and reading it as one is the mistake this
   ADR exists to prevent. It asks that exposure be an act. Exposure here *is* an act — the OTLP
   route exists only when a `gateway` is supplied, and no backend is ever routed.
+
+## Alternatives
+
+- **Provision a Gateway here**, and with it the authorization an exposed endpoint needs. That was
+  the shape of closing the gap when this was written, and it means owning a per-environment
+  prerequisite — [§1.1](../../CONSTITUTION.md#1-boundaries) — for one endpoint's benefit.
+- **Put authentication in front of the ingest endpoint** with a proxy of this repository's own.
+  Rejected here as disproportionate for two nodes and one operator; note that
+  [ADR 027](027-a-machine-caller-is-authorized-by-scope.md) later adopted exactly this shape for a
+  different surface, where what was being protected was the authorization data itself.
+- **Do not expose the endpoint at all.** Honest, and it removes the capability the module exists
+  to provide — pushing telemetry from something that cannot be scraped.
 
 ## Consequences
 
