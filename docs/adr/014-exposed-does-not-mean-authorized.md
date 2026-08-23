@@ -89,10 +89,10 @@ it was not small.
 - **Provision a Gateway here**, and with it the authorization an exposed endpoint needs. That was
   the shape of closing the gap when this was written, and it means owning a per-environment
   prerequisite — [§1.1](../../CONSTITUTION.md#1-boundaries) — for one endpoint's benefit.
-- **Put authentication in front of the ingest endpoint** with a proxy of this repository's own.
-  Rejected here as disproportionate for two nodes and one operator; note that
-  [ADR 027](027-a-machine-caller-is-authorized-by-scope.md) later adopted exactly this shape for a
-  different surface, where what was being protected was the authorization data itself.
+- **Put authentication in front of the ingest endpoint** with a component of this repository's
+  own. Rejected as disproportionate for two nodes and one operator: it is a service to run, keep
+  patched and debug at 3am, in front of a surface whose whole risk is that somebody writes
+  telemetry nobody asked for.
 - **Do not expose the endpoint at all.** Honest, and it removes the capability the module exists
   to provide — pushing telemetry from something that cannot be scraped.
 

@@ -46,14 +46,14 @@ the repository root**, never inside a module — a chart is something this repos
 a module consumes it by path.
 [`019`](docs/adr/019-the-tool-is-opentofu.md),
 [`023`](docs/adr/023-a-modules-opentofu-is-at-its-root.md),
-[`028`](docs/adr/028-charts-are-first-class-artifacts.md)
+[`027`](docs/adr/027-charts-are-first-class-artifacts.md)
 
 **2.2.1** A chart's `values.yaml` is its published interface and its `Chart.yaml` `version` is
 bumped when that interface changes. Its `ci/*-values.yaml` files describe the configurations the
 chart supports, not the way one module happens to call it — a configuration nobody renders is one
 nobody promised. **Two modules may consume one chart**, and doing so is a choice made against a
 versioned schema rather than an accident of layout.
-[`028`](docs/adr/028-charts-are-first-class-artifacts.md)
+[`027`](docs/adr/027-charts-are-first-class-artifacts.md)
 
 **2.3** Each module renders exactly one Argo CD `ApplicationSet` — a `List` generator, one static
 entry per chart, even at one entry. No shared `ApplicationSet` module; no bare `Application`,
@@ -197,6 +197,16 @@ fifteen clients. Don't add a module input carrying a role list.
 
 **6.4** Exposed does not mean authorized. A route makes a hostname reachable and says nothing
 about who may use it. [`014`](docs/adr/014-exposed-does-not-mean-authorized.md)
+
+**6.5** A module with a port protected only by nothing else being able to reach it renders the
+`NetworkPolicy` that makes that true, in its own chart. The selector comes from an input that
+**already** names the caller, and a dedicated input only where nothing else does — never a second
+input holding a fact the module already has. **Re-open every port the policy
+does not restrict**: selecting a pod makes it default-deny, so restricting one port closes the
+others with it. `policyTypes` names `Ingress` only; adding `Egress` cuts JWKS, upstreams and
+PostgreSQL. A `namespaceSelector` and a `podSelector` go in **one** `from` element — two elements
+is an OR, and admits the whole namespace plus those labels cluster-wide.
+[`028`](docs/adr/028-a-module-renders-the-network-policy-it-depends-on.md)
 
 ## 7. Certificates
 

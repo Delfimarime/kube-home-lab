@@ -2,7 +2,7 @@
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-16 ·
 the sentence keeping `helm/` inside the module superseded by
-[ADR 028](028-charts-are-first-class-artifacts.md)
+[ADR 027](027-charts-are-first-class-artifacts.md)
 
 **A module's `.tf` files live at the module root, not under `tofu/`.**
 

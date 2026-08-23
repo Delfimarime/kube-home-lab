@@ -11,7 +11,8 @@
 [ADR 011](../../adr/011-environments-are-clusters.md),
 [ADR 013](../../adr/013-roles-are-carried-in-the-token.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
-[ADR 022](../../adr/022-secrets-are-rendered-empty.md)
+[ADR 022](../../adr/022-secrets-are-rendered-empty.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 

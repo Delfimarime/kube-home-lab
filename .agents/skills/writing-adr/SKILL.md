@@ -47,8 +47,9 @@ citation.
 **Platform ADRs** use one global sequence, unprefixed. **Module ADRs** restart at `001` per
 module and carry the `LOCAL-` prefix.
 
-**Take the next number after the highest that exists — never fill a gap.** The gaps are
-deliberate and each one marks something:
+**Take the next number after the highest that exists.** The gaps below are deliberate and each
+marks a decision that **moved** — the reasoning still exists, under another number, and a citation
+to the old one should resolve to nothing rather than to something else:
 
 | Sequence | Gaps | Why they stay open |
 | --- | --- | --- |
@@ -57,7 +58,15 @@ deliberate and each one marks something:
 | `observability-storage-grafana-lgtm` | LOCAL-005 | lifted to platform `ADR 017` |
 
 Reusing one of these makes an old citation resolve to the wrong decision instead of to nothing,
-which is the failure the gaps exist to prevent. The same applies to any number retired later.
+which is the failure those gaps exist to prevent.
+
+**A decision that is *deleted* rather than moved is deleted, and the sequence closes up behind
+it.** While the repository is early and nothing outside it cites an ADR, a tombstone costs more
+than it explains: a reader meets a file whose only content is that something used to be here. So
+remove the file, renumber what follows, and fix every citation — `make docs` fails on any that is
+left, which is what makes this safe to do mechanically. **This stops being safe the moment an ADR
+number is cited from outside this repository**, and at that point the rule reverts to leaving the
+gap.
 
 ## 3. Write
 

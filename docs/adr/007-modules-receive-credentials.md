@@ -29,6 +29,7 @@ reference — the same object as below, minus the hostname that moved up beside 
 belongs to the surface rather than to the Gateway. Nothing else changes: absence still means not
 exposed, and the root still composes what a service leaves out from the cluster's own `gateway`.
 
+
 ```hcl
 variable "gateway" {
   type = object({
@@ -66,6 +67,7 @@ variable "oidc" {
 ```
 
 `database` and `oidc` carry a Secret *reference*, never a password.
+
 
 How a module turns `gateway` into an actual `HTTPRoute` is a separate decision — see
 [ADR 010](010-resources-delivered-via-chart.md).

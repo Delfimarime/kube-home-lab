@@ -15,6 +15,10 @@ already runs:
 - **Argo CD** — its own, not shared. Everything here is applied by Argo CD, not `kubectl apply`
 - **Gateway API (Traefik)** — ingress is a `HTTPRoute`, never an `Ingress`
 - **PostgreSQL** — reachable, described in that environment's var file
+- **`NetworkPolicy` enforcement** — k3s does this by default, through an embedded controller, and
+  `--disable-network-policy` turns it off. The relationship store depends on it, and where nothing
+  enforces, its policy reconciles healthy and does nothing
+  ([ADR 028](docs/adr/028-a-module-renders-the-network-policy-it-depends-on.md))
 
 If any of those is missing, this repo does nothing useful for that environment.
 
@@ -30,7 +34,6 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |
 | `resource-authorization-ory-keto` | whether a subject may act on a particular resource, for the applications that ask |
-| `access-proxy-ory-oathkeeper` | authenticates a request before it reaches a workload that cannot |
 
 ## Rationale
 

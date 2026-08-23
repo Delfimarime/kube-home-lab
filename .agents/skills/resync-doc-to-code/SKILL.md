@@ -85,6 +85,13 @@ not exist and now does — is a decision worth reopening, and nothing else in th
 **Prerequisites.** Every credential input has its `kubectl patch` and its restart
 ([§5.2](../../../CONSTITUTION.md#5-secrets)).
 
+**A spec's `Decisions:` header, against what those decisions now say.** `make docs` checks that
+every ADR is *indexed*, never that a spec citing one also cites what replaced it — so a partial
+supersession leaves every spec pointing at the clause that moved. When ADR 027 took the
+chart-location clause out of ADR 010, all five specs kept citing 010 alone and none gained 028;
+that was fixed on 2026-08-23. **After any supersession, read the citing specs**, which
+`grep -l` finds from the superseded ADR's number.
+
 **Open items and `AGENTS.md`.** Both hold live state, which is the fastest-rotting kind. An open
 question that has since been answered, or a "blocked" entry whose blocker is gone, actively
 misleads.

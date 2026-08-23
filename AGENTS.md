@@ -82,10 +82,22 @@ somebody chose to leave open, a trap worth naming before somebody steps in it.
 
 - **Charts moved to a root `helm/` on 2026-08-23, and the first `tofu apply` after that has an
   ordering hazard.** Every generated `Application`'s `source.path` changed
-  ([ADR 028](docs/adr/028-charts-are-first-class-artifacts.md)). **The chart must exist at the
+  ([ADR 027](docs/adr/027-charts-are-first-class-artifacts.md)). **The chart must exist at the
   revision Argo CD tracks before the `ApplicationSet` points at the new path** — push, then
   `tofu apply`. The other order leaves every `Application` in `ComparisonError` until the push
   lands. This entry can go once that apply has happened in every environment.
+- **The relationship store cannot be exposed outside the cluster, and its permission language is
+  not a way around that.** It has no authentication of its own by design, and the model describes
+  the graph rather than who may call the API — there is no model you can write that limits who
+  creates tuples. Anything able to reach the write port writes what it likes, including a tuple
+  granting itself everything, which is why a network policy is the entire boundary. Exposing that
+  path means running something in front of it that validates a token, and nothing here does. That
+  is a decision to take deliberately, not a gap to fill in passing.
+- **The relationship store is built, has never been shipped, and would currently authorize
+  nobody.** No environment states a `model`, so it runs the default — one subject namespace, no
+  objects, no permits — which grants nothing on purpose. That is the correct state until an
+  application exists whose objects are worth describing; it is also a store nobody is querying yet,
+  so don't read a green sync as this capability being in use.
 - **Audit record management is out of scope, and the requirement behind it is retired.** REQ-07
   and the `audit-management-auditum` spec were both dropped on 2026-08-23: nothing here writes an
   audit record, and the requirement never resolved into a single subject — application audit

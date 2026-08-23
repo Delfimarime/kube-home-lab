@@ -301,3 +301,52 @@ variable "observability" {
     error_message = "observability.console.tenant must name one of observability.tenants: a tenant the stores do not have collects as unattributed rather than failing, which reads as the console's own telemetry going missing."
   }
 }
+
+# The relationship store: one place answering whether a subject may act on a particular resource.
+# Null is not shipped.
+variable "resource_authorization" {
+  type = object({
+    namespace            = optional(string, "security")
+    database_secret_name = optional(string)
+    tenant               = optional(string)
+
+    # The workloads permitted to reach the write port, one entry each. **Applications, not platform
+    # modules**: an application that grants access to a resource it owns writes the tuple itself,
+    # and this repository does not deploy those workloads — so their selectors are stated by the
+    # environment rather than read from a module output.
+    write_access_from = map(object({
+      namespace = string
+      labels    = map(string)
+    }))
+
+    # The permission model, said one of two ways and never both.
+    #
+    # `file` is a path relative to this root, holding a model somebody wrote. `namespaces`
+    # describes the same thing as data and the module generates the model from it — bounded to one
+    # level of composition and three kinds of term, which is what makes `file` the escape hatch
+    # rather than a legacy form. Neither set ships a default model that grants nobody anything.
+    #
+    # **`namespaces` is deliberately untyped here.** Its shape belongs to the module, is stated
+    # there in full, and is checked by that module's validations — which resolve every name a term
+    # references and refuse a name that is both a relation and a permit. Restating a thirty-line
+    # nested type in this file would be a second copy to disagree with the first.
+    model = optional(object({
+      file       = optional(string)
+      namespaces = optional(any)
+    }))
+  })
+  default     = null
+  description = "The relationship store, and how this cluster's permission model is stated."
+
+  validation {
+    condition     = try(var.resource_authorization.model, null) == null ? true : !(try(var.resource_authorization.model.file, null) != null && try(var.resource_authorization.model.namespaces, null) != null)
+    error_message = "resource_authorization.model.file and .namespaces are two ways to say the same thing: set one, or neither for the default."
+  }
+
+  # An empty string is a caller who meant to name a file and did not, and would otherwise resolve
+  # to the root directory itself.
+  validation {
+    condition     = try(var.resource_authorization.model.file, null) == null ? true : length(trimspace(var.resource_authorization.model.file)) > 0
+    error_message = "resource_authorization.model.file must be null or name a file. Null ships the default model."
+  }
+}

@@ -3,13 +3,13 @@
 **Status:** accepted · **Scope:** module — `resource-authorization-ory-keto` · **Date:** 2026-08-23
 
 **The relationship store is Ory Keto, its read API open in-cluster and its write API reachable
-only through an access proxy.**
+only by the workloads a network policy names.**
 
 ## Decision
 
 **The relationship store is Ory Keto**, one instance, storing its tuples in an external
 PostgreSQL, with its **read API reachable in-cluster without authentication** and its **write API
-reachable only through an access proxy**.
+reachable only by the workloads a network policy names**.
 
 ## Context
 
@@ -22,18 +22,19 @@ The constraints are the usual ones, plus one that is specific to this capability
 - Two nodes, one operator, weeks where nobody looks. Nothing here scales out.
 - PostgreSQL is external ([ADR 008](../../../adr/008-postgresql-is-external.md)), so a store that
   can use it is preferred to one that brings its own.
-- **The store must be configurable from outside the cluster.** Relationship data that is
-  configuration rather than runtime data — which group administers which tenant — is authored
-  somewhere else and applied by a pipeline.
+- **Tuples are written by the applications that grant the access.** An application that creates a
+  resource and gives somebody access to it writes the tuple itself, in the same request. Nothing
+  outside the cluster configures this store, which is what keeps the write path an in-cluster
+  question rather than an authentication one.
 - **The read path is the hot path.** Every authorization decision an application makes is a query
   to this store, and whatever that costs is paid on every request.
 
 ## Rationale
 
 - **The read and write APIs are separate listeners on separate ports.** This is the reason. It
-  makes the trust boundary and the network boundary the same shape: the hot path can be open to
-  the cluster while the path that changes who may do what is fronted by something that
-  authenticates. In a store with one API that separation has to be carried by credentials, and a
+  makes the trust boundary and the network boundary the same shape: the hot path stays open to the
+  cluster while the path that changes who may do what is closed to all but the workloads that
+  grant access. In a store with one API that separation has to be carried by credentials — and a
   credential that is checked is a credential that can be copied into the wrong deployment.
 - **The read path costs an application nothing.** No client registration, no token, no refresh, on
   the call made most often. That matters more here than anywhere else, because a token expiring
@@ -59,17 +60,23 @@ The candidates were the two mature Zanzibar-derived stores.
 
 **What choosing Keto costs, and it is the whole of the argument against it:** it has **no
 authentication of its own, by design** — Ory's position is that it is an internal service and
-anything else belongs to a proxy. OpenFGA has authentication in the server, so reaching it by any
-route without a valid credential gets you nothing. Here the write path is protected by a proxy and
-a network policy, and **a proxy protects a route rather than a service**. That trade was made
-knowingly; what it rests on is [LOCAL-002](LOCAL-002-the-write-port-admits-only-its-caller.md).
+anything else belongs in front of it. OpenFGA has authentication in the server, so reaching it by
+any route without a valid credential gets you nothing. Here the write path is protected by a
+network policy and nothing else: **the boundary is the network, not the caller's identity**, so
+anything that can reach the port writes what it likes. That trade was made knowingly, and what it
+rests on is
+[ADR 028](../../../adr/028-a-module-renders-the-network-policy-it-depends-on.md).
 
 ## Consequences
 
-- **The write path's security is the proxy plus the network policy, and neither is the store.**
-  Anything that can reach the write port directly writes what it likes. This is not a weakness in
-  Keto — it is the documented design — but it means the protection lives in two places outside it
-  and both have to be right.
+- **The write path's security is the network policy, and it is not the store.** Anything that can
+  reach the write port writes what it likes — including a tuple granting itself everything. This is
+  not a weakness in Keto, it is the documented design; but it means the protection lives entirely
+  outside the thing being protected, and a cluster that does not enforce policy has none.
+- **Nothing authenticates a writer, so nothing outside the cluster can be one.** Exposing the
+  write API would mean running something in front of it that validates a token — a component this
+  platform does not have, and a decision to take on its own terms rather than as a side effect of
+  wanting a pipeline to write a tuple.
 - **The read API lists as well as checks.** It answers `check` and `expand`, and it also
   enumerates tuples. Leaving it open in-cluster therefore lets any pod read the entire permission
   graph — who may do what to what. This is information disclosure rather than compromise, and it

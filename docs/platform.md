@@ -14,8 +14,7 @@
 [ADR 017](adr/017-stores-are-multi-tenant.md),
 [ADR 018](adr/018-one-trust-bundle-for-the-cluster.md),
 [ADR 020](adr/020-one-root-module.md),
-[ADR 026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md),
-[ADR 027](adr/027-a-machine-caller-is-authorized-by-scope.md) ·
+[ADR 026](adr/026-roles-decide-the-operation-relationships-decide-the-resource.md) ·
 **Date:** 2026-08-05
 
 This is the system: what the parts are, how they fit together, and which decision owns each
@@ -145,7 +144,6 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
 | [`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) | answers whether a subject may act on a particular resource |
-| [`access-proxy-ory-oathkeeper`](modules/access-proxy-ory-oathkeeper/README.md) | authenticates a request before it reaches a workload that cannot |
 
 **What each one provides and consumes is in its own spec**, and only there. This table names
 the parts; the [joints](#joints) below describe where they meet.
@@ -206,15 +204,16 @@ perform it on a particular resource
 What crosses this joint is an address —
 [`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) publishes a
 read URL and a write URL, and they are different trust levels rather than one address with a
-credential. The write URL goes to
-[`access-proxy-ory-oathkeeper`](modules/access-proxy-ory-oathkeeper/README.md) as an upstream, and
-the proxy's pod selector goes back the other way as the store's `write_access_from`. **That
-selector is the only two-way joint here**, and each half understates the protection when read
-alone.
+credential. A consumer holding the read address cannot write whatever it does with it.
 
-Machine callers are authorized by scope and audience rather than by role
-([ADR 027](adr/027-a-machine-caller-is-authorized-by-scope.md)), so this is the one place two
-authorization vocabularies meet. The principal is the tell.
+**This is the one joint whose other side is not a module here.** The store's consumers are
+applications, which this repository does not deploy: they read the open port to ask questions, and
+they write tuples through the restricted one when they grant access to something they own. So the
+selector admitting them is stated by the composing root rather than published by the module on the
+other side — there is no module on the other side.
+
+The model is the schema and the tuples are the data. What relations exist is declared in this
+repository and reconciled; who is related to what is written at runtime by whoever grants it.
 
 ### Trust — one bundle, mounted everywhere
 

@@ -18,7 +18,8 @@
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 017](../../adr/017-stores-are-multi-tenant.md),
 [ADR 022](../../adr/022-secrets-are-rendered-empty.md),
-[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 

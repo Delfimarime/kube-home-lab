@@ -10,7 +10,8 @@
 [ADR 014](../../adr/014-exposed-does-not-mean-authorized.md),
 [ADR 016](../../adr/016-metrics-is-the-fourth-input.md),
 [ADR 018](../../adr/018-one-trust-bundle-for-the-cluster.md),
-[ADR 025](../../adr/025-a-workload-carries-its-tenant.md)
+[ADR 025](../../adr/025-a-workload-carries-its-tenant.md),
+[ADR 027](../../adr/027-charts-are-first-class-artifacts.md)
 
 ## Intent
 
