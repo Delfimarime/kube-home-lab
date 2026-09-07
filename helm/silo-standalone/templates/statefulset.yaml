@@ -154,10 +154,21 @@ spec:
     amount of friction for the one copy.
   */}}
   volumeClaimTemplates:
+    {{- /*
+      **The stable label subset, and not the full one, for the same reason the selector above uses
+      it.** Everything under `volumeClaimTemplates` is immutable once this object exists: the API
+      server refuses an update to any field of a StatefulSet spec other than the replica count, the
+      pod template, the update strategy, the revision history limit, the claim retention policy and
+      minReadySeconds. The full label set carries two values that move on an ordinary upgrade — the
+      chart's own version, and the running build derived from the image tag — so putting it here
+      turns bumping either one into a sync that fails on every retry, with an error naming the
+      whole spec and nothing about a label. What is left is what cannot change without this being a
+      different deployment.
+    */}}
     - metadata:
         name: data
         labels:
-          {{- include "silo-standalone.labels" . | nindent 10 }}
+          {{- include "silo-standalone.selectorLabels" . | nindent 10 }}
       spec:
         # One pod writes this drive and no other reader exists, so the weakest access mode every
         # provisioner supports is also the accurate one.

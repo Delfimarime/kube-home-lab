@@ -556,6 +556,17 @@ Feature: One S3-compatible endpoint, per environment
 ## Open items
 
 
+
+- **A StatefulSet's claim template is immutable, and it is where a label that moves does the most
+  damage.** The API server refuses an update to any field of a StatefulSet spec but the replica
+  count, the pod template, the update strategy, the revision history limit, the claim retention
+  policy and `minReadySeconds`. `volumeClaimTemplates` is not among them, so anything rendered into
+  it that changes on an ordinary upgrade — the chart's version, or the build derived from the image
+  tag — turns the next sync into a permanent failure whose error names the whole spec and nothing
+  about a label. The claim template therefore carries only the two labels that identify the
+  deployment, the same subset the selector uses. **Recovering from it means deleting the
+  StatefulSet with `--cascade=orphan` and letting the Application recreate it**; the claim survives
+  either way, because a `volumeClaimTemplates` claim is not garbage-collected with its owner.
 - **The console reaches the S3 API on the in-cluster Service, and share links carry that address.**
   Signing in to the console is a call this pod makes to the API, and it is deliberately not routed
   through the Gateway: doing that would make signing in depend on cluster DNS resolving a name that
