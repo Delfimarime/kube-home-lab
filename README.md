@@ -29,7 +29,7 @@ Provision workload-facing platform services. Each environment ships the ones it 
 | Module | Provides |
 | --- | --- |
 | `certificate-management-cert-manager` | the lab's certificate authorities, and one trust bundle |
-| `object-storage-rustfs` | one S3-compatible endpoint the stores keep their data in |
+| `object-storage-silo` | one S3-compatible endpoint the stores keep their data in |
 | `observability-storage-grafana-lgtm` | metrics, logs and traces — each independently switchable — collected and stored |
 | `observability-console-grafana` | one Grafana over whichever of the three is switched on |
 | `openid-connect-keycloak` | one OIDC issuer for the environment |

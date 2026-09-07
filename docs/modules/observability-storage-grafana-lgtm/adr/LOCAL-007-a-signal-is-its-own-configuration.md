@@ -15,8 +15,8 @@ object_storage = {                    # the default every store inherits whole
   endpoint       = "s3-svc.object-storage.svc.cluster.local:9000"
   region         = "af-south-1"
   secret_name    = null               # null: rendered here — ADR 022
-  access_key_key = "RUSTFS_ACCESS_KEY"
-  secret_key_key = "RUSTFS_SECRET_KEY"
+  access_key_key = "ACCESS_KEY"
+  secret_key_key = "SECRET_KEY"
   insecure       = true               # host:port carries no scheme; this picks one
 }
 

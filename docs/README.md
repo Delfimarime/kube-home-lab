@@ -60,7 +60,7 @@ actually correct.
 | [certificate-management-cert-manager](modules/certificate-management-cert-manager/README.md) | the lab's certificate authorities, its wildcard, its client certificate, its trust bundle |
 | [observability-storage-grafana-lgtm](modules/observability-storage-grafana-lgtm/README.md) | collecting metrics, logs and traces, storing them, and their tenants |
 | [observability-console-grafana](modules/observability-console-grafana/README.md) | reading them — one Grafana, its roles and its alerting |
-| [object-storage-rustfs](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
+| [object-storage-silo](modules/object-storage-silo/README.md) | one S3-compatible endpoint, for workloads whose supported backend is an object store |
 | [openid-connect-keycloak](modules/openid-connect-keycloak/README.md) | the OIDC issuer |
 | [resource-authorization-ory-keto](modules/resource-authorization-ory-keto/README.md) | whether a subject may act on a particular resource, asked per decision |
 
@@ -103,7 +103,7 @@ actually correct.
 | [cert-manager LOCAL-002](modules/certificate-management-cert-manager/adr/LOCAL-002-one-certificate-per-authority.md) | One certificate per authority; no client list | accepted |
 | [keycloak LOCAL-001](modules/openid-connect-keycloak/adr/LOCAL-001-oidc-provider-keycloak.md) | OIDC provider is Keycloak, deployed by its operator | accepted |
 | [keycloak LOCAL-002](modules/openid-connect-keycloak/adr/LOCAL-002-the-operator-comes-from-upstream-manifests.md) | The operator comes from upstream's manifests, pinned by tag | accepted |
-| [object-storage LOCAL-001](modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md) | The object store is RustFS, running standalone | accepted |
+| [object-storage LOCAL-001](modules/object-storage-silo/adr/LOCAL-001-silo-single-node.md) | The object store is Silo, running single-node | accepted |
 | [observability-storage LOCAL-001](modules/observability-storage-grafana-lgtm/adr/LOCAL-001-grafana-lgtm-stack.md) | The Grafana stack, three single-binary components | accepted |
 | [observability-storage LOCAL-002](modules/observability-storage-grafana-lgtm/adr/LOCAL-002-mimir-monolithic-chart.md) | Mimir runs monolithic, from a chart this repo authors | accepted |
 | [observability-storage LOCAL-003](modules/observability-storage-grafana-lgtm/adr/LOCAL-003-scrape-first-one-otlp-address.md) | Scrape first; one neutral address for the rest | accepted |

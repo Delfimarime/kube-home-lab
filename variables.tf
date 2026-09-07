@@ -77,12 +77,46 @@ variable "object_storage" {
     secret_name = optional(string)
     region      = optional(string, "us-east-1")
     storage = optional(object({
-      size          = optional(string, "20Gi")
-      class         = optional(string, "local-path")
-      node_selector = optional(map(string))
+      size  = optional(string, "20Gi")
+      class = optional(string, "local-path")
     }), {})
-    # Unset: the chart the module pins. See `cert_manager.chart_version`.
-    chart_version = optional(string)
+
+    # Which machine this runs on, and therefore which machine holds every stored signal: a volume
+    # that binds on first use follows the pod that claimed it and never moves again. `tolerations`
+    # is here rather than assumed away because the node an environment wants this on is often the
+    # one set apart by a taint, and a selector naming a node that refuses the pod is a Pending
+    # that reads as a scheduling shortage.
+    placement = optional(object({
+      node_selector = optional(map(string))
+      affinity      = optional(any)
+      tolerations   = optional(list(any))
+    }), {})
+    # Unset: the image the module pins. The chart is this repository's own, so what an
+    # environment pins here is the build of the server and not somebody else's chart.
+    image_tag = optional(string)
+
+    # What the store is allowed to consume, and the three runtime settings that make the limit
+    # hold. Unset at every level: the module's own values apply, and a number written here would
+    # silently win over the module's while still reading as if the module decided it.
+    #
+    # The settings are not decorative. The server sizes its concurrency ceiling from the RAM it
+    # observes rather than from the ceiling it was given, and the Go runtime it is built on grows
+    # its heap past a container limit until the kernel kills the process. A memory limit with no
+    # go_mem_limit beside it is the configuration that gets killed, and the chart refuses to
+    # render it.
+    resources = optional(object({
+      requests = optional(object({
+        cpu    = optional(string)
+        memory = optional(string)
+      }), {})
+      limits = optional(object({
+        cpu    = optional(string)
+        memory = optional(string)
+      }), {})
+      go_memory_limit  = optional(string)
+      go_max_procs     = optional(number)
+      api_requests_max = optional(number)
+    }), {})
     services = optional(object({
       api = optional(object({
         port     = optional(number, 9000)

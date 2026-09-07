@@ -117,11 +117,15 @@ somebody chose to leave open, a trap worth naming before somebody steps in it.
   realm and every Grafana alert rule. Don't add a third without saying so. OpenTofu state is in a
   PostgreSQL too, but a separate one, and it *is* regenerable
   ([ADR 012](docs/adr/012-state-is-per-environment.md)).
-- **The object store is pre-1.0, and nothing creates its buckets.** `object-storage-rustfs` pins
-  a release candidate — its own `variables.tf` says which — and every stored signal now lives
-  behind it. The buckets each store writes to are created by hand, per environment; a missing one
-  is not a sync failure — every store comes up healthy and fails on its first write. Don't add a
-  bucket input to a module that cannot create one.
+- **Nothing creates the object store's buckets.** `object-storage-silo` publishes an endpoint and
+  nothing else; the buckets each store writes to are created by hand, per environment. A missing
+  one is not a sync failure — every store comes up healthy and fails on its first write. Don't add
+  a bucket input to a module that cannot create one.
+- **The object store is one pod and cannot be made to survive a node loss.** Erasure coding caps
+  parity at half the drive set, so on the two nodes an environment here has, losing one leaves
+  reads working and writes refused for want of quorum. Replicating it needs four nodes or two
+  independent deployments, and neither exists. Don't propose a StatefulSet with replicas as a
+  fix — it buys nothing at this size and costs the RAM budget twice.
 - **Three things are unverified, and each would change a spec.** Check before implementing, not
   after:
   - whether Alloy's `otelcol.auth.headers` accepts `from_context` and `default_value` at the

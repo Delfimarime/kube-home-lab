@@ -13,8 +13,8 @@ name: ""
 # caller's business; this chart writes down what it is given.
 #
 # keys:
-#   - RUSTFS_ACCESS_KEY
-#   - RUSTFS_SECRET_KEY
+#   - ACCESS_KEY
+#   - SECRET_KEY
 keys: []
 
 # Every value is the empty string, and that is not configurable. A chart that could be given a

@@ -85,8 +85,8 @@ locals {
       endpoint       = module.object_storage.endpoint
       region         = module.object_storage.region
       secret_name    = null
-      access_key_key = "RUSTFS_ACCESS_KEY"
-      secret_key_key = "RUSTFS_SECRET_KEY"
+      access_key_key = "ACCESS_KEY"
+      secret_key_key = "SECRET_KEY"
       insecure       = true
     }
   )

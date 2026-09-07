@@ -1,6 +1,7 @@
-# The ordinary case: a credential is a pair. These are RustFS's key names, which are environment
-# variable names because that chart consumes the Secret through `envFrom`.
+# The ordinary case: a credential is a pair. These are the object store's key names, which name
+# the protocol rather than the product — the workload's chart maps them onto whatever the process
+# itself calls them, so nothing here has to.
 name: object-storage-credentials
 keys:
-  - RUSTFS_ACCESS_KEY
-  - RUSTFS_SECRET_KEY
+  - ACCESS_KEY
+  - SECRET_KEY

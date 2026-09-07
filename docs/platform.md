@@ -140,7 +140,7 @@ the root module's `module` blocks ([ADR 011](adr/011-environments-are-clusters.m
 | --- | --- |
 | [`certificate-management-cert-manager`](modules/certificate-management-cert-manager/README.md) | issues every certificate the environment uses, and distributes the root |
 | [`openid-connect-keycloak`](modules/openid-connect-keycloak/README.md) | one OIDC issuer per environment |
-| [`object-storage-rustfs`](modules/object-storage-rustfs/README.md) | one S3-compatible endpoint the stores write into |
+| [`object-storage-silo`](modules/object-storage-silo/README.md) | one S3-compatible endpoint the stores write into |
 | [`observability-storage-grafana-lgtm`](modules/observability-storage-grafana-lgtm/README.md) | collects and stores metrics, logs and traces |
 | [`observability-console-grafana`](modules/observability-console-grafana/README.md) | reads whichever of them is switched on |
 | [`resource-authorization-ory-keto`](modules/resource-authorization-ory-keto/README.md) | answers whether a subject may act on a particular resource |

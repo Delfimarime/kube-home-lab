@@ -15,7 +15,7 @@ No store owns a PersistentVolumeClaim any more.
 
 The endpoint arrives as an **ordinary module input**, `object_storage`, wired at the root from
 whichever module provides it — see
-[`object-storage-rustfs`](../../object-storage-rustfs/README.md) for the one that does today. It
+[`object-storage-silo`](../../object-storage-silo/README.md) for the one that does today. It
 carries an address, a region, and a Secret name plus its two keys, so the credential passes by
 reference and never by value
 ([ADR 007](../../../adr/007-modules-receive-credentials.md)). **The bucket is not among them**:

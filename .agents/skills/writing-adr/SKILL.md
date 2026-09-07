@@ -112,7 +112,7 @@ Consequences say only "we will use X" has recorded the decision and lost the rea
 
 **A worked example:** [ADR 025](../../../docs/adr/025-a-workload-carries-its-tenant.md) for a
 platform decision that supersedes half of an earlier one, and
-[object-storage LOCAL-001](../../../docs/modules/object-storage-rustfs/adr/LOCAL-001-rustfs-standalone.md)
+[object-storage LOCAL-001](../../../docs/modules/object-storage-silo/adr/LOCAL-001-silo-single-node.md)
 for a product choice with a candidates table.
 
 ## 4. Register

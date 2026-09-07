@@ -117,7 +117,7 @@ locals {
   # **Every one of them is prefixed with this module's namespace, and that is not decoration.** The
   # Secret name is also the name of the Argo CD Application rendering it, and Applications all live
   # in one namespace while Secrets live in theirs — so a plain `object-storage-credentials` here is
-  # the same Application as the one `object-storage-rustfs` renders for its own copy of the same
+  # the same Application as the one `object-storage-silo` renders for its own copy of the same
   # credential, and the second ApplicationSet to reach it is refused with `already owned by another
   # ApplicationSet controller`. Two namespaced Secrets, two distinctly named Applications.
   storage = {

@@ -76,7 +76,7 @@ naming existing Secrets throughout produces none.
 **The namespace is in those names because the Application's name is the Secret's**
 ([ADR 022](../../adr/022-secrets-are-rendered-empty.md)). Applications all live in the Argo CD
 namespace while Secrets live in their own, so an unqualified `object-storage-credentials` here is the
-same Application as the one [`object-storage-rustfs`](../object-storage-rustfs/README.md) renders for
+same Application as the one [`object-storage-silo`](../object-storage-silo/README.md) renders for
 its own copy of this credential — and the second ApplicationSet to reach it is refused with
 `already owned by another ApplicationSet controller`.
 
@@ -364,7 +364,7 @@ independent, but the best feature spans two of them — and it is recorded rathe
 ## Prerequisites
 
 **An S3-compatible endpoint, and one bucket per component shipped.** Which module provides the
-endpoint is the root's business — [`object-storage-rustfs`](../object-storage-rustfs/README.md)
+endpoint is the root's business — [`object-storage-silo`](../object-storage-silo/README.md)
 is the one that does today — and the buckets are created by hand there, per environment, because
 nothing creates them. A bucket that is missing is not a sync failure: the store starts healthy
 and the error appears on the first write. A component pointed at its own endpoint needs a bucket
@@ -381,7 +381,7 @@ this module only reads it. Either way what an environment owes is the value:
 kubectl patch secret telemetry-object-storage-credentials -n telemetry \
   --type merge -p "$(jq -n --arg a "$(printf %s "$ACCESS_KEY" | base64)" \
                           --arg s "$(printf %s "$SECRET_KEY" | base64)" \
-                          '{data:{RUSTFS_ACCESS_KEY:$a,RUSTFS_SECRET_KEY:$s}}')"
+                          '{data:{ACCESS_KEY:$a,SECRET_KEY:$s}}')"
 
 kubectl rollout restart statefulset/mimir statefulset/loki statefulset/tempo -n observability
 ```
@@ -406,8 +406,8 @@ object_storage = {               # required — the default every store inherits
   region         = "af-south-1"
   secret_name    = null                   # null: rendered here, in *this* namespace
                                           # set:  an existing Secret, only read
-  access_key_key = "RUSTFS_ACCESS_KEY"
-  secret_key_key = "RUSTFS_SECRET_KEY"
+  access_key_key = "ACCESS_KEY"
+  secret_key_key = "SECRET_KEY"
   insecure       = true                   # the endpoint carries no scheme; this picks one
 }                                         # there is no `buckets` key, at either level
 

@@ -2,14 +2,14 @@
 # still valid when a tenant has nothing under it — a tenant with no limits is a legitimate way to
 # say "bounded by the default", and it is the case a template writing keys one at a time gets wrong.
 storage:
-  endpoint: rustfs.object-storage.svc.cluster.local:9000
+  endpoint: s3-svc.object-storage.svc.cluster.local:9000
   region: af-south-1
   bucket: mimir
   insecure: true
   existingSecret:
     name: object-storage-credentials
-    accessKeyKey: RUSTFS_ACCESS_KEY
-    secretKeyKey: RUSTFS_SECRET_KEY
+    accessKeyKey: ACCESS_KEY
+    secretKeyKey: SECRET_KEY
 
 tenants:
   lab: {}

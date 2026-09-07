@@ -86,9 +86,9 @@ REQ-05 governs a credential's **value**. An empty Secret has none.
   the sync wave and the shape of the element are one thing each consumer would otherwise declare
   for itself — five variables and a `local` per module, all of which have to agree. Importing a
   module that returns the element makes that contract a signature instead of a convention.
-- **Upstream escape hatches were the alternative and were rejected for uniformity.** RustFS's
-  chart has `extraManifests` and Grafana's has `extraObjects`; the next chart has neither, or
-  spells it a third way. One mechanism that works everywhere beats a per-chart lookup.
+- **Upstream escape hatches were the alternative and were rejected for uniformity.** One chart
+  offers `extraManifests`, Grafana's offers `extraObjects`; the next chart has neither, or spells
+  it a third way. One mechanism that works everywhere beats a per-chart lookup.
 - **Naming an existing Secret has to stay available, because this is not a secret manager.** An
   environment that grows one — External Secrets, a CSI driver, a Secret restored from a backup —
   already has the object, and a module that insisted on rendering its own would either fight that

@@ -1,4 +1,4 @@
-# 028. Charts are first-class artifacts, published from the repository root
+# 027. Charts are first-class artifacts, published from the repository root
 
 **Status:** accepted · **Scope:** platform · **Date:** 2026-08-23 ·
 supersedes the chart-location clause of [ADR 010](010-resources-delivered-via-chart.md) and its
@@ -46,7 +46,7 @@ interleaved, and no chart is shared between modules by accident."*
 Five charts exist now, and two things about them were not true when that clause was written.
 
 **One chart already has four consumers.** `secret-template` is rendered on behalf of
-`object-storage-rustfs`, `observability-console-grafana`,
+`object-storage-silo`, `observability-console-grafana`,
 `observability-storage-grafana-lgtm` and `openid-connect-keycloak` — six call sites. The layout
 offered no way to share a chart, so it is shared by wrapping it in an OpenTofu module that every
 consumer imports. That works, and it means the thing holding the chart's contract is a

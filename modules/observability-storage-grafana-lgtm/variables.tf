@@ -55,8 +55,8 @@ variable "object_storage" {
     endpoint       = string
     region         = optional(string, "us-east-1")
     secret_name    = optional(string)
-    access_key_key = optional(string, "RUSTFS_ACCESS_KEY")
-    secret_key_key = optional(string, "RUSTFS_SECRET_KEY")
+    access_key_key = optional(string, "ACCESS_KEY")
+    secret_key_key = optional(string, "SECRET_KEY")
 
     # Not part of the address: the endpoint is a host and a port, and whether the hop to it is
     # plaintext is a separate fact. In-cluster it is; a store pointed somewhere off the cluster
@@ -115,8 +115,8 @@ variable "components" {
         endpoint       = string
         region         = optional(string, "us-east-1")
         secret_name    = optional(string)
-        access_key_key = optional(string, "RUSTFS_ACCESS_KEY")
-        secret_key_key = optional(string, "RUSTFS_SECRET_KEY")
+        access_key_key = optional(string, "ACCESS_KEY")
+        secret_key_key = optional(string, "SECRET_KEY")
         insecure       = optional(bool, true)
       }))
     }))
@@ -128,8 +128,8 @@ variable "components" {
         endpoint       = string
         region         = optional(string, "us-east-1")
         secret_name    = optional(string)
-        access_key_key = optional(string, "RUSTFS_ACCESS_KEY")
-        secret_key_key = optional(string, "RUSTFS_SECRET_KEY")
+        access_key_key = optional(string, "ACCESS_KEY")
+        secret_key_key = optional(string, "SECRET_KEY")
         insecure       = optional(bool, true)
       }))
     }))
@@ -141,8 +141,8 @@ variable "components" {
         endpoint       = string
         region         = optional(string, "us-east-1")
         secret_name    = optional(string)
-        access_key_key = optional(string, "RUSTFS_ACCESS_KEY")
-        secret_key_key = optional(string, "RUSTFS_SECRET_KEY")
+        access_key_key = optional(string, "ACCESS_KEY")
+        secret_key_key = optional(string, "SECRET_KEY")
         insecure       = optional(bool, true)
       }))
     }))
