@@ -14,9 +14,7 @@ credentials:
     secretKeyKey: SILO_ROOT_PASSWORD
 
 # Told to the process rather than inferred from whatever header reaches it through the Gateway.
-externalUrl:
-  api: https://s3.lab.internal
-  console: https://s3-console.lab.internal
+browserRedirectUrl: https://s3-console.lab.internal
 
 persistence:
   size: 50Gi

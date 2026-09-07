@@ -555,6 +555,20 @@ Feature: One S3-compatible endpoint, per environment
 
 ## Open items
 
+
+- **The console reaches the S3 API on the in-cluster Service, and share links carry that address.**
+  Signing in to the console is a call this pod makes to the API, and it is deliberately not routed
+  through the Gateway: doing that would make signing in depend on cluster DNS resolving a name that
+  exists only on the network outside, on the ingress answering traffic that arrives from behind it,
+  and on this container trusting the certificate that ingress presents. None of those is implied by
+  the console being reachable from a browser, and each one fails as the same unexplained network
+  error with nothing in the pod log to distinguish them. The cost is that a presigned or shared URL
+  minted by the console comes back as `s3-svc.object-storage.svc.cluster.local`, which nobody
+  outside the cluster can open. Making those external means setting the chart's `serverUrl` **and**
+  satisfying all three conditions — a DNS answer inside the cluster for the external name, an
+  ingress that hairpins, and the lab authority in this container's trust store, which this
+  repository already distributes as a bundle to every namespace. That is the day to add the input;
+  there is none today because there would be no correct value for it.
 - **Nothing creates the buckets, and nothing notices they are missing.** The store starts healthy
   with no buckets at all, so the failure surfaces as an ingest error in whatever consumes it,
   hours later and in another module's logs. A rebuild that recreates every Application correctly

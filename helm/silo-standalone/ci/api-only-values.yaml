@@ -21,8 +21,6 @@ credentials:
 # Only the API has an address outside the cluster, so only the API is told one. The console URL
 # stays empty and MINIO_BROWSER_REDIRECT_URL is not rendered at all — the console is loaded over a
 # port-forward, where the process working the address out from the request is exactly right.
-externalUrl:
-  api: https://objects.lab.internal
 
 persistence:
   size: 100Gi

@@ -54,19 +54,28 @@ credentials:
     accessKeyKey: ""
     secretKeyKey: ""
 
-# The addresses this deployment answers on from outside the cluster, told to the process rather
-# than inferred by it. Each is set only where the matching surface below is routed: the API URL is
-# what presigned URLs are minted against, and the console URL is where a browser is sent back to
-# after a redirect. Left empty, the process derives both from the request it happens to be
-# answering, which is right until something in front of it terminates TLS or rewrites a Host
-# header.
+# **Where the process reaches its own S3 API**, which is not the same question as where a browser
+# reaches it. The management console is a client of the API like any other: signing in makes a
+# server-side call from this pod to this address, and everything the console then shows is fetched
+# the same way.
 #
-# **The two must never be equal.** A console and an API sharing one hostname is the configuration
-# where the browser redirect lands on the S3 endpoint and the console never finishes loading, so
-# the chart refuses it rather than rendering it.
-externalUrl:
-  api: ""
-  console: ""
+# **Empty means the in-cluster Service, and that is the answer you want.** Pointing this at the
+# external hostname sends a call from this pod out to whatever terminates TLS in front of it and
+# back again — a loop that now depends on cluster DNS resolving a name that usually only exists on
+# the network outside, on the ingress accepting traffic from behind itself, and on this container
+# trusting the certificate that ingress presents. Any one of those failing breaks signing in, and
+# it surfaces in the browser as a bare network error that names none of them. In-cluster, it is a
+# Service name and a port.
+#
+# Set it only to make presigned and share URLs come back with an address someone outside can use —
+# and only once the three conditions above are actually met.
+serverUrl: ""
+
+# Where a browser is sent back to after the console signs someone in. This one is genuinely
+# external: it is a value handed to the browser, not an address this pod dials. Left empty, the
+# process infers it from the request it happens to be answering, which is right until something in
+# front of it terminates TLS or rewrites a Host header — which is the normal case here.
+browserRedirectUrl: ""
 
 # The one drive. Everything this store holds is here — there is no second copy anywhere, which is
 # what single-node single-drive means and why a backup is somebody's job rather than a setting.

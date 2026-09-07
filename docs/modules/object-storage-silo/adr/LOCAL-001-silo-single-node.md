@@ -140,6 +140,15 @@ Tenant chart with an image override.
   **the direction of a company**, which the archive has now settled — and a community fork is not
   the company. If anything here ever became a hosted service for somebody else, this is the
   sentence to come back to.
+- **The console is a client of the API, and it is pointed inward.** Signing in is a server-side
+  call from this pod to the S3 endpoint, so which address it is given decides what signing in
+  depends on. Given the external hostname it depends on three things that have nothing to do with
+  this workload — an in-cluster DNS answer for an outside name, an ingress willing to answer
+  traffic from behind itself, and this container trusting that ingress's certificate — and all
+  three fail identically, as a network error the browser reports and the pod does not log. Given
+  the Service, it depends on nothing outside the namespace. The price is that share links carry an
+  in-cluster address, and buying the external one back means meeting all three conditions
+  deliberately rather than discovering them.
 - **The pin is an image tag, not a chart version**, because the chart is this repository's. That
   is a second version to move by hand and a second thing to get wrong: the chart's `Chart.yaml`
   version tracks its values schema and `silo.image_tag` tracks the product, and nothing checks

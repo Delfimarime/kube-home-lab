@@ -4,7 +4,15 @@
   "description": "Helm checks these values against this file on every lint, template, install and upgrade, so a value of the wrong shape is refused before anything renders instead of surfacing as a manifest the API server rejects or, worse, accepts. What cannot be said here is said in the chart's own validation: emptiness whose reason needs a sentence, the two Secret key names that must differ, the two external URLs that must not match, and the memory limit that obliges a heap ceiling — every one of them a comparison between two values, which no schema makes.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["image", "service", "credentials", "externalUrl", "persistence", "routes", "tuning", "serviceAccount"],
+  "required": [
+    "image",
+    "service",
+    "credentials",
+    "persistence",
+    "routes",
+    "tuning",
+    "serviceAccount"
+  ],
   "properties": {
     "nameOverride": {
       "type": "string",
@@ -20,7 +28,10 @@
     "image": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "tag"],
+      "required": [
+        "repository",
+        "tag"
+      ],
       "properties": {
         "repository": {
           "type": "string",
@@ -36,18 +47,33 @@
         },
         "pullPolicy": {
           "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"]
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
         }
       }
     },
     "service": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["apiPort", "consolePort"],
+      "required": [
+        "apiPort",
+        "consolePort"
+      ],
       "description": "The two listeners. They are two servers in one process and must not be given the same port, which the chart leaves to the process: the second bind fails at start-up with the port in the message.",
       "properties": {
-        "apiPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "consolePort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "apiPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "consolePort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
       }
     },
     "region": {
@@ -57,13 +83,19 @@
     "credentials": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["existingSecret"],
+      "required": [
+        "existingSecret"
+      ],
       "description": "The root credential by reference: a Secret this chart only reads, and the two keys inside it. Three names and never a value — the schema deliberately offers nowhere to put one.",
       "properties": {
         "existingSecret": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "accessKeyKey", "secretKeyKey"],
+          "required": [
+            "name",
+            "accessKeyKey",
+            "secretKeyKey"
+          ],
           "properties": {
             "name": {
               "type": "string",
@@ -87,27 +119,12 @@
         }
       }
     },
-    "externalUrl": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "The addresses this deployment answers on from outside, told to the process rather than inferred. Full URLs including the scheme — a bare hostname leaves the process resolving scheme and port from request headers, which is what these exist to stop. Set only where the matching surface is routed, and never to the same value twice.",
-      "properties": {
-        "api": {
-          "type": "string",
-          "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
-          "description": "What presigned URLs are minted against."
-        },
-        "console": {
-          "type": "string",
-          "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
-          "description": "Where a browser is redirected back to after signing in."
-        }
-      }
-    },
     "persistence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["size"],
+      "required": [
+        "size"
+      ],
       "description": "The one drive. It is claimed by a volumeClaimTemplate, so it outlives the StatefulSet and a prune of this release does not take the data with it.",
       "properties": {
         "size": {
@@ -126,11 +143,18 @@
     "routes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["api", "console"],
+      "required": [
+        "api",
+        "console"
+      ],
       "description": "One route per surface, each switched on by its own hostname. An empty hostname renders no route at all, which is the closed default.",
       "properties": {
-        "api": { "$ref": "#/definitions/route" },
-        "console": { "$ref": "#/definitions/route" }
+        "api": {
+          "$ref": "#/definitions/route"
+        },
+        "console": {
+          "$ref": "#/definitions/route"
+        }
       }
     },
     "tuning": {
@@ -161,25 +185,37 @@
     },
     "nodeSelector": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "tolerations": {
       "type": "array",
-      "items": { "type": "object" }
+      "items": {
+        "type": "object"
+      }
     },
-    "affinity": { "type": "object" },
+    "affinity": {
+      "type": "object"
+    },
     "podAnnotations": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "podLabels": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "serviceLabels": {
       "type": "object",
       "description": "Labels on the Service. Separate from podLabels because discovery reads a Service's labels first and a pod's only where the Service carries none.",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "podSecurityContext": {
       "type": "object",
@@ -192,7 +228,9 @@
     "serviceAccount": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["create"],
+      "required": [
+        "create"
+      ],
       "properties": {
         "create": {
           "type": "boolean",
@@ -206,16 +244,31 @@
         },
         "annotations": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
+    },
+    "serverUrl": {
+      "type": "string",
+      "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
+      "description": "The address this process reaches its own S3 API on. Empty means the in-cluster Service, which is what removes the dependency on outside DNS, on ingress hairpinning and on this container trusting the ingress certificate. Set it only to mint presigned URLs an outsider can use."
+    },
+    "browserRedirectUrl": {
+      "type": "string",
+      "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
+      "description": "Where a browser is redirected back to after signing in. Handed to the browser, never dialled by this pod."
     }
   },
   "definitions": {
     "route": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["hostname", "gateway"],
+      "required": [
+        "hostname",
+        "gateway"
+      ],
       "description": "One surface's path in. The hostname is the switch and the Gateway is where it attaches; both halves are needed together, which the chart checks when the hostname is present.",
       "properties": {
         "hostname": {
@@ -227,7 +280,10 @@
         "gateway": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "namespace"],
+          "required": [
+            "name",
+            "namespace"
+          ],
           "properties": {
             "name": {
               "type": "string",

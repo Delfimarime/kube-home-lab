@@ -70,11 +70,9 @@ spec:
               request in front of it. Rendered only where a surface has an address — set to nothing,
               these would be an empty string the process reads as an address and fails to parse.
             */}}
-            {{- with .Values.externalUrl.api }}
             - name: MINIO_SERVER_URL
-              value: {{ . | quote }}
-            {{- end }}
-            {{- with .Values.externalUrl.console }}
+              value: {{ include "silo-standalone.serverUrl" . | quote }}
+            {{- with .Values.browserRedirectUrl }}
             - name: MINIO_BROWSER_REDIRECT_URL
               value: {{ . | quote }}
             {{- end }}

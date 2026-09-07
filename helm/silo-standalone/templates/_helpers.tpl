@@ -108,11 +108,30 @@ finishes loading, or a restart count.
 {{- if eq .Values.credentials.existingSecret.accessKeyKey .Values.credentials.existingSecret.secretKeyKey -}}
 {{- fail "silo-standalone: .Values.credentials.existingSecret.accessKeyKey and .Values.credentials.existingSecret.secretKeyKey must differ — they are two keys in one Secret, and one name cannot hold both halves of a credential. Given the same name the user and the password are the same string, which is a store whose password is public the moment anyone reads an access log." -}}
 {{- end -}}
-{{- if and .Values.externalUrl.api .Values.externalUrl.console (eq .Values.externalUrl.api .Values.externalUrl.console) -}}
-{{- fail "silo-standalone: .Values.externalUrl.api and .Values.externalUrl.console must not be the same address — the S3 API and the management console are two servers and this deployment tells the browser where to come back to after a login redirect. Pointed at one hostname, that redirect lands on the S3 endpoint, which answers it as a malformed bucket request, and the console never finishes loading. Give each surface a hostname of its own." -}}
+{{- if and .Values.serverUrl .Values.browserRedirectUrl (eq .Values.serverUrl .Values.browserRedirectUrl) -}}
+{{- fail "silo-standalone: .Values.serverUrl and .Values.browserRedirectUrl must not be the same address — the S3 API and the management console are two servers and this deployment tells the browser where to come back to after a login redirect. Pointed at one hostname, that redirect lands on the S3 endpoint, which answers it as a malformed bucket request, and the console never finishes loading. Give each surface a hostname of its own." -}}
 {{- end -}}
 {{- $limits := (.Values.resources).limits | default dict -}}
 {{- if and $limits.memory (not .Values.tuning.goMemLimit) -}}
 {{- fail "silo-standalone: resources.limits.memory is set and tuning.goMemLimit is empty, which is precisely the configuration that gets this pod OOM-killed. Two things inside the process read the machine's memory rather than this container's limit: it sizes its own concurrency ceiling at roughly three quarters of total RAM divided by two mebibytes per request, which under a cgroup limit is a ceiling computed from memory this pod will never be allowed to touch; and the Go runtime grows the heap until the operating system pushes back, which under a cgroup limit is the kernel killing the process rather than a collection. Set tuning.goMemLimit to about 0.85 of the memory limit — the rest is what the process needs outside the heap — or take the memory limit off." -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The address this process reaches its own S3 API on. Whatever the caller stated, or the in-cluster
+Service — name, namespace and the API's own port, all of which this chart already decides, so a
+caller that says nothing gets an address that cannot depend on anything outside the cluster.
+
+Deliberately not the external hostname by default. The console signs a person in by calling the
+API from inside this pod, and routing that call out through whatever terminates TLS and back
+requires cluster DNS to resolve an outside name, the ingress to accept traffic arriving from
+behind it, and this container to trust that ingress's certificate. None of the three is implied by
+the deployment working from a browser, and each fails as the same unexplained network error.
+*/}}
+{{- define "silo-standalone.serverUrl" -}}
+{{- if .Values.serverUrl -}}
+{{- .Values.serverUrl -}}
+{{- else -}}
+{{- printf "http://%s.%s.svc.cluster.local:%v" (include "silo-standalone.fullname" .) .Release.Namespace .Values.service.apiPort -}}
 {{- end -}}
 {{- end -}}

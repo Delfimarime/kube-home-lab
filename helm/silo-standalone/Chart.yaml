@@ -10,7 +10,11 @@ type: application
 # which the caller pins and passes in, and this file is never the thing that sets it. A version
 # stated here would be free to disagree with the pin, which is the one failure a second copy of a
 # version can cause — so the version label is derived from the tag instead.
-version: 0.1.0
+# Bumped for the values interface: `externalUrl.api`/`externalUrl.console` are replaced by
+# `serverUrl` and `browserRedirectUrl`, which are two different questions rather than one pair —
+# the first is an address this pod dials and defaults to the in-cluster Service, the second is a
+# value handed to a browser. Breaking for anything rendering this chart.
+version: 0.2.0
 
 # No dependencies, and nothing wrapped. The upstream chart deploys the distributed topology —
 # several servers, a pool, erasure coding across drives — and its single-node path is a corner of

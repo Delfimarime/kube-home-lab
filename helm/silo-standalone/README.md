@@ -1,6 +1,6 @@
 # silo-standalone
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 Silo — the maintained community fork of MinIO — as a single node with a single drive: one StatefulSet, one pod, one claim, an S3 API listener and a management console listener, either of which may be given a hostname of its own.
 
@@ -9,11 +9,10 @@ Silo — the maintained community fork of MinIO — as a single node with a sing
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| browserRedirectUrl | string | `""` |  |
 | credentials.existingSecret.accessKeyKey | string | `""` |  |
 | credentials.existingSecret.name | string | `""` |  |
 | credentials.existingSecret.secretKeyKey | string | `""` |  |
-| externalUrl.api | string | `""` |  |
-| externalUrl.console | string | `""` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"pgsty/silo"` |  |
@@ -41,6 +40,7 @@ Silo — the maintained community fork of MinIO — as a single node with a sing
 | securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | securityContext.readOnlyRootFilesystem | bool | `true` |  |
+| serverUrl | string | `""` |  |
 | service.apiPort | int | `9000` |  |
 | service.consolePort | int | `9001` |  |
 | serviceAccount.annotations | object | `{}` |  |

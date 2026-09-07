@@ -59,10 +59,12 @@ locals {
   # A surface that is not routed contributes no key at all rather than an empty string: the value
   # is absent, and the process falls back to advertising its in-cluster address, which is the
   # correct answer for something nothing outside can reach anyway.
-  external_url = merge(
-    local.api_url == null ? {} : { api = local.api_url },
-    local.console_url == null ? {} : { console = local.console_url },
-  )
+  # Only the console's address is handed over, and only when it has one. The chart reaches the S3
+  # API on the in-cluster Service, which is the address that cannot fail for want of a DNS record
+  # outside the cluster, an ingress willing to answer traffic from behind itself, or a certificate
+  # this container has any reason to trust. `api_url` is still published for consumers — it is
+  # where a person reaches the API — but it is not an address this workload ever dials.
+  browser_redirect_url = local.console_url
 
   # One route per exposed surface, each on its own hostname, its own Gateway and its own listener.
   # A surface with no hostname produces no key here and therefore no route at all — that, and
@@ -135,7 +137,7 @@ locals {
         }
       }
 
-      externalUrl = local.external_url
+      browserRedirectUrl = local.browser_redirect_url == null ? "" : local.browser_redirect_url
 
       persistence = {
         size         = var.storage.size
