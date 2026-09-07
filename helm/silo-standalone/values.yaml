@@ -1,0 +1,158 @@
+# What `app.kubernetes.io/name` says — what this is, rather than which deployment of it. Empty
+# means the chart's own name, which is almost always right; it is here because two releases of this
+# chart in one namespace would otherwise carry the same name label, and anything selecting on it
+# would find both as one.
+nameOverride: ""
+
+# What every object this chart renders is called. Empty means the release name.
+#
+# **Set this rather than reproducing the rule.** The name is also the in-cluster hostname every
+# client of this store is configured with — the endpoint a backup job, a metrics store or a log
+# store dials — so anything publishing that address needs to know it, and a caller that works it
+# out from the release name has written down a copy of a derivation that lives in this chart and is
+# free to change. Stating the name here means the caller reads it back from its own configuration
+# and the two cannot disagree.
+fullnameOverride: ""
+
+image:
+  # Silo is the maintained community fork of MinIO, and keeps the process's own names: the binary,
+  # the environment variables and the health endpoints are all still the ones MinIO documents.
+  repository: pgsty/silo
+  # Pinned by the caller rather than defaulted meaningfully here: an upgrade is a deliberate edit,
+  # which is what stops a configuration key changing underneath this chart silently. The distroless
+  # variant is the default because the container has no shell to need.
+  tag: "RELEASE.2026-09-03T13-18-01Z-distroless"
+  pullPolicy: IfNotPresent
+
+# The two listeners this deployment answers on, and they are genuinely two: the S3 API that clients
+# sign requests against, and the management console a browser loads. They are separated at the port
+# and stay separated everywhere below — one may be routed without the other, and where both are
+# routed they cannot share a hostname.
+service:
+  apiPort: 9000
+  consolePort: 9001
+
+# The region this store signs requests for, and the one every client must be configured with in
+# turn. It is required rather than defaulted: S3 signing includes the region in the signature, so a
+# store and a client that disagree produce an authorization failure that names neither.
+region: ""
+
+# The root credential, by reference and never by value: a Secret this chart only reads, and the
+# names of the two keys inside it holding the two halves. Whoever creates that Secret and when is
+# somebody else's business — this chart declares what it needs to find there and nothing about when
+# it appears.
+#
+# **A value never belongs here.** The process reads its root credential from two environment
+# variables whose names are this chart's business and not the caller's; from the three names below
+# the chart builds both entries, so nothing sensitive reaches a values file or the Application spec
+# that renders it.
+#
+# The two keys must differ. They are two keys in one Secret and one name cannot hold both halves.
+credentials:
+  existingSecret:
+    name: ""
+    accessKeyKey: ""
+    secretKeyKey: ""
+
+# The addresses this deployment answers on from outside the cluster, told to the process rather
+# than inferred by it. Each is set only where the matching surface below is routed: the API URL is
+# what presigned URLs are minted against, and the console URL is where a browser is sent back to
+# after a redirect. Left empty, the process derives both from the request it happens to be
+# answering, which is right until something in front of it terminates TLS or rewrites a Host
+# header.
+#
+# **The two must never be equal.** A console and an API sharing one hostname is the configuration
+# where the browser redirect lands on the S3 endpoint and the console never finishes loading, so
+# the chart refuses it rather than rendering it.
+externalUrl:
+  api: ""
+  console: ""
+
+# The one drive. Everything this store holds is here — there is no second copy anywhere, which is
+# what single-node single-drive means and why a backup is somebody's job rather than a setting.
+persistence:
+  size: 20Gi
+  # Empty means the cluster's default class, which is the ordinary case. Naming one is for a
+  # cluster with several, where the default is not the one this store should be on.
+  storageClass: ""
+
+# The paths in from outside, one per listener, and each independent of the other. A hostname is the
+# switch: empty renders no route for that surface at all, which leaves it reachable from inside the
+# cluster and from nowhere else. That is the default for both, and it is the safe one — the console
+# in particular is an administrative interface that has no business on a hostname nobody asked for.
+routes:
+  api:
+    hostname: ""
+    gateway:
+      name: ""
+      namespace: ""
+      # Which listener on that Gateway. Empty attaches to every listener whose hostname matches,
+      # which is rarely what a Gateway with both a plaintext and a TLS listener means.
+      sectionName: ""
+  console:
+    hostname: ""
+    gateway:
+      name: ""
+      namespace: ""
+      sectionName: ""
+
+# What the process is told about the machine it is on, as against what it works out for itself.
+# This block is small and it is the point of the chart.
+#
+# Left to itself, the process sizes its concurrency ceiling from the RAM it can see — roughly
+# three quarters of total memory divided by two mebibytes per request — and the Go runtime grows
+# its heap until the operating system pushes back. Under a container memory limit both of those
+# read the machine rather than the cgroup, so the ceiling is computed from memory this pod will
+# never be allowed to touch and the heap grows past the limit until the kernel kills the process.
+#
+# Setting a memory limit without `goMemLimit` is therefore refused at render time, with the reason.
+tuning:
+  # A soft heap ceiling for the Go runtime, e.g. "1700MiB". Roughly 0.85 of the container's memory
+  # limit: below it the collector runs at its normal pace, above it the runtime collects harder to
+  # get back under, and the headroom is what the process needs outside the heap.
+  goMemLimit: ""
+  # How many operating system threads the runtime will run Go code on. Without it the runtime
+  # counts the node's cores, which on a large node is a scheduling ceiling far above what a CPU
+  # limit will actually let this pod use.
+  goMaxProcs: ""
+  # The number of S3 requests served at once before the rest queue. Stated rather than derived,
+  # because the derivation is the one that reads the machine's memory instead of this pod's.
+  apiRequestsMax: ""
+
+# The container's requests and limits. Passed through as given, with one condition: a memory limit
+# obliges `tuning.goMemLimit` above.
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
+
+# Extra labels on the Service. Separate from podLabels because discovery reads a Service's labels
+# first and a pod's only where the Service carries none, so the two positions are not
+# interchangeable.
+serviceLabels: {}
+
+# The process runs as an unprivileged user. `fsGroup` is what makes the claim below writable by it:
+# the volume is chowned to this group on mount, and without it the store starts, finds its drive
+# read-only and refuses to come up.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# The root filesystem is read-only. Everything durable is on the claim, and the scratch the process
+# writes while serving a request is an emptyDir the chart mounts for it.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

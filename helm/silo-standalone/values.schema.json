@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "silo-standalone values",
+  "description": "Helm checks these values against this file on every lint, template, install and upgrade, so a value of the wrong shape is refused before anything renders instead of surfacing as a manifest the API server rejects or, worse, accepts. What cannot be said here is said in the chart's own validation: emptiness whose reason needs a sentence, the two Secret key names that must differ, the two external URLs that must not match, and the memory limit that obliges a heap ceiling — every one of them a comparison between two values, which no schema makes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "service", "credentials", "externalUrl", "persistence", "routes", "tuning", "serviceAccount"],
+  "properties": {
+    "nameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "description": "What app.kubernetes.io/name says. Empty means the chart's own name."
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "What every object this chart renders is called, and therefore the in-cluster hostname of this store. Empty means the release name. A lower-case DNS label, because it is the name of a Service."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The image, without a tag."
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_][a-zA-Z0-9._-]*$",
+          "description": "An image tag, and not a digest. Longer than a label value is allowed to be, which is why the version label is the tag reduced rather than the tag."
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiPort", "consolePort"],
+      "description": "The two listeners. They are two servers in one process and must not be given the same port, which the chart leaves to the process: the second bind fails at start-up with the port in the message.",
+      "properties": {
+        "apiPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "consolePort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "region": {
+      "type": "string",
+      "description": "The region this store signs requests for, and the one every client must be told. The empty string is allowed here only because that is the default this file also describes; the chart refuses it at render time, with the reason."
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["existingSecret"],
+      "description": "The root credential by reference: a Secret this chart only reads, and the two keys inside it. Three names and never a value — the schema deliberately offers nowhere to put one.",
+      "properties": {
+        "existingSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "accessKeyKey", "secretKeyKey"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+              "description": "The Secret's name, in this release's namespace. A lower-case DNS subdomain."
+            },
+            "accessKeyKey": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-zA-Z0-9._-]+$",
+              "description": "The key inside that Secret holding the root user. Must differ from secretKeyKey, which the chart checks because a schema cannot compare two values beside each other."
+            },
+            "secretKeyKey": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-zA-Z0-9._-]+$",
+              "description": "The key inside that Secret holding the root password."
+            }
+          }
+        }
+      }
+    },
+    "externalUrl": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The addresses this deployment answers on from outside, told to the process rather than inferred. Full URLs including the scheme — a bare hostname leaves the process resolving scheme and port from request headers, which is what these exist to stop. Set only where the matching surface is routed, and never to the same value twice.",
+      "properties": {
+        "api": {
+          "type": "string",
+          "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
+          "description": "What presigned URLs are minted against."
+        },
+        "console": {
+          "type": "string",
+          "pattern": "^$|^https?://[^\\s/]+(/.*)?$",
+          "description": "Where a browser is redirected back to after signing in."
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size"],
+      "description": "The one drive. It is claimed by a volumeClaimTemplate, so it outlives the StatefulSet and a prune of this release does not take the data with it.",
+      "properties": {
+        "size": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(m|k|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei)?$",
+          "description": "A quantity, e.g. \"20Gi\". Growing it later depends on the storage class allowing expansion; shrinking it is not a thing any of them allow."
+        },
+        "storageClass": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+          "description": "Empty means the cluster's default class. Naming one is for a cluster with several, where the default is not where this store belongs."
+        }
+      }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "console"],
+      "description": "One route per surface, each switched on by its own hostname. An empty hostname renders no route at all, which is the closed default.",
+      "properties": {
+        "api": { "$ref": "#/definitions/route" },
+        "console": { "$ref": "#/definitions/route" }
+      }
+    },
+    "tuning": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the process is told about the machine it is on, as against what it reads for itself. Each value is omitted from the pod when empty; a memory limit with no goMemLimit is refused by the chart, because that pair is the one that ends in the kernel killing the process.",
+      "properties": {
+        "goMemLimit": {
+          "type": "string",
+          "pattern": "^$|^[0-9]+(\\.[0-9]+)?(B|KiB|MiB|GiB|TiB)?$",
+          "description": "A soft heap ceiling for the Go runtime, e.g. \"1700MiB\". Roughly 0.85 of the container's memory limit — the remainder is what the process needs outside the heap. Bytes when no unit is given, which is the runtime's own reading and not a Kubernetes quantity."
+        },
+        "goMaxProcs": {
+          "type": "string",
+          "pattern": "^$|^[1-9][0-9]*$",
+          "description": "How many operating system threads run Go code at once. A whole number as a string, because it becomes an environment value."
+        },
+        "apiRequestsMax": {
+          "type": "string",
+          "pattern": "^$|^[0-9]+$",
+          "description": "S3 requests served at once before the rest queue. Zero is the process's own way of saying \"derive it\", which is the derivation that reads the machine's memory — so it is a value to state, not one to zero."
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "The container's requests and limits, passed through as given. A memory limit here obliges tuning.goMemLimit."
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "affinity": { "type": "object" },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "podLabels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "serviceLabels": {
+      "type": "object",
+      "description": "Labels on the Service. Separate from podLabels because discovery reads a Service's labels first and a pod's only where the Service carries none.",
+      "additionalProperties": { "type": "string" }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Applied to the pod. fsGroup is what makes the claim writable by an unprivileged process, so it is not an ornament here."
+    },
+    "securityContext": {
+      "type": "object",
+      "description": "Applied to the container. The root filesystem is read-only and the scratch the process needs is mounted for it."
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create"],
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Whether this chart renders the ServiceAccount. False means an existing one, named below."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+          "description": "Empty means the chart's own object name when creating one, and \"default\" when not."
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname", "gateway"],
+      "description": "One surface's path in. The hostname is the switch and the Gateway is where it attaches; both halves are needed together, which the chart checks when the hostname is present.",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+          "description": "The hostname this surface answers on. Empty renders no route, which leaves the surface reachable only from inside the cluster."
+        },
+        "gateway": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "namespace"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"
+            },
+            "namespace": {
+              "type": "string",
+              "maxLength": 63,
+              "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+            },
+            "sectionName": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "description": "Which listener on that Gateway. Empty attaches to every listener whose hostname matches, which is rarely what a Gateway with both a plaintext and a TLS listener means."
+            }
+          }
+        }
+      }
+    }
+  }
+}

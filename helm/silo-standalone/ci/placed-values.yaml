@@ -1,0 +1,33 @@
+# Pinned to one machine, and pinned three ways at once, because on a small cluster the three
+# arrive together: the node somebody wants this on is usually the node that is set apart, and a
+# selector matching a tainted node is a pod that stays Pending with a manifest that looks right.
+#
+# `affinity` here says what `nodeSelector` cannot — a set of acceptable nodes rather than one — so
+# this file is also the case that proves the two render side by side instead of one displacing the
+# other.
+credentials:
+  existingSecret:
+    name: object-storage-credentials
+    accessKeyKey: ACCESS_KEY
+    secretKeyKey: SECRET_KEY
+
+region: af-south-1
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - k3s-01
+                - k3s-02
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule

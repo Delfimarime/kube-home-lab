@@ -1,0 +1,46 @@
+{{/*
+One Service, carrying the name every other object here carries, so whoever configures a client of
+this store states that name rather than working it out from the release. Two ports and not two
+Services: the S3 API and the console are two servers in one process, and a client of either dials
+the same host.
+
+ClusterIP, always. Reaching this from outside is what the routes are for, one surface at a time and
+only where a hostname was asked for.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "silo-standalone.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "silo-standalone.labels" . | nindent 4 }}
+    {{- with .Values.serviceLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "silo-standalone.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: api
+      port: {{ .Values.service.apiPort }}
+      targetPort: api
+      protocol: TCP
+    - name: console
+      port: {{ .Values.service.consolePort }}
+      targetPort: console
+      protocol: TCP
+---
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "silo-standalone.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "silo-standalone.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,53 @@
+# Both surfaces published, each on its own hostname and its own listener, with a memory limit and
+# the three settings that make the limit mean something. This is the configuration a caller
+# actually deploys, and the one that exercises every branch this chart has.
+#
+# The two hostnames differ, which is not a stylistic choice: the API claims every path on its host
+# for bucket names, so a console sharing that host has nowhere left to be served from, and the
+# chart refuses the pair outright.
+region: af-south-1
+
+credentials:
+  existingSecret:
+    name: object-storage-credentials
+    accessKeyKey: SILO_ROOT_USER
+    secretKeyKey: SILO_ROOT_PASSWORD
+
+# Told to the process rather than inferred from whatever header reaches it through the Gateway.
+externalUrl:
+  api: https://s3.lab.internal
+  console: https://s3-console.lab.internal
+
+persistence:
+  size: 50Gi
+
+# Two routes, two Gateway listeners. The console is on the listener a browser can complete a
+# handshake against; the API is on the one clients present certificates to.
+routes:
+  api:
+    hostname: s3.lab.internal
+    gateway:
+      name: traefik
+      namespace: kube-system
+      sectionName: web-mtls
+  console:
+    hostname: s3-console.lab.internal
+    gateway:
+      name: traefik
+      namespace: kube-system
+      sectionName: web-tls
+
+# 2Gi of memory, and the heap ceiling that stops the runtime spending all of it. Without
+# goMemLimit this file would not render, which is the whole point of the pair.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+tuning:
+  goMemLimit: 1700MiB
+  goMaxProcs: "2"
+  apiRequestsMax: "128"

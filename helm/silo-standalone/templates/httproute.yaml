@@ -1,0 +1,90 @@
+{{/*
+The paths in from outside, one per surface and each independent of the other. A hostname is the
+switch: a surface with none renders no route at all, and stays reachable from inside the cluster and
+from nowhere else. That is the default for both, and the default is the closed one — the console in
+particular is an administrative interface, and a chart that published it without being asked would
+be publishing it on every deployment that forgot to say no.
+
+The two are separate routes rather than one with two hostnames because they are two backends. A
+hostname belongs to a surface here, and routing the API is not an opinion about the console.
+
+**Every defaultable field is written out.** `group`, `kind`, `weight` and the `/` path match are all
+supplied by the API server when omitted, and a manifest that leaves them out is one the live object
+no longer matches — which reads as permanent drift rather than as defaulting. The other routes this
+repository renders state them for the same reason.
+*/}}
+{{- $fullname := include "silo-standalone.fullname" . }}
+{{- with .Values.routes.api.hostname }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullname }}-api
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "silo-standalone.labels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "silo-standalone: routes.api.gateway.name is required once routes.api.hostname is set — a hostname with no Gateway to attach to is a route nothing programs, accepted by the API server and answered by nobody." $.Values.routes.api.gateway.name | quote }}
+      namespace: {{ required "silo-standalone: routes.api.gateway.namespace is required once routes.api.hostname is set — the Gateway is rarely in this namespace, and a parent reference that omits one silently means this one." $.Values.routes.api.gateway.namespace | quote }}
+      {{- with $.Values.routes.api.gateway.sectionName }}
+      sectionName: {{ . | quote }}
+      {{- end }}
+  hostnames:
+    - {{ . | quote }}
+  rules:
+      # An S3 client addresses a bucket at the root of the host — as a path on it, or as a label in
+      # front of it — so the whole host goes to the API and there is nothing to split a path
+      # between. This is also why the console cannot share the hostname: every path here is already
+      # claimed by a bucket name.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $fullname | quote }}
+          port: {{ $.Values.service.apiPort }}
+          weight: 1
+{{- end }}
+{{- if and .Values.routes.api.hostname .Values.routes.console.hostname }}
+---
+{{- end }}
+{{- with .Values.routes.console.hostname }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullname }}-console
+  namespace: {{ $.Release.Namespace | quote }}
+  labels:
+    {{- include "silo-standalone.labels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "silo-standalone: routes.console.gateway.name is required once routes.console.hostname is set — a hostname with no Gateway to attach to is a route nothing programs, accepted by the API server and answered by nobody." $.Values.routes.console.gateway.name | quote }}
+      namespace: {{ required "silo-standalone: routes.console.gateway.namespace is required once routes.console.hostname is set — the Gateway is rarely in this namespace, and a parent reference that omits one silently means this one." $.Values.routes.console.gateway.namespace | quote }}
+      {{- with $.Values.routes.console.gateway.sectionName }}
+      # The listener a browser is expected to arrive on. A console is loaded by a person, and a
+      # person's browser cannot present a client certificate, so a listener demanding one is never
+      # the right parent for this route.
+      sectionName: {{ . | quote }}
+      {{- end }}
+  hostnames:
+    - {{ . | quote }}
+  rules:
+      # The console serves from the root of its host — the application, its assets and the calls it
+      # makes back — so the whole host goes to it.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $fullname | quote }}
+          port: {{ $.Values.service.consolePort }}
+          weight: 1
+{{- end }}

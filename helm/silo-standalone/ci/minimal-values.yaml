@@ -1,0 +1,15 @@
+# The closed default, and the shape this chart is safe to install with. Nothing is routed, so no
+# HTTPRoute renders at all and the store is reachable from inside the cluster and from nowhere
+# else; no resource limits, so the process sizes itself from the node and the tuning block stays
+# empty on purpose — this file is the assertion that an untuned deployment is a legitimate one and
+# not a half-configured one.
+#
+# The credential and the region are here because they are here in every file: the chart refuses to
+# render without them.
+region: af-south-1
+
+credentials:
+  existingSecret:
+    name: object-storage-credentials
+    accessKeyKey: SILO_ROOT_USER
+    secretKeyKey: SILO_ROOT_PASSWORD

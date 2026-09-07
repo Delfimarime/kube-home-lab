@@ -1,0 +1,47 @@
+# One surface routed and the other not — exactly one HTTPRoute renders, and the management console
+# stays reachable only from inside the cluster. This is the asymmetry the two routes exist for: a
+# store whose clients are outside the cluster and whose administrator is not, which is the ordinary
+# case and the one a single combined route could not express.
+#
+# It is also where the naming pair is exercised. `fullnameOverride` is how a caller states the
+# in-cluster hostname instead of deriving it from a release name, and `nameOverride` keeps the
+# name label saying what this is rather than which one it is — and a non-default storage class
+# proves that branch of the claim renders.
+nameOverride: object-store
+fullnameOverride: s3-svc
+
+region: eu-west-1
+
+credentials:
+  existingSecret:
+    name: silo-root-credentials
+    accessKeyKey: AWS_ACCESS_KEY_ID
+    secretKeyKey: AWS_SECRET_ACCESS_KEY
+
+# Only the API has an address outside the cluster, so only the API is told one. The console URL
+# stays empty and MINIO_BROWSER_REDIRECT_URL is not rendered at all — the console is loaded over a
+# port-forward, where the process working the address out from the request is exactly right.
+externalUrl:
+  api: https://objects.lab.internal
+
+persistence:
+  size: 100Gi
+  storageClass: local-path
+
+routes:
+  api:
+    hostname: objects.lab.internal
+    gateway:
+      name: traefik
+      namespace: kube-system
+      sectionName: web-tls
+
+# No memory limit, so no goMemLimit is owed. A CPU limit alone carries no such obligation: the
+# runtime setting that answers it is optional, and a process throttled on CPU is slow rather than
+# dead.
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
